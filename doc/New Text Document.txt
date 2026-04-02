@@ -1,0 +1,888 @@
+CREATE DATABASE IF NOT EXISTS tretech_db
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE tretech_db;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS error_logs;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS lot_movements;
+DROP TABLE IF EXISTS lot_holdings;
+DROP TABLE IF EXISTS supplier_return_items;
+DROP TABLE IF EXISTS supplier_returns;
+DROP TABLE IF EXISTS disposal_items;
+DROP TABLE IF EXISTS disposals;
+DROP TABLE IF EXISTS usage_summary_push_logs;
+DROP TABLE IF EXISTS usage_summary_items;
+DROP TABLE IF EXISTS usage_summaries;
+DROP TABLE IF EXISTS reconciliation_items;
+DROP TABLE IF EXISTS reconciliations;
+DROP TABLE IF EXISTS return_session_items;
+DROP TABLE IF EXISTS return_sessions;
+DROP TABLE IF EXISTS consignment_items;
+DROP TABLE IF EXISTS consignments;
+DROP TABLE IF EXISTS qr_print_jobs;
+DROP TABLE IF EXISTS qr_labels;
+DROP TABLE IF EXISTS stock_in_items;
+DROP TABLE IF EXISTS stock_ins;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS login_attempts;
+DROP TABLE IF EXISTS lots;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS instrument_sets;
+DROP TABLE IF EXISTS clients;
+DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS products;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- =========================================================
+-- 1. MASTER DATA
+-- =========================================================
+
+CREATE TABLE products (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ref_num VARCHAR(255) NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    product_type VARCHAR(255) NULL,
+    category VARCHAR(255) NULL,
+    uom VARCHAR(100) NULL,
+    requires_expiry BOOLEAN NOT NULL DEFAULT FALSE,
+    requires_lot BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_products_ref_num (ref_num),
+    KEY idx_products_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE suppliers (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    supplier_name VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NULL,
+    email VARCHAR(255) NULL,
+    address TEXT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_suppliers_supplier_name (supplier_name),
+    KEY idx_suppliers_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE clients (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_name VARCHAR(255) NOT NULL,
+    client_type VARCHAR(100) NOT NULL,
+    phone VARCHAR(50) NULL,
+    email VARCHAR(255) NULL,
+    address TEXT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_clients_client_name (client_name),
+    KEY idx_clients_client_type (client_type),
+    KEY idx_clients_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE instrument_sets (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    set_code VARCHAR(255) NULL,
+    set_name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_instrument_sets_set_code (set_code),
+    KEY idx_instrument_sets_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 2. ACCESS CONTROL
+-- =========================================================
+
+CREATE TABLE roles (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    role_code VARCHAR(100) NOT NULL,
+    role_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_roles_role_code (role_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE users (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    role_id BIGINT UNSIGNED NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_users_email (email),
+    KEY idx_users_role_id (role_id),
+    CONSTRAINT fk_users_role_id
+        FOREIGN KEY (role_id) REFERENCES roles(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE sessions (
+    id VARCHAR(255) NOT NULL,
+    user_id BIGINT UNSIGNED NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent TEXT NULL,
+    payload LONGTEXT NOT NULL,
+    last_activity INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_sessions_user_id (user_id),
+    KEY idx_sessions_last_activity (last_activity),
+    CONSTRAINT fk_sessions_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE login_attempts (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NULL,
+    email VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45) NULL,
+    device_id VARCHAR(255) NULL,
+    was_successful BOOLEAN NOT NULL DEFAULT FALSE,
+    failure_reason VARCHAR(255) NULL,
+    attempted_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_login_attempts_user_id (user_id),
+    KEY idx_login_attempts_email (email),
+    KEY idx_login_attempts_ip_address (ip_address),
+    KEY idx_login_attempts_attempted_at (attempted_at),
+    CONSTRAINT fk_login_attempts_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 3. CORE INVENTORY
+-- =========================================================
+
+CREATE TABLE lots (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    product_id BIGINT UNSIGNED NOT NULL,
+    instrument_set_id BIGINT UNSIGNED NULL,
+    supplier_id BIGINT UNSIGNED NULL,
+    lot_number VARCHAR(255) NOT NULL,
+    original_lot_number VARCHAR(255) NULL,
+    is_system_generated_lot BOOLEAN NOT NULL DEFAULT FALSE,
+    supplier_batch_code VARCHAR(255) NOT NULL,
+    expiry_date DATE NULL,
+    status VARCHAR(100) NOT NULL,
+    current_location_type VARCHAR(100) NULL,
+    current_location_id BIGINT UNSIGNED NULL,
+    remarks TEXT NULL,
+    received_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_lots_lot_number (lot_number),
+    KEY idx_lots_product_id (product_id),
+    KEY idx_lots_instrument_set_id (instrument_set_id),
+    KEY idx_lots_supplier_id (supplier_id),
+    KEY idx_lots_status (status),
+    KEY idx_lots_location (current_location_type, current_location_id),
+    KEY idx_lots_supplier_batch_code (supplier_batch_code),
+    KEY idx_lots_expiry_date (expiry_date),
+    KEY idx_lots_original_lot_number (original_lot_number),
+    CONSTRAINT fk_lots_product_id
+        FOREIGN KEY (product_id) REFERENCES products(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_lots_instrument_set_id
+        FOREIGN KEY (instrument_set_id) REFERENCES instrument_sets(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_lots_supplier_id
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 4. STOCK-IN
+-- =========================================================
+
+CREATE TABLE stock_ins (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    supplier_id BIGINT UNSIGNED NOT NULL,
+    session_no VARCHAR(255) NOT NULL,
+    do_number VARCHAR(255) NOT NULL,
+    stock_in_at TIMESTAMP NOT NULL,
+    pic_user_id BIGINT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    remarks TEXT NULL,
+    confirmed_at TIMESTAMP NULL DEFAULT NULL,
+    confirmed_by_user_id BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_stock_ins_session_no (session_no),
+    KEY idx_stock_ins_supplier_id (supplier_id),
+    KEY idx_stock_ins_status (status),
+    KEY idx_stock_ins_stock_in_at (stock_in_at),
+    KEY idx_stock_ins_pic_user_id (pic_user_id),
+    KEY idx_stock_ins_confirmed_by_user_id (confirmed_by_user_id),
+    CONSTRAINT fk_stock_ins_supplier_id
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_stock_ins_pic_user_id
+        FOREIGN KEY (pic_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_stock_ins_confirmed_by_user_id
+        FOREIGN KEY (confirmed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE stock_in_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    stock_in_id BIGINT UNSIGNED NOT NULL,
+    product_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NULL,
+    scanned_lot_number VARCHAR(255) NULL,
+    supplier_batch_code VARCHAR(255) NOT NULL,
+    expiry_date DATE NULL,
+    lot_entry_mode VARCHAR(20) NOT NULL DEFAULT 'scan',
+    expiry_entry_mode VARCHAR(20) NOT NULL DEFAULT 'scan',
+    missing_lot_flag BOOLEAN NOT NULL DEFAULT FALSE,
+    source_barcode TEXT NULL,
+    entry_override_reason TEXT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_stock_in_items_stock_in_id_scanned_lot_number (stock_in_id, scanned_lot_number),
+    KEY idx_stock_in_items_product_id (product_id),
+    KEY idx_stock_in_items_lot_id (lot_id),
+    KEY idx_stock_in_items_missing_lot_flag (missing_lot_flag),
+    CONSTRAINT fk_stock_in_items_stock_in_id
+        FOREIGN KEY (stock_in_id) REFERENCES stock_ins(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_stock_in_items_product_id
+        FOREIGN KEY (product_id) REFERENCES products(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_stock_in_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 5. QR LABELS + PRINT JOBS
+-- =========================================================
+
+CREATE TABLE qr_labels (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    qr_payload TEXT NOT NULL,
+    generated_at TIMESTAMP NOT NULL,
+    generated_by_user_id BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_qr_labels_lot_id (lot_id),
+    KEY idx_qr_labels_generated_by_user_id (generated_by_user_id),
+    CONSTRAINT fk_qr_labels_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_qr_labels_generated_by_user_id
+        FOREIGN KEY (generated_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE qr_print_jobs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    qr_label_id BIGINT UNSIGNED NOT NULL,
+    action_type VARCHAR(20) NOT NULL,
+    reprint_reason TEXT NULL,
+    status VARCHAR(20) NOT NULL,
+    printer_name VARCHAR(255) NULL,
+    device_id VARCHAR(255) NULL,
+    tspl_payload TEXT NULL,
+    error_message TEXT NULL,
+    requested_by_user_id BIGINT UNSIGNED NOT NULL,
+    requested_at TIMESTAMP NOT NULL,
+    printed_at TIMESTAMP NULL DEFAULT NULL,
+    failed_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_qr_print_jobs_lot_id (lot_id),
+    KEY idx_qr_print_jobs_qr_label_id (qr_label_id),
+    KEY idx_qr_print_jobs_status (status),
+    KEY idx_qr_print_jobs_requested_at (requested_at),
+    KEY idx_qr_print_jobs_requested_by_user_id (requested_by_user_id),
+    CONSTRAINT fk_qr_print_jobs_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_qr_print_jobs_qr_label_id
+        FOREIGN KEY (qr_label_id) REFERENCES qr_labels(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_qr_print_jobs_requested_by_user_id
+        FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 6. CONSIGNMENTS
+-- =========================================================
+
+CREATE TABLE consignments (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id BIGINT UNSIGNED NOT NULL,
+    consignment_no VARCHAR(255) NOT NULL,
+    consignment_at TIMESTAMP NOT NULL,
+    pic_user_id BIGINT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    remarks TEXT NULL,
+    confirmed_at TIMESTAMP NULL DEFAULT NULL,
+    confirmed_by_user_id BIGINT UNSIGNED NULL,
+    edited_after_confirmation BOOLEAN NOT NULL DEFAULT FALSE,
+    last_post_confirm_edit_at TIMESTAMP NULL DEFAULT NULL,
+    last_post_confirm_edit_by_user_id BIGINT UNSIGNED NULL,
+    last_post_confirm_edit_reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_consignments_consignment_no (consignment_no),
+    KEY idx_consignments_client_id (client_id),
+    KEY idx_consignments_status (status),
+    KEY idx_consignments_consignment_at (consignment_at),
+    KEY idx_consignments_pic_user_id (pic_user_id),
+    KEY idx_consignments_confirmed_by_user_id (confirmed_by_user_id),
+    KEY idx_consignments_last_post_confirm_edit_by_user_id (last_post_confirm_edit_by_user_id),
+    CONSTRAINT fk_consignments_client_id
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_consignments_pic_user_id
+        FOREIGN KEY (pic_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_consignments_confirmed_by_user_id
+        FOREIGN KEY (confirmed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_consignments_last_post_confirm_edit_by_user_id
+        FOREIGN KEY (last_post_confirm_edit_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE consignment_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    consignment_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    issued_at TIMESTAMP NOT NULL,
+    issued_by_user_id BIGINT UNSIGNED NOT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_consignment_items_consignment_id_lot_id (consignment_id, lot_id),
+    KEY idx_consignment_items_lot_id (lot_id),
+    KEY idx_consignment_items_issued_by_user_id (issued_by_user_id),
+    CONSTRAINT fk_consignment_items_consignment_id
+        FOREIGN KEY (consignment_id) REFERENCES consignments(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_consignment_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_consignment_items_issued_by_user_id
+        FOREIGN KEY (issued_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 7. RETURN SESSIONS
+-- =========================================================
+
+CREATE TABLE return_sessions (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    consignment_id BIGINT UNSIGNED NOT NULL,
+    return_session_no VARCHAR(255) NOT NULL,
+    pic_user_id BIGINT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    remarks TEXT NULL,
+    started_at TIMESTAMP NOT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
+    completed_by_user_id BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_return_sessions_return_session_no (return_session_no),
+    UNIQUE KEY uq_return_sessions_consignment_id (consignment_id),
+    KEY idx_return_sessions_status (status),
+    KEY idx_return_sessions_pic_user_id (pic_user_id),
+    KEY idx_return_sessions_completed_by_user_id (completed_by_user_id),
+    CONSTRAINT fk_return_sessions_consignment_id
+        FOREIGN KEY (consignment_id) REFERENCES consignments(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_return_sessions_pic_user_id
+        FOREIGN KEY (pic_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_return_sessions_completed_by_user_id
+        FOREIGN KEY (completed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE return_session_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    return_session_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    returned_at TIMESTAMP NOT NULL,
+    returned_by_user_id BIGINT UNSIGNED NOT NULL,
+    source_qr_payload TEXT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_return_session_items_return_session_id_lot_id (return_session_id, lot_id),
+    KEY idx_return_session_items_lot_id (lot_id),
+    KEY idx_return_session_items_returned_by_user_id (returned_by_user_id),
+    CONSTRAINT fk_return_session_items_return_session_id
+        FOREIGN KEY (return_session_id) REFERENCES return_sessions(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_return_session_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_return_session_items_returned_by_user_id
+        FOREIGN KEY (returned_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 8. RECONCILIATIONS
+-- =========================================================
+
+CREATE TABLE reconciliations (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    consignment_id BIGINT UNSIGNED NOT NULL,
+    return_session_id BIGINT UNSIGNED NOT NULL,
+    reconciliation_no VARCHAR(255) NOT NULL,
+    pic_user_id BIGINT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    remarks TEXT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
+    completed_by_user_id BIGINT UNSIGNED NULL,
+    reopened_at TIMESTAMP NULL DEFAULT NULL,
+    reopened_by_user_id BIGINT UNSIGNED NULL,
+    reopen_reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_reconciliations_reconciliation_no (reconciliation_no),
+    UNIQUE KEY uq_reconciliations_consignment_id (consignment_id),
+    UNIQUE KEY uq_reconciliations_return_session_id (return_session_id),
+    KEY idx_reconciliations_status (status),
+    KEY idx_reconciliations_pic_user_id (pic_user_id),
+    KEY idx_reconciliations_completed_by_user_id (completed_by_user_id),
+    KEY idx_reconciliations_reopened_by_user_id (reopened_by_user_id),
+    CONSTRAINT fk_reconciliations_consignment_id
+        FOREIGN KEY (consignment_id) REFERENCES consignments(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_reconciliations_return_session_id
+        FOREIGN KEY (return_session_id) REFERENCES return_sessions(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_reconciliations_pic_user_id
+        FOREIGN KEY (pic_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_reconciliations_completed_by_user_id
+        FOREIGN KEY (completed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_reconciliations_reopened_by_user_id
+        FOREIGN KEY (reopened_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE reconciliation_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    reconciliation_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    result VARCHAR(100) NOT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_reconciliation_items_reconciliation_id_lot_id (reconciliation_id, lot_id),
+    KEY idx_reconciliation_items_lot_id (lot_id),
+    KEY idx_reconciliation_items_result (result),
+    CONSTRAINT fk_reconciliation_items_reconciliation_id
+        FOREIGN KEY (reconciliation_id) REFERENCES reconciliations(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_reconciliation_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 9. USAGE SUMMARIES
+-- =========================================================
+
+CREATE TABLE usage_summaries (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    reconciliation_id BIGINT UNSIGNED NOT NULL,
+    summary_no VARCHAR(255) NOT NULL,
+    generated_at TIMESTAMP NOT NULL,
+    generated_by_user_id BIGINT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_usage_summaries_summary_no (summary_no),
+    UNIQUE KEY uq_usage_summaries_reconciliation_id (reconciliation_id),
+    KEY idx_usage_summaries_status (status),
+    KEY idx_usage_summaries_generated_by_user_id (generated_by_user_id),
+    CONSTRAINT fk_usage_summaries_reconciliation_id
+        FOREIGN KEY (reconciliation_id) REFERENCES reconciliations(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_usage_summaries_generated_by_user_id
+        FOREIGN KEY (generated_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE usage_summary_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    usage_summary_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    product_id BIGINT UNSIGNED NOT NULL,
+    product_ref_num_snapshot VARCHAR(255) NOT NULL,
+    lot_number_snapshot VARCHAR(255) NOT NULL,
+    expiry_date_snapshot DATE NULL,
+    client_id BIGINT UNSIGNED NOT NULL,
+    consignment_id BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_usage_summary_items_usage_summary_id_lot_id (usage_summary_id, lot_id),
+    KEY idx_usage_summary_items_lot_id (lot_id),
+    KEY idx_usage_summary_items_product_id (product_id),
+    KEY idx_usage_summary_items_client_id (client_id),
+    KEY idx_usage_summary_items_consignment_id (consignment_id),
+    CONSTRAINT fk_usage_summary_items_usage_summary_id
+        FOREIGN KEY (usage_summary_id) REFERENCES usage_summaries(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_usage_summary_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_usage_summary_items_product_id
+        FOREIGN KEY (product_id) REFERENCES products(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_usage_summary_items_client_id
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_usage_summary_items_consignment_id
+        FOREIGN KEY (consignment_id) REFERENCES consignments(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE usage_summary_push_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    usage_summary_id BIGINT UNSIGNED NOT NULL,
+    attempt_no INT NOT NULL,
+    idempotency_key VARCHAR(255) NOT NULL,
+    endpoint_url VARCHAR(500) NULL,
+    status VARCHAR(30) NOT NULL,
+    request_payload_json JSON NOT NULL,
+    response_code INT NULL,
+    response_body TEXT NULL,
+    error_message TEXT NULL,
+    next_retry_at TIMESTAMP NULL DEFAULT NULL,
+    pushed_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_usage_summary_push_logs_usage_summary_attempt (usage_summary_id, attempt_no),
+    KEY idx_usage_summary_push_logs_status (status),
+    KEY idx_usage_summary_push_logs_idempotency_key (idempotency_key),
+    KEY idx_usage_summary_push_logs_next_retry_at (next_retry_at),
+    CONSTRAINT fk_usage_summary_push_logs_usage_summary_id
+        FOREIGN KEY (usage_summary_id) REFERENCES usage_summaries(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 10. DISPOSALS
+-- =========================================================
+
+CREATE TABLE disposals (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    disposal_no VARCHAR(255) NOT NULL,
+    disposed_at TIMESTAMP NOT NULL,
+    pic_user_id BIGINT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    remarks TEXT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
+    completed_by_user_id BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_disposals_disposal_no (disposal_no),
+    KEY idx_disposals_pic_user_id (pic_user_id),
+    KEY idx_disposals_status (status),
+    KEY idx_disposals_disposed_at (disposed_at),
+    KEY idx_disposals_completed_by_user_id (completed_by_user_id),
+    CONSTRAINT fk_disposals_pic_user_id
+        FOREIGN KEY (pic_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_disposals_completed_by_user_id
+        FOREIGN KEY (completed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE disposal_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    disposal_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    disposal_category VARCHAR(100) NOT NULL,
+    reason_text VARCHAR(255) NOT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_disposal_items_disposal_id_lot_id (disposal_id, lot_id),
+    KEY idx_disposal_items_lot_id (lot_id),
+    KEY idx_disposal_items_disposal_category (disposal_category),
+    CONSTRAINT fk_disposal_items_disposal_id
+        FOREIGN KEY (disposal_id) REFERENCES disposals(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_disposal_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 11. SUPPLIER RETURNS
+-- =========================================================
+
+CREATE TABLE supplier_returns (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    supplier_id BIGINT UNSIGNED NOT NULL,
+    supplier_return_no VARCHAR(255) NOT NULL,
+    returned_at TIMESTAMP NOT NULL,
+    pic_user_id BIGINT UNSIGNED NOT NULL,
+    reference_no VARCHAR(255) NULL,
+    status VARCHAR(50) NOT NULL,
+    remarks TEXT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
+    completed_by_user_id BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_supplier_returns_supplier_return_no (supplier_return_no),
+    KEY idx_supplier_returns_supplier_id (supplier_id),
+    KEY idx_supplier_returns_pic_user_id (pic_user_id),
+    KEY idx_supplier_returns_status (status),
+    KEY idx_supplier_returns_returned_at (returned_at),
+    KEY idx_supplier_returns_completed_by_user_id (completed_by_user_id),
+    CONSTRAINT fk_supplier_returns_supplier_id
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_supplier_returns_pic_user_id
+        FOREIGN KEY (pic_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_supplier_returns_completed_by_user_id
+        FOREIGN KEY (completed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE supplier_return_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    supplier_return_id BIGINT UNSIGNED NOT NULL,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    return_reason VARCHAR(255) NOT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_supplier_return_items_supplier_return_id_lot_id (supplier_return_id, lot_id),
+    KEY idx_supplier_return_items_lot_id (lot_id),
+    CONSTRAINT fk_supplier_return_items_supplier_return_id
+        FOREIGN KEY (supplier_return_id) REFERENCES supplier_returns(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_supplier_return_items_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 12. HOLDINGS
+-- =========================================================
+
+CREATE TABLE lot_holdings (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    holding_reason VARCHAR(255) NOT NULL,
+    assigned_at TIMESTAMP NOT NULL,
+    assigned_by_user_id BIGINT UNSIGNED NOT NULL,
+    released_at TIMESTAMP NULL DEFAULT NULL,
+    released_by_user_id BIGINT UNSIGNED NULL,
+    corrected_lot_number VARCHAR(255) NULL,
+    resolution_reason TEXT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_lot_holdings_lot_id (lot_id),
+    KEY idx_lot_holdings_assigned_by_user_id (assigned_by_user_id),
+    KEY idx_lot_holdings_released_by_user_id (released_by_user_id),
+    KEY idx_lot_holdings_assigned_at (assigned_at),
+    KEY idx_lot_holdings_released_at (released_at),
+    CONSTRAINT fk_lot_holdings_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_lot_holdings_assigned_by_user_id
+        FOREIGN KEY (assigned_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_lot_holdings_released_by_user_id
+        FOREIGN KEY (released_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 13. MOVEMENT LEDGER
+-- =========================================================
+
+CREATE TABLE lot_movements (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    lot_id BIGINT UNSIGNED NOT NULL,
+    movement_type VARCHAR(100) NOT NULL,
+    reference_type VARCHAR(100) NULL,
+    reference_id BIGINT UNSIGNED NULL,
+    from_status VARCHAR(100) NULL,
+    to_status VARCHAR(100) NULL,
+    from_location_type VARCHAR(100) NULL,
+    from_location_id BIGINT UNSIGNED NULL,
+    to_location_type VARCHAR(100) NULL,
+    to_location_id BIGINT UNSIGNED NULL,
+    performed_at TIMESTAMP NOT NULL,
+    performed_by_user_id BIGINT UNSIGNED NOT NULL,
+    remarks TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_lot_movements_lot_id (lot_id),
+    KEY idx_lot_movements_movement_type (movement_type),
+    KEY idx_lot_movements_reference_type_reference_id (reference_type, reference_id),
+    KEY idx_lot_movements_performed_at (performed_at),
+    KEY idx_lot_movements_performed_by_user_id (performed_by_user_id),
+    CONSTRAINT fk_lot_movements_lot_id
+        FOREIGN KEY (lot_id) REFERENCES lots(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_lot_movements_performed_by_user_id
+        FOREIGN KEY (performed_by_user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 14. AUDIT LOGS
+-- =========================================================
+
+CREATE TABLE audit_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NULL,
+    role_code_snapshot VARCHAR(100) NULL,
+    auditable_type VARCHAR(100) NOT NULL,
+    auditable_id BIGINT UNSIGNED NOT NULL,
+    action_type VARCHAR(100) NOT NULL,
+    description TEXT NULL,
+    ip_address VARCHAR(45) NULL,
+    device_id VARCHAR(255) NULL,
+    before_json JSON NULL,
+    after_json JSON NULL,
+    server_timestamp TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_audit_logs_user_id (user_id),
+    KEY idx_audit_logs_auditable_type_auditable_id (auditable_type, auditable_id),
+    KEY idx_audit_logs_action_type (action_type),
+    KEY idx_audit_logs_server_timestamp (server_timestamp),
+    CONSTRAINT fk_audit_logs_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- 15. ERROR LOGS
+-- =========================================================
+
+CREATE TABLE error_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    source VARCHAR(255) NOT NULL,
+    source_id BIGINT UNSIGNED NULL,
+    message TEXT NOT NULL,
+    details JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_error_logs_source_created_at (source, created_at),
+    KEY idx_error_logs_source_id (source_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
