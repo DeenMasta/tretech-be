@@ -123,4 +123,10 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'admin' => [
+        'email' => env('ADMIN_EMAIL', 'admin@tretech.com'),
+        'name' => env('ADMIN_NAME', 'TRETECH Admin'),
+        'password' => env('ADMIN_PASSWORD', 'Admin123!'),
+    ],
+
 ];
