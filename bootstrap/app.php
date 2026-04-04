@@ -13,7 +13,25 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+
+        // API middleware aliases
+        $middleware->alias([
+            'api.base' => \App\Http\Middleware\ApiBaseMiddleware::class,
+            'api.log' => \App\Http\Middleware\LogApiRequests::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+            'all-permissions' => \App\Http\Middleware\CheckAllPermissions::class,
+        ]);
+
+        // Apply API base middleware to all API routes
+        $middleware->group('api', [
+            \App\Http\Middleware\ApiBaseMiddleware::class,
+            \App\Http\Middleware\LogApiRequests::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return app(\App\Exceptions\Handler::class)->render($request, $e);
+            }
+        });
     })->create();

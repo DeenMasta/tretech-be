@@ -158,6 +158,87 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has a specific permission.
+     *
+     * @param string $permissionCode Permission code to check (e.g., 'products.view')
+     * @return bool
+     */
+    public function hasPermission(string $permissionCode): bool
+    {
+        if (!$this->role) {
+            return false;
+        }
+
+        return $this->role->hasPermission($permissionCode);
+    }
+
+    /**
+     * Check if user has any of the given permissions.
+     *
+     * @param array $permissionCodes Array of permission codes
+     * @return bool
+     */
+    public function hasAnyPermission(array $permissionCodes): bool
+    {
+        return collect($permissionCodes)->some(fn($code) => $this->hasPermission($code));
+    }
+
+    /**
+     * Check if user has all of the given permissions.
+     *
+     * @param array $permissionCodes Array of permission codes
+     * @return bool
+     */
+    public function hasAllPermissions(array $permissionCodes): bool
+    {
+        return collect($permissionCodes)->every(fn($code) => $this->hasPermission($code));
+    }
+
+    /**
+     * Get all permission codes for the user's role.
+     *
+     * @return array
+     */
+    public function getPermissionCodes(): array
+    {
+        if (!$this->role) {
+            return [];
+        }
+
+        return $this->role->getPermissionCodes();
+    }
+
+    /**
+     * Get the user's role code.
+     *
+     * @return string|null
+     */
+    public function getRoleCode(): ?string
+    {
+        return $this->role?->role_code;
+    }
+
+    /**
+     * Check if user is an admin.
+     *
+     * @return bool
+     */
+    public function isAdmin(): bool
+    {
+        return $this->getRoleCode() === 'admin';
+    }
+
+    /**
+     * Check if user is logistic staff.
+     *
+     * @return bool
+     */
+    public function isLogisticStaff(): bool
+    {
+        return $this->getRoleCode() === 'logistic_staff';
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
