@@ -9,8 +9,8 @@ use Illuminate\Validation\ValidationException as LaravelValidationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Throwable;
 
 class Handler extends ExceptionHandler
 {
@@ -38,7 +38,7 @@ class Handler extends ExceptionHandler
     /**
      * Render an exception into an HTTP response.
      */
-    public function render(Request $request, \Throwable $exception): JsonResponse
+    public function render($request, \Throwable $exception): Response
     {
         // Handle API exceptions
         if ($exception instanceof ApiException) {

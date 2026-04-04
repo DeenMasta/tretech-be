@@ -4,6 +4,7 @@ namespace App\Exceptions;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Throwable;
 
 class ApiException extends Exception
 {
@@ -16,7 +17,7 @@ class ApiException extends Exception
         int $statusCode = 400,
         array $errors = [],
         array $additional = [],
-        Exception $previous = null
+        ?Throwable $previous = null
     ) {
         parent::__construct($message, $statusCode, $previous);
         $this->message = $message;
