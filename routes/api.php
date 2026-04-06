@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
 use App\Http\Controllers\Api\V1\StockIn\StockInSessionController;
 use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
 use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
+use App\Http\Controllers\Api\V1\Audit\AuditLogController;
+use App\Http\Controllers\Api\V1\Audit\ErrorLogController;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -156,5 +158,25 @@ Route::prefix('v1')->group(function () {
         Route::post('/', [PrintJobController::class, 'store'])->middleware('permission:stock_in.view');
         Route::patch('/{printJob}/mark-printed', [PrintJobController::class, 'markPrinted'])->middleware('permission:stock_in.view');
         Route::patch('/{printJob}/mark-failed', [PrintJobController::class, 'markFailed'])->middleware('permission:stock_in.view');
+    });
+
+    // -------------------------------------------------------------------------
+    // Audit Logs (admin/system-manager only)
+    // GET  /v1/audit-logs         — paginated list with filters
+    // GET  /v1/audit-logs/{id}    — single entry
+    // -------------------------------------------------------------------------
+    Route::prefix('audit-logs')->middleware(['auth:sanctum', 'permission:system.manage_roles'])->group(function () {
+        Route::get('/', [AuditLogController::class, 'index']);
+        Route::get('/{id}', [AuditLogController::class, 'show']);
+    });
+
+    // -------------------------------------------------------------------------
+    // Error Logs (admin/system-manager only)
+    // GET  /v1/error-logs         — paginated list with filters
+    // GET  /v1/error-logs/{id}    — single entry
+    // -------------------------------------------------------------------------
+    Route::prefix('error-logs')->middleware(['auth:sanctum', 'permission:system.manage_roles'])->group(function () {
+        Route::get('/', [ErrorLogController::class, 'index']);
+        Route::get('/{id}', [ErrorLogController::class, 'show']);
     });
 });

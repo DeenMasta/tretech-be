@@ -9,8 +9,10 @@
 5. [Inventory Endpoints](#inventory-endpoints)
 6. [QR Labels Endpoints](#qr-labels-endpoints)
 7. [Print Jobs Endpoints](#print-jobs-endpoints)
-8. [Testing Workflow](#testing-workflow)
-9. [Error Handling](#error-handling)
+8. [Audit Logs Endpoints](#audit-logs-endpoints)
+9. [Error Logs Endpoints](#error-logs-endpoints)
+10. [Testing Workflow](#testing-workflow)
+11. [Error Handling](#error-handling)
 
 ---
 
@@ -1416,6 +1418,269 @@ GET {{base_url}}/print-jobs?action_type=reprint&sort=-requested_at
 3. Calls this endpoint to log failure
 4. Backend stores error and failed timestamp
 5. Print job can be retried via create reprint job endpoint
+
+---
+
+## Audit Logs Endpoints
+
+> **Permission required:** `system.manage_roles` (admin only)
+
+### List Audit Logs
+
+**Request Type:** `GET`  
+**Endpoint:** `{{base_url}}/audit-logs`
+
+**Headers:**
+
+```
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+```
+
+**Query Parameters (all optional):**
+
+| Parameter        | Type         | Description                                 |
+| ---------------- | ------------ | ------------------------------------------- |
+| `user_id`        | integer      | Filter by user who performed the action     |
+| `auditable_type` | string       | Model class (e.g. `App\Models\StockIn`)     |
+| `auditable_id`   | integer      | ID of the audited record                    |
+| `action_type`    | string       | Action constant (e.g. `stock_in.finalized`) |
+| `ip_address`     | string       | Filter by originating IP                    |
+| `device_id`      | string       | Filter by mobile device identifier          |
+| `from_date`      | date (Y-m-d) | Start of date range                         |
+| `to_date`        | date (Y-m-d) | End of date range                           |
+| `per_page`       | integer      | Records per page (default: 20)              |
+
+**Example URL:**
+
+```
+{{base_url}}/audit-logs?action_type=stock_in.finalized&from_date=2025-01-01&per_page=10
+```
+
+**Successful Response (200):**
+
+```json
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "action_type": "stock_in.finalized",
+            "description": "Stock-in session SI-20250101-001 finalized — 5 lot(s) created.",
+            "auditable_type": "App\\Models\\StockIn",
+            "auditable_id": 12,
+            "user_id": 2,
+            "role_code_snapshot": "warehouse_staff",
+            "ip_address": "127.0.0.1",
+            "device_id": null,
+            "before_json": null,
+            "after_json": {
+                "status": "finalized",
+                "total_lots": 5,
+                "confirmed_at": "2025-01-01T10:00:00+00:00"
+            },
+            "server_timestamp": "2025-01-01T10:00:00+00:00",
+            "created_at": "2025-01-01T10:00:00+00:00",
+            "user": {
+                "id": 2,
+                "full_name": "Jane Doe",
+                "email": "jane@tretech.com"
+            }
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "last_page": 3,
+        "per_page": 20,
+        "total": 58
+    }
+}
+```
+
+---
+
+### Get Single Audit Log
+
+**Request Type:** `GET`  
+**Endpoint:** `{{base_url}}/audit-logs/{{audit_log_id}}`
+
+**Headers:**
+
+```
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+```
+
+**Successful Response (200):**
+
+```json
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "action_type": "stock_in.finalized",
+        "description": "Stock-in session SI-20250101-001 finalized — 5 lot(s) created.",
+        "auditable_type": "App\\Models\\StockIn",
+        "auditable_id": 12,
+        "user_id": 2,
+        "role_code_snapshot": "warehouse_staff",
+        "ip_address": "127.0.0.1",
+        "device_id": null,
+        "before_json": null,
+        "after_json": {
+            "status": "finalized",
+            "total_lots": 5,
+            "confirmed_at": "2025-01-01T10:00:00+00:00"
+        },
+        "server_timestamp": "2025-01-01T10:00:00+00:00",
+        "created_at": "2025-01-01T10:00:00+00:00",
+        "user": {
+            "id": 2,
+            "full_name": "Jane Doe",
+            "email": "jane@tretech.com"
+        }
+    }
+}
+```
+
+**Error Response (404):**
+
+```json
+{
+    "success": false,
+    "message": "Audit log not found."
+}
+```
+
+---
+
+### Action Type Reference
+
+Common values for the `action_type` filter:
+
+| Domain      | Action Type                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| Stock-In    | `stock_in.created`, `stock_in.finalized`                                                   |
+| Lot         | `lot.created`, `lot.moved`, `lot.held`, `lot.released`                                     |
+| QR Labels   | `qr_label.created`, `qr_label.reprinted`                                                   |
+| Print Jobs  | `print_job.created`, `print_job.printed`, `print_job.marked_failed`, `print_job.reprinted` |
+| Users       | `user.logged_in`, `user.logged_out`, `user.created`, `user.updated`                        |
+| Master Data | `product.created`, `product.updated`, `supplier.created`, `client.created`                 |
+
+---
+
+## Error Logs Endpoints
+
+> **Permission required:** `system.manage_roles` (admin only)
+
+### List Error Logs
+
+**Request Type:** `GET`  
+**Endpoint:** `{{base_url}}/error-logs`
+
+**Headers:**
+
+```
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+```
+
+**Query Parameters (all optional):**
+
+| Parameter   | Type         | Description                                                          |
+| ----------- | ------------ | -------------------------------------------------------------------- |
+| `source`    | string       | Subsystem that generated the error (e.g. `app`, `stock_in.finalize`) |
+| `source_id` | string       | ID of the related record                                             |
+| `from_date` | date (Y-m-d) | Start of date range                                                  |
+| `to_date`   | date (Y-m-d) | End of date range                                                    |
+| `per_page`  | integer      | Records per page (default: 20)                                       |
+
+**Example URL:**
+
+```
+{{base_url}}/error-logs?source=app&from_date=2025-01-01
+```
+
+**Successful Response (200):**
+
+```json
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "source": "app",
+            "source_id": null,
+            "message": "SQLSTATE[23000]: Integrity constraint violation",
+            "details": {
+                "exception": "Illuminate\\Database\\QueryException",
+                "file": "/var/www/app/Services/StockIn/StockInFinalizeService.php",
+                "line": 82,
+                "url": "http://localhost:8000/api/v1/stock-in-sessions/12/finalize",
+                "method": "POST",
+                "user": 2
+            },
+            "created_at": "2025-01-01T10:05:30+00:00"
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "last_page": 1,
+        "per_page": 20,
+        "total": 1
+    }
+}
+```
+
+---
+
+### Get Single Error Log
+
+**Request Type:** `GET`  
+**Endpoint:** `{{base_url}}/error-logs/{{error_log_id}}`
+
+**Headers:**
+
+```
+Authorization: Bearer {{auth_token}}
+Accept: application/json
+```
+
+**Successful Response (200):**
+
+```json
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "source": "app",
+        "source_id": null,
+        "message": "SQLSTATE[23000]: Integrity constraint violation",
+        "details": {
+            "exception": "Illuminate\\Database\\QueryException",
+            "file": "/var/www/app/Services/StockIn/StockInFinalizeService.php",
+            "line": 82,
+            "trace": [
+                "#0 /var/www/vendor/laravel/framework/.../Connection.php(760)",
+                "..."
+            ],
+            "url": "http://localhost:8000/api/v1/stock-in-sessions/12/finalize",
+            "method": "POST",
+            "user": 2
+        },
+        "created_at": "2025-01-01T10:05:30+00:00"
+    }
+}
+```
+
+**Error Response (404):**
+
+```json
+{
+    "success": false,
+    "message": "Error log not found."
+}
+```
 
 ---
 

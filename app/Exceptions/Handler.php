@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Services\Audit\ErrorLogService;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,34 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (\Throwable $e) {
-            //
+            // Skip logging for expected/handled exception types
+            $skip = [
+                ApiException::class,
+                LaravelValidationException::class,
+                AuthenticationException::class,
+                AuthorizationException::class,
+                ModelNotFoundException::class,
+                NotFoundHttpException::class,
+            ];
+
+            foreach ($skip as $class) {
+                if ($e instanceof $class) {
+                    return false;
+                }
+            }
+
+            // Persist unexpected errors to error_logs table
+            try {
+                /** @var ErrorLogService $errorLogService */
+                $errorLogService = app(ErrorLogService::class);
+                $errorLogService->logException($e, source: 'app', extraContext: [
+                    'url'    => request()?->fullUrl(),
+                    'method' => request()?->method(),
+                    'user'   => request()?->user()?->id,
+                ]);
+            } catch (\Throwable) {
+                // Never throw from inside reportable — silently skip if DB is unavailable
+            }
         });
     }
 

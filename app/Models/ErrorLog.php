@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['error_type', 'error_message', 'stack_trace', 'context', 'logged_by_system', 'occurrence_timestamp'])]
+#[Fillable(['source', 'source_id', 'message', 'details'])]
 class ErrorLog extends Model
 {
     use HasFactory;
@@ -14,10 +14,11 @@ class ErrorLog extends Model
     protected function casts(): array
     {
         return [
-            'context' => 'json',
-            'occurrence_timestamp' => 'datetime',
+            'details' => 'json',
         ];
     }
 
     public $timestamps = false;
+    const CREATED_AT = 'created_at';
+    const UPDATED_AT = null;
 }

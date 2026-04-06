@@ -3,12 +3,14 @@
 namespace App\Services\StockIn;
 
 use App\Exceptions\BusinessLogicException;
+use App\Enums\AuditAction;
 use App\Models\Lot;
 use App\Models\LotHolding;
 use App\Models\LotMovement;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use App\Models\User;
+use App\Services\Audit\AuditLogService;
 use App\Services\QrLabel\PrintJobService;
 use App\Services\QrLabel\QrPayloadService;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,7 +20,8 @@ class StockInFinalizeService
 {
     public function __construct(
         private readonly QrPayloadService $qrPayloadService,
-        private readonly PrintJobService $printJobService
+        private readonly PrintJobService $printJobService,
+        private readonly AuditLogService $auditLogService
     ) {
     }
 
@@ -57,6 +60,24 @@ class StockInFinalizeService
                 'confirmed_at' => now(),
                 'confirmed_by_user_id' => $actor->id,
             ])->save();
+
+            // Audit the finalization event
+            $this->auditLogService->logModelAction(
+                auditableType: StockIn::class,
+                auditableId:   $session->id,
+                actionType:    AuditAction::STOCK_IN_FINALIZED,
+                actor:         $actor,
+                description:   sprintf(
+                    'Stock-in session %s finalized — %d lot(s) created.',
+                    $session->session_no,
+                    $createdLots->count()
+                ),
+                after: [
+                    'status'          => 'finalized',
+                    'total_lots'      => $createdLots->count(),
+                    'confirmed_at'    => now()->toIso8601String(),
+                ],
+            );
 
             return [
                 'stock_in' => $session->refresh()->load([
