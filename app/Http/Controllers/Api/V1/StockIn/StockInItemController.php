@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\V1\StockIn;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StockIn\CorrectStockInItemRequest;
 use App\Http\Requests\Api\V1\StockIn\StoreStockInItemRequest;
 use App\Http\Requests\Api\V1\StockIn\UpdateStockInItemRequest;
 use App\Http\Resources\Api\V1\StockIn\StockInItemResource;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use App\Services\Audit\AuditLogService;
+use App\Services\StockIn\StockInItemCorrectService;
 use App\Services\StockIn\StockInItemService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,7 @@ class StockInItemController extends Controller
 {
     public function __construct(
         private readonly StockInItemService $stockInItemService,
+        private readonly StockInItemCorrectService $stockInItemCorrectService,
         private readonly AuditLogService $auditLogService
     ) {
     }
@@ -92,6 +95,24 @@ class StockInItemController extends Controller
         );
 
         return $this->successResponse(null, 'Stock-in item deleted successfully');
+    }
+
+    /**
+     * Admin-only correction of immutable fields (lot_number, supplier_batch_code, expiry_date)
+     * on a finalized stock-in session item. Requires mandatory admin_reason.
+     */
+    public function correct(CorrectStockInItemRequest $request, StockIn $stockIn, StockInItem $stockInItem): JsonResponse
+    {
+        $this->assertBelongsToSession($stockIn, $stockInItem);
+
+        $corrected = $this->stockInItemCorrectService->correct(
+            $stockIn,
+            $stockInItem,
+            $request->validated(),
+            $request->user()
+        );
+
+        return $this->successResponse(new StockInItemResource($corrected), 'Stock-in item corrected successfully');
     }
 
     private function assertBelongsToSession(StockIn $stockIn, StockInItem $stockInItem): void

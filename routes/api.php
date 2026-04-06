@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\V1\Audit\AuditLogController;
 use App\Http\Controllers\Api\V1\Audit\ErrorLogController;
 use App\Http\Controllers\Api\V1\Consignment\ConsignmentController;
 use App\Http\Controllers\Api\V1\Consignment\ConsignmentItemController;
+use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
+use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -90,6 +92,7 @@ Route::prefix('v1')->group(function () {
         Route::put('/{stockIn}/items/{stockInItem}', [StockInItemController::class, 'update'])->middleware('permission:stock_in.edit_draft');
         Route::patch('/{stockIn}/items/{stockInItem}', [StockInItemController::class, 'update'])->middleware('permission:stock_in.edit_draft');
         Route::delete('/{stockIn}/items/{stockInItem}', [StockInItemController::class, 'destroy'])->middleware('permission:stock_in.edit_draft');
+        Route::patch('/{stockIn}/items/{stockInItem}/correct', [StockInItemController::class, 'correct'])->middleware('permission:stock_in.correct_confirmed');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -223,5 +226,58 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:consignments.edit_draft');
         Route::delete('/{consignment}/items/{consignmentItem}', [ConsignmentItemController::class, 'destroy'])
             ->middleware('permission:consignments.edit_draft');
+    });
+
+    // =========================================================================
+    // WEEK 2 — Return Session
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // Return Sessions
+    // POST   /v1/return-sessions                                    — create (linked to confirmed consignment)
+    // GET    /v1/return-sessions                                    — list with filters
+    // GET    /v1/return-sessions/{returnSession}                    — detail with items
+    // POST   /v1/return-sessions/{returnSession}/scan               — scan a returned lot
+    // DELETE /v1/return-sessions/{returnSession}/items/{item}       — remove scanned item
+    // POST   /v1/return-sessions/{returnSession}/complete           — mark session complete
+    // -------------------------------------------------------------------------
+    Route::prefix('return-sessions')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [ReturnSessionController::class, 'index'])
+            ->middleware('permission:returns.view');
+        Route::post('/', [ReturnSessionController::class, 'store'])
+            ->middleware('permission:returns.create');
+        Route::get('/{returnSession}', [ReturnSessionController::class, 'show'])
+            ->middleware('permission:returns.view');
+        Route::post('/{returnSession}/scan', [ReturnSessionController::class, 'scan'])
+            ->middleware('permission:returns.create');
+        Route::delete('/{returnSession}/items/{returnSessionItem}', [ReturnSessionController::class, 'removeItem'])
+            ->middleware('permission:returns.create');
+        Route::post('/{returnSession}/complete', [ReturnSessionController::class, 'complete'])
+            ->middleware('permission:returns.finalize');
+    });
+
+    // =========================================================================
+    // WEEK 2 — Reconciliation (Used Computation)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // Reconciliations
+    // POST   /v1/reconciliations                                  — create (linked to completed return session)
+    // GET    /v1/reconciliations                                  — list with filters
+    // GET    /v1/reconciliations/{reconciliation}                 — detail with items
+    // POST   /v1/reconciliations/{reconciliation}/finalize        — finalize: compute used vs returned (atomic)
+    // POST   /v1/reconciliations/{reconciliation}/reopen          — admin reopen finalized reconciliation
+    // -------------------------------------------------------------------------
+    Route::prefix('reconciliations')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [ReconciliationController::class, 'index'])
+            ->middleware('permission:returns.view');
+        Route::post('/', [ReconciliationController::class, 'store'])
+            ->middleware('permission:returns.finalize');
+        Route::get('/{reconciliation}', [ReconciliationController::class, 'show'])
+            ->middleware('permission:returns.view');
+        Route::post('/{reconciliation}/finalize', [ReconciliationController::class, 'finalize'])
+            ->middleware('permission:returns.finalize');
+        Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
+            ->middleware('permission:returns.reopen_reconciliation');
     });
 });

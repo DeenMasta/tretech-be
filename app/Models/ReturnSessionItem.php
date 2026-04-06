@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['return_session_id', 'lot_id', 'scanned_lot_number'])]
+#[Fillable(['return_session_id', 'lot_id', 'returned_at', 'returned_by_user_id', 'source_qr_payload', 'remarks'])]
 class ReturnSessionItem extends Model
 {
     use HasFactory;

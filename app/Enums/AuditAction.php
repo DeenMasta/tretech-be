@@ -68,6 +68,21 @@ class AuditAction
     const CONSIGNMENT_ITEM_ADDED        = 'consignment.item_added';
     const CONSIGNMENT_ITEM_REMOVED      = 'consignment.item_removed';
     const CONSIGNMENT_POST_CONFIRM_EDIT = 'consignment.post_confirm_edit';
+
+    // -------------------------------------------------------------------------
+    // Return Session
+    // -------------------------------------------------------------------------
+    const RETURN_SESSION_CREATED   = 'return_session.created';
+    const RETURN_SESSION_ITEM_SCANNED = 'return_session.item_scanned';
+    const RETURN_SESSION_ITEM_REMOVED = 'return_session.item_removed';
+    const RETURN_SESSION_COMPLETED = 'return_session.completed';
+
+    // -------------------------------------------------------------------------
+    // Reconciliation
+    // -------------------------------------------------------------------------
+    const RECONCILIATION_CREATED   = 'reconciliation.created';
+    const RECONCILIATION_FINALIZED = 'reconciliation.finalized';
+    const RECONCILIATION_REOPENED  = 'reconciliation.reopened';
     const INSTRUMENT_SET_UPDATED = 'instrument_set.updated';
     const INSTRUMENT_SET_DELETED = 'instrument_set.deleted';
 }
