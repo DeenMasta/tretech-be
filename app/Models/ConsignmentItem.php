@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['consignment_id', 'lot_id', 'scanned_lot_number'])]
+#[Fillable(['consignment_id', 'lot_id', 'issued_at', 'issued_by_user_id', 'remarks'])]
 class ConsignmentItem extends Model
 {
     use HasFactory;

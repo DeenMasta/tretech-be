@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
 use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
 use App\Http\Controllers\Api\V1\Audit\AuditLogController;
 use App\Http\Controllers\Api\V1\Audit\ErrorLogController;
+use App\Http\Controllers\Api\V1\Consignment\ConsignmentController;
+use App\Http\Controllers\Api\V1\Consignment\ConsignmentItemController;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -178,5 +180,48 @@ Route::prefix('v1')->group(function () {
     Route::prefix('error-logs')->middleware(['auth:sanctum', 'permission:system.manage_roles'])->group(function () {
         Route::get('/', [ErrorLogController::class, 'index']);
         Route::get('/{id}', [ErrorLogController::class, 'show']);
+    });
+
+    // =========================================================================
+    // WEEK 2 — Consignment (Stock-Out)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // Consignment Notes
+    // POST   /v1/consignments                            — create draft
+    // GET    /v1/consignments                            — list with filters
+    // GET    /v1/consignments/{consignment}              — detail with items
+    // PUT    /v1/consignments/{consignment}              — update draft header
+    // GET    /v1/consignments/{consignment}/review       — review before confirm
+    // POST   /v1/consignments/{consignment}/confirm      — confirm (atomic)
+    // PUT    /v1/consignments/{consignment}/post-confirm-edit — admin edit (reason required)
+    // GET    /v1/consignments/{consignment}/items        — list items
+    // POST   /v1/consignments/{consignment}/items        — add item to draft
+    // DELETE /v1/consignments/{consignment}/items/{consignmentItem} — remove item
+    // -------------------------------------------------------------------------
+    Route::prefix('consignments')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [ConsignmentController::class, 'index'])
+            ->middleware('permission:consignments.view');
+        Route::post('/', [ConsignmentController::class, 'store'])
+            ->middleware('permission:consignments.create');
+        Route::get('/{consignment}', [ConsignmentController::class, 'show'])
+            ->middleware('permission:consignments.view');
+        Route::put('/{consignment}', [ConsignmentController::class, 'update'])
+            ->middleware('permission:consignments.edit_draft');
+        Route::patch('/{consignment}', [ConsignmentController::class, 'update'])
+            ->middleware('permission:consignments.edit_draft');
+        Route::get('/{consignment}/review', [ConsignmentController::class, 'review'])
+            ->middleware('permission:consignments.view');
+        Route::post('/{consignment}/confirm', [ConsignmentController::class, 'confirm'])
+            ->middleware('permission:consignments.confirm');
+        Route::put('/{consignment}/post-confirm-edit', [ConsignmentController::class, 'postConfirmEdit'])
+            ->middleware('permission:consignments.edit_confirmed');
+
+        Route::get('/{consignment}/items', [ConsignmentItemController::class, 'index'])
+            ->middleware('permission:consignments.view');
+        Route::post('/{consignment}/items', [ConsignmentItemController::class, 'store'])
+            ->middleware('permission:consignments.edit_draft');
+        Route::delete('/{consignment}/items/{consignmentItem}', [ConsignmentItemController::class, 'destroy'])
+            ->middleware('permission:consignments.edit_draft');
     });
 });

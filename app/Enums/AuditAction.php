@@ -58,6 +58,16 @@ class AuditAction
     const CLIENT_DELETED   = 'client.deleted';
 
     const INSTRUMENT_SET_CREATED = 'instrument_set.created';
+
+    // -------------------------------------------------------------------------
+    // Consignment
+    // -------------------------------------------------------------------------
+    const CONSIGNMENT_CREATED           = 'consignment.created';
+    const CONSIGNMENT_UPDATED           = 'consignment.updated';
+    const CONSIGNMENT_CONFIRMED         = 'consignment.confirmed';
+    const CONSIGNMENT_ITEM_ADDED        = 'consignment.item_added';
+    const CONSIGNMENT_ITEM_REMOVED      = 'consignment.item_removed';
+    const CONSIGNMENT_POST_CONFIRM_EDIT = 'consignment.post_confirm_edit';
     const INSTRUMENT_SET_UPDATED = 'instrument_set.updated';
     const INSTRUMENT_SET_DELETED = 'instrument_set.deleted';
 }
