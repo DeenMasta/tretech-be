@@ -1,0 +1,213 @@
+<?php
+
+namespace Tests\Feature\Api\V1;
+
+use App\Models\AuditLog;
+use App\Models\Permission;
+use App\Models\Product;
+use App\Models\Role;
+use App\Models\User;
+use Database\Seeders\PermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class MasterDataEndpointsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('logging.channels.api', [
+            'driver' => 'single',
+            'path' => storage_path('logs/api-test.log'),
+            'level' => 'debug',
+        ]);
+
+        $this->seed(PermissionSeeder::class);
+    }
+
+    public function test_guest_cannot_access_master_data_products_index(): void
+    {
+        $response = $this->getJson('/api/v1/master-data/products');
+
+        $response->assertStatus(401)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_user_without_permission_cannot_access_products_index(): void
+    {
+        $user = $this->makeUserWithPermissions([]);
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/master-data/products');
+
+        $response->assertStatus(403)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_user_with_products_view_permission_can_access_products_index(): void
+    {
+        Product::query()->create([
+            'ref_num' => 'PRD-001',
+            'product_name' => 'Sterile Gloves',
+            'product_type' => 'consumable',
+            'category' => 'PPE',
+            'uom' => 'box',
+            'requires_expiry' => true,
+            'requires_lot' => true,
+            'is_active' => true,
+        ]);
+
+        $user = $this->makeUserWithPermissions(['products.view']);
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/master-data/products?search=Sterile');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.ref_num', 'PRD-001');
+    }
+
+    public function test_product_crud_endpoints_work_and_write_audit_logs(): void
+    {
+        $user = $this->makeUserWithPermissions(['products.view', 'products.create', 'products.edit', 'products.delete']);
+        Sanctum::actingAs($user);
+
+        $storeResponse = $this->postJson('/api/v1/master-data/products', [
+            'ref_num' => 'PRD-002',
+            'product_name' => 'Surgical Mask',
+            'product_type' => 'consumable',
+            'category' => 'PPE',
+            'uom' => 'box',
+            'requires_expiry' => true,
+            'requires_lot' => true,
+            'is_active' => true,
+        ]);
+
+        $storeResponse->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.ref_num', 'PRD-002');
+
+        $productId = (int) $storeResponse->json('data.id');
+
+        $this->putJson("/api/v1/master-data/products/{$productId}", [
+            'product_name' => 'Surgical Mask Premium',
+            'uom' => 'pack',
+        ])->assertOk()
+            ->assertJsonPath('data.product_name', 'Surgical Mask Premium')
+            ->assertJsonPath('data.uom', 'pack');
+
+        $this->getJson("/api/v1/master-data/products/{$productId}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $productId);
+
+        $this->deleteJson("/api/v1/master-data/products/{$productId}")
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('products', ['id' => $productId]);
+
+        $this->assertDatabaseCount('audit_logs', 3);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Product::class,
+            'auditable_id' => $productId,
+            'action_type' => 'create',
+            'user_id' => $user->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Product::class,
+            'auditable_id' => $productId,
+            'action_type' => 'update',
+            'user_id' => $user->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Product::class,
+            'auditable_id' => $productId,
+            'action_type' => 'delete',
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_store_endpoints_for_other_master_data_modules_are_reachable_with_permissions(): void
+    {
+        $user = $this->makeUserWithPermissions([
+            'suppliers.manage',
+            'clients.manage',
+            'instrument_sets.manage',
+            'system.manage_users',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/master-data/suppliers', [
+            'supplier_name' => 'Medline QA',
+            'email' => 'qa@medline.test',
+            'phone' => '123456',
+            'is_active' => true,
+        ])->assertCreated()->assertJsonPath('data.supplier_name', 'Medline QA');
+
+        $this->postJson('/api/v1/master-data/clients', [
+            'client_name' => 'RS Test',
+            'client_type' => 'hospital',
+            'email' => 'client@test.local',
+            'phone' => '998877',
+            'is_active' => true,
+        ])->assertCreated()->assertJsonPath('data.client_name', 'RS Test');
+
+        $this->postJson('/api/v1/master-data/instrument-sets', [
+            'set_code' => 'SET-TST-001',
+            'set_name' => 'Test Set',
+            'description' => 'Test description',
+            'is_active' => true,
+        ])->assertCreated()->assertJsonPath('data.set_code', 'SET-TST-001');
+
+        $staffRole = Role::query()->where('role_code', 'logistic_staff')->firstOrFail();
+
+        $this->postJson('/api/v1/master-data/users', [
+            'role_id' => $staffRole->id,
+            'full_name' => 'Feature Test User',
+            'email' => 'feature-user@test.local',
+            'password' => 'Password123!',
+            'is_active' => true,
+        ])->assertCreated()->assertJsonPath('data.email', 'feature-user@test.local');
+
+        $this->assertDatabaseHas('suppliers', ['supplier_name' => 'Medline QA']);
+        $this->assertDatabaseHas('clients', ['client_name' => 'RS Test']);
+        $this->assertDatabaseHas('instrument_sets', ['set_code' => 'SET-TST-001']);
+        $this->assertDatabaseHas('users', ['email' => 'feature-user@test.local']);
+
+        $this->assertSame(4, AuditLog::query()->count());
+    }
+
+    /**
+     * @param array<int, string> $permissionCodes
+     */
+    private function makeUserWithPermissions(array $permissionCodes): User
+    {
+        $role = Role::query()->create([
+            'role_code' => 'test_role_' . str()->lower(str()->random(10)),
+            'role_name' => 'Test Role ' . str()->random(5),
+        ]);
+
+        if ($permissionCodes !== []) {
+            $permissionIds = Permission::query()
+                ->whereIn('permission_code', $permissionCodes)
+                ->pluck('id')
+                ->all();
+
+            $role->permissions()->sync($permissionIds);
+        }
+
+        return User::query()->create([
+            'role_id' => $role->id,
+            'full_name' => 'Feature Tester',
+            'email' => 'tester_' . str()->lower(str()->random(8)) . '@example.test',
+            'password_hash' => 'Password123!',
+            'is_active' => true,
+        ]);
+    }
+}

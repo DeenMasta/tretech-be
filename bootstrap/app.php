@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->group('api', [
             \App\Http\Middleware\ApiBaseMiddleware::class,
             \App\Http\Middleware\LogApiRequests::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

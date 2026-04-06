@@ -149,7 +149,7 @@ class User extends Authenticatable
     // Lot Movement relationships
     public function recordedLotMovements(): HasMany
     {
-        return $this->hasMany('App\\Models\\LotMovement', 'recorded_by_user_id');
+        return $this->hasMany('App\\Models\\LotMovement', 'performed_by_user_id');
     }
 
     // Audit Log relationships

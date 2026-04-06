@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['lot_id', 'status', 'assigned_lot_number', 'assignment_reason', 'assigned_by_user_id', 'assigned_at'])]
+#[Fillable(['lot_id', 'holding_reason', 'assigned_at', 'assigned_by_user_id', 'released_at', 'released_by_user_id', 'corrected_lot_number', 'resolution_reason', 'remarks'])]
 class LotHolding extends Model
 {
     use HasFactory;
@@ -16,6 +16,7 @@ class LotHolding extends Model
     {
         return [
             'assigned_at' => 'datetime',
+            'released_at' => 'datetime',
         ];
     }
 
@@ -27,5 +28,10 @@ class LotHolding extends Model
     public function assignedByUser(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\User', 'assigned_by_user_id');
+    }
+
+    public function releasedByUser(): BelongsTo
+    {
+        return $this->belongsTo('App\\Models\\User', 'released_by_user_id');
     }
 }

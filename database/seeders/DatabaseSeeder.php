@@ -17,5 +17,6 @@ class DatabaseSeeder extends Seeder
         // Seed permissions and roles first
         $this->call(PermissionSeeder::class);
         $this->call(AdminUserSeeder::class);
+        $this->call(SampleMasterDataSeeder::class);
     }
 }
