@@ -7,7 +7,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['lot_id', 'qr_label_id', 'printer_device_id', 'status', 'queued_at', 'sent_to_printer_at', 'completed_at', 'failure_reason', 'reprint_reason', 'reprint_count', 'sent_by_user_id'])]
+#[Fillable([
+    'lot_id',
+    'qr_label_id',
+    'action_type',
+    'reprint_reason',
+    'status',
+    'printer_name',
+    'device_id',
+    'tspl_payload',
+    'error_message',
+    'requested_by_user_id',
+    'requested_at',
+    'printed_at',
+    'failed_at',
+])]
 class QrPrintJob extends Model
 {
     use HasFactory;
@@ -15,9 +29,9 @@ class QrPrintJob extends Model
     protected function casts(): array
     {
         return [
-            'queued_at' => 'datetime',
-            'sent_to_printer_at' => 'datetime',
-            'completed_at' => 'datetime',
+            'requested_at' => 'datetime',
+            'printed_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 
@@ -31,8 +45,8 @@ class QrPrintJob extends Model
         return $this->belongsTo('App\\Models\\QrLabel');
     }
 
-    public function sentByUser(): BelongsTo
+    public function requestedByUser(): BelongsTo
     {
-        return $this->belongsTo('App\\Models\\User', 'sent_by_user_id');
+        return $this->belongsTo('App\\Models\\User', 'requested_by_user_id');
     }
 }

@@ -9,11 +9,19 @@ use App\Models\LotMovement;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use App\Models\User;
+use App\Services\QrLabel\PrintJobService;
+use App\Services\QrLabel\QrPayloadService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class StockInFinalizeService
 {
+    public function __construct(
+        private readonly QrPayloadService $qrPayloadService,
+        private readonly PrintJobService $printJobService
+    ) {
+    }
+
     /**
      * @return array{stock_in: StockIn, lots: Collection<int, Lot>}
      */
@@ -37,6 +45,11 @@ class StockInFinalizeService
 
             foreach ($session->stockInItems as $item) {
                 $createdLots->push($this->createLotForItem($session, $item, $actor));
+            }
+
+            // Generate QR labels and initial print jobs for every created lot
+            foreach ($createdLots as $lot) {
+                $this->printJobService->createPrintJob(lot: $lot, actor: $actor);
             }
 
             $session->fill([

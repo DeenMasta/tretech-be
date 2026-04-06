@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\V1\MasterData\InstrumentSetController;
 use App\Http\Controllers\Api\V1\Inventory\InventoryController;
 use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
 use App\Http\Controllers\Api\V1\StockIn\StockInSessionController;
+use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
+use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -87,10 +89,72 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('inventory-units', [InventoryController::class, 'index'])->middleware('permission:stock_in.view');
-        Route::get('inventory-units/lookup/by-lot/{lotNumber}', [InventoryController::class, 'lookupByLot'])->middleware('permission:stock_in.view');
-        Route::get('inventory-units/lookup/by-ref/{refNum}', [InventoryController::class, 'lookupByRef'])->middleware('permission:stock_in.view');
-        Route::get('inventory-units/{lotId}', [InventoryController::class, 'show'])->middleware('permission:stock_in.view');
-        Route::get('inventory-ledger', [InventoryController::class, 'ledger'])->middleware('permission:stock_in.view');
+        // -------------------------------------------------------------------------
+        // Inventory Units
+        //
+        // IMPORTANT: static sub-paths (summary, expiring-soon, lookup/*, ledger)
+        // MUST be declared BEFORE the wildcard {lot} route to avoid route conflicts.
+        // -------------------------------------------------------------------------
+
+        // Dashboard summary: counts per status
+        Route::get('inventory-units/summary', [InventoryController::class, 'summary'])
+            ->middleware('permission:stock_in.view');
+
+        // Expiry-alert list
+        Route::get('inventory-units/expiring-soon', [InventoryController::class, 'expiringSoon'])
+            ->middleware('permission:stock_in.view');
+
+        // Exact lot-number lookup (mobile QR scan)
+        Route::get('inventory-units/lookup/by-lot/{lotNumber}', [InventoryController::class, 'lookupByLot'])
+            ->middleware('permission:stock_in.view');
+
+        // Product ref-num lookup
+        Route::get('inventory-units/lookup/by-ref/{refNum}', [InventoryController::class, 'lookupByRef'])
+            ->middleware('permission:stock_in.view');
+
+        // Paginated list
+        Route::get('inventory-units', [InventoryController::class, 'index'])
+            ->middleware('permission:stock_in.view');
+
+        // Single lot detail (route model binding on {lot})
+        Route::get('inventory-units/{lot}', [InventoryController::class, 'show'])
+            ->middleware('permission:stock_in.view');
+
+        // Per-lot movement timeline
+        Route::get('inventory-units/{lot}/movements', [InventoryController::class, 'movements'])
+            ->middleware('permission:stock_in.view');
+
+        // Global ledger across all lots
+        Route::get('inventory-ledger', [InventoryController::class, 'ledger'])
+            ->middleware('permission:stock_in.view');
+    });
+
+    // -------------------------------------------------------------------------
+    // QR Labels
+    // GET  /v1/qr-labels/{lot}         — fetch/create the persisted label for a lot
+    // GET  /v1/qr-labels/{lot}/preview — generate payload + TSPL without persisting
+    // -------------------------------------------------------------------------
+    Route::prefix('qr-labels')->middleware('auth:sanctum')->group(function () {
+        Route::get('/{lot}', [QrLabelController::class, 'show'])->middleware('permission:stock_in.view');
+        Route::get('/{lot}/preview', [QrLabelController::class, 'preview'])->middleware('permission:stock_in.view');
+    });
+
+    // -------------------------------------------------------------------------
+    // Print Jobs  (consumed primarily by the Flutter mobile app)
+    //
+    // GET   /v1/print-jobs                        — list (filter by device_id, status…)
+    // GET   /v1/print-jobs/{printJob}             — get single job + TSPL payload
+    // POST  /v1/print-jobs                        — create a new print job
+    // POST  /v1/print-jobs/reprint                — create a reprint job (reason mandatory)
+    // PATCH /v1/print-jobs/{printJob}/mark-printed — mobile confirms successful print
+    // PATCH /v1/print-jobs/{printJob}/mark-failed  — mobile reports print failure
+    // -------------------------------------------------------------------------
+    Route::prefix('print-jobs')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [PrintJobController::class, 'index'])->middleware('permission:stock_in.view');
+        Route::post('/reprint', [PrintJobController::class, 'reprint'])->middleware('permission:stock_in.view');
+        Route::get('/{printJob}', [PrintJobController::class, 'show'])->middleware('permission:stock_in.view');
+        Route::post('/', [PrintJobController::class, 'store'])->middleware('permission:stock_in.view');
+        Route::patch('/{printJob}/mark-printed', [PrintJobController::class, 'markPrinted'])->middleware('permission:stock_in.view');
+        Route::patch('/{printJob}/mark-failed', [PrintJobController::class, 'markFailed'])->middleware('permission:stock_in.view');
     });
 });
