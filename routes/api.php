@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
 use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
 use App\Http\Controllers\Api\V1\Disposal\DisposalController;
 use App\Http\Controllers\Api\V1\SupplierReturn\SupplierReturnController;
+use App\Http\Controllers\Api\V1\HoldingArea\HoldingAreaController;
+use App\Http\Controllers\Api\V1\Reporting\ReportController;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -355,5 +357,40 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:supplier_returns.create');
         Route::post('/{supplierReturn}/complete', [SupplierReturnController::class, 'complete'])
             ->middleware('permission:supplier_returns.create');
+    });
+
+    // WEEK 3 — Holding Area
+    // GET    /v1/holding-area                       — list all holding units (paginated)
+    // GET    /v1/holding-area/{lot}                 — detail view
+    // POST   /v1/holding-area/{lot}/assign-lot      — assign real lot number & release to available
+    Route::prefix('holding-area')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [HoldingAreaController::class, 'index'])
+            ->middleware('permission:holding_area.view');
+        Route::get('/{lot}', [HoldingAreaController::class, 'show'])
+            ->middleware('permission:holding_area.view');
+        Route::post('/{lot}/assign-lot', [HoldingAreaController::class, 'assignLot'])
+            ->middleware('permission:holding_area.assign_lot');
+    });
+
+    // WEEK 3 — Reporting
+    // GET  /v1/reports/stock-in                 — stock-in analytics
+    // GET  /v1/reports/consignments             — consignment report
+    // GET  /v1/reports/returns-analysis         — returns vs used analysis
+    // GET  /v1/reports/disposals                — disposal & loss report
+    // GET  /v1/reports/expiry                   — expiry dashboard (30/60/90 day windows)
+    // POST /v1/reports/{type}/export            — download CSV/XLSX/PDF
+    Route::prefix('reports')->middleware('auth:sanctum')->group(function () {
+        Route::get('/stock-in', [ReportController::class, 'stockIn'])
+            ->middleware('permission:reports.view');
+        Route::get('/consignments', [ReportController::class, 'consignments'])
+            ->middleware('permission:reports.view');
+        Route::get('/returns-analysis', [ReportController::class, 'returnsAnalysis'])
+            ->middleware('permission:reports.view');
+        Route::get('/disposals', [ReportController::class, 'disposals'])
+            ->middleware('permission:reports.view');
+        Route::get('/expiry', [ReportController::class, 'expiry'])
+            ->middleware('permission:reports.view');
+        Route::post('/{type}/export', [ReportController::class, 'export'])
+            ->middleware('permission:reports.export');
     });
 });

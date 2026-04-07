@@ -22,6 +22,7 @@ class AuditAction
     const LOT_MOVED     = 'lot.moved';
     const LOT_HELD      = 'lot.held';
     const LOT_RELEASED  = 'lot.released';
+    const LOT_ASSIGNED  = 'lot.assigned';
     const LOT_DISPOSED  = 'lot.disposed';
 
     // -------------------------------------------------------------------------
