@@ -33,11 +33,22 @@ class AuditLogController extends Controller
      */
     public function index(ListAuditLogsRequest $request): JsonResponse
     {
+        $cursor    = $request->string('cursor')->toString() ?: null;
         $paginator = $this->auditLogService->paginate(
             $request->filters(),
-            $request->perPage()
+            $request->perPage(),
+            $cursor !== '' ? $cursor : null
         );
 
+        if ($cursor !== null && $paginator instanceof \Illuminate\Contracts\Pagination\CursorPaginator) {
+            return $this->cursorPaginatedResponse(
+                items:     AuditLogResource::collection($paginator->items())->resolve(),
+                paginator: $paginator,
+                message:   'Audit logs fetched successfully'
+            );
+        }
+
+        /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator $paginator */
         return $this->paginatedResponse(
             items:       AuditLogResource::collection($paginator->items())->resolve(),
             total:       $paginator->total(),

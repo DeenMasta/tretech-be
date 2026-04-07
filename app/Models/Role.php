@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Cache;
 
 #[Fillable(['role_code', 'role_name'])]
 class Role extends Model
@@ -28,10 +29,11 @@ class Role extends Model
 
     /**
      * Check if role has a specific permission.
+     * Permission codes are cached per role for 1 hour to avoid repeated DB lookups on every request.
      */
     public function hasPermission(string $permissionCode): bool
     {
-        return $this->permissions()->where('permission_code', $permissionCode)->exists();
+        return in_array($permissionCode, $this->getCachedPermissionCodes(), true);
     }
 
     /**
@@ -39,6 +41,27 @@ class Role extends Model
      */
     public function getPermissionCodes(): array
     {
-        return $this->permissions()->pluck('permission_code')->toArray();
+        return $this->getCachedPermissionCodes();
+    }
+
+    /**
+     * Flush the cached permission codes for this role.
+     * Call this whenever role permissions are modified.
+     */
+    public function flushPermissionCache(): void
+    {
+        Cache::forget("role_permissions_{$this->id}");
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getCachedPermissionCodes(): array
+    {
+        return Cache::remember(
+            "role_permissions_{$this->id}",
+            3600,
+            fn () => $this->permissions()->pluck('permission_code')->all()
+        );
     }
 }

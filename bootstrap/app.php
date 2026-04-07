@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Apply API base middleware to all API routes
         $middleware->group('api', [
+            \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\ApiBaseMiddleware::class,
             \App\Http\Middleware\LogApiRequests::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,

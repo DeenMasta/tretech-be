@@ -4,9 +4,10 @@ namespace App\Services\Audit;
 
 use App\Models\AuditLog;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class AuditLogService
 {
@@ -74,13 +75,17 @@ class AuditLogService
     /**
      * Paginated list of audit logs with optional filters.
      *
+     * Pass $cursorEncoded (opaque string from previous response) to use cursor
+     * pagination — avoids expensive COUNT(*) on large tables.
+     * Returns LengthAwarePaginator when $cursorEncoded is null, CursorPaginator otherwise.
+     *
      * @param array<string, mixed> $filters  Supported keys:
      *   user_id, auditable_type, auditable_id, action_type,
      *   from_date (Y-m-d), to_date (Y-m-d), ip_address, device_id
      */
-    public function paginate(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    public function paginate(array $filters = [], int $perPage = 20, ?string $cursorEncoded = null): LengthAwarePaginator|CursorPaginator
     {
-        $query = AuditLog::query()->with('user:id,full_name,email')->latest('server_timestamp');
+        $query = AuditLog::query()->with('user:id,full_name,email')->orderByDesc('server_timestamp')->orderByDesc('id');
 
         if (!empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
@@ -114,7 +119,9 @@ class AuditLogService
             $query->where('server_timestamp', '<=', $filters['to_date'] . ' 23:59:59');
         }
 
-        return $query->paginate($perPage);
+        return $cursorEncoded !== null
+            ? $query->cursorPaginate($perPage, ['*'], 'cursor', \Illuminate\Pagination\Cursor::fromEncoded($cursorEncoded))
+            : $query->paginate($perPage);
     }
 
     /**

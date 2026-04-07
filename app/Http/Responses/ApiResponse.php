@@ -71,6 +71,32 @@ class ApiResponse
     }
 
     /**
+     * Create a cursor-paginated response (no total count — scales to huge tables).
+     */
+    public static function cursorPaginated(
+        mixed $items,
+        int $perPage,
+        ?string $nextCursor,
+        ?string $prevCursor,
+        string $message = 'Success',
+        int $statusCode = 200
+    ): array {
+        return [
+            'success'     => true,
+            'message'     => $message,
+            'status_code' => $statusCode,
+            'data'        => $items,
+            'pagination'  => [
+                'per_page'    => $perPage,
+                'next_cursor' => $nextCursor,
+                'prev_cursor' => $prevCursor,
+                'has_more'    => $nextCursor !== null,
+            ],
+            'timestamp' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
      * Create a validation error response.
      */
     public static function validationError(array $errors, string $message = 'Validation failed'): array

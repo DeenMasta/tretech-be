@@ -34,11 +34,22 @@ class InventoryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage   = max(1, min((int) $request->integer('per_page', 15), 100));
+        $cursor    = $request->string('cursor')->toString() ?: null;
         $paginator = $this->inventoryService->paginateLots(
             $request->only(['status', 'supplier_id', 'product_id', 'instrument_set_id', 'expiry_from', 'expiry_to', 'search']),
-            $perPage
+            $perPage,
+            $cursor
         );
 
+        if ($cursor !== null && $paginator instanceof \Illuminate\Contracts\Pagination\CursorPaginator) {
+            return $this->cursorPaginatedResponse(
+                items:     InventoryUnitResource::collection($paginator->items())->resolve(),
+                paginator: $paginator,
+                message:   'Inventory units fetched successfully'
+            );
+        }
+
+        /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator $paginator */
         return $this->paginatedResponse(
             items: InventoryUnitResource::collection($paginator->items())->resolve(),
             total: $paginator->total(),

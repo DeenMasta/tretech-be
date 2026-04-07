@@ -55,6 +55,31 @@ trait ApiResponseTrait
     }
 
     /**
+     * Return a cursor-paginated response.
+     * Use for large tables (audit_logs, lot_movements) where a COUNT(*) would be expensive.
+     *
+     * @param \Illuminate\Contracts\Pagination\CursorPaginator $paginator
+     */
+    protected function cursorPaginatedResponse(
+        mixed $items,
+        \Illuminate\Contracts\Pagination\CursorPaginator $paginator,
+        string $message = 'Success',
+        int $statusCode = 200
+    ): JsonResponse {
+        return response()->json(
+            ApiResponse::cursorPaginated(
+                items:      $items,
+                perPage:    $paginator->perPage(),
+                nextCursor: $paginator->nextCursor()?->encode(),
+                prevCursor: $paginator->previousCursor()?->encode(),
+                message:    $message,
+                statusCode: $statusCode,
+            ),
+            $statusCode
+        );
+    }
+
+    /**
      * Return a validation error response.
      */
     protected function validationErrorResponse(

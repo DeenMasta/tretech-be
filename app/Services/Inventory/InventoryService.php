@@ -4,6 +4,7 @@ namespace App\Services\Inventory;
 
 use App\Models\Lot;
 use App\Models\LotMovement;
+use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -11,6 +12,8 @@ class InventoryService
 {
     /**
      * Paginate all lots with optional filters.
+     *
+     * Pass $cursorEncoded to use cursor pagination (no COUNT(*) — faster on large tables).
      *
      * Supported filters:
      *   status              — e.g. available, supplied, used, disposed, holding
@@ -23,9 +26,9 @@ class InventoryService
      *
      * @param array<string, mixed> $filters
      */
-    public function paginateLots(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function paginateLots(array $filters = [], int $perPage = 15, ?string $cursorEncoded = null): LengthAwarePaginator|CursorPaginator
     {
-        return Lot::query()
+        $query = Lot::query()
             ->with([
                 'product:id,ref_num,product_name,product_type,uom',
                 'supplier:id,supplier_name',
@@ -49,8 +52,11 @@ class InventoryService
                         );
                 });
             })
-            ->orderByDesc('id')
-            ->paginate($perPage);
+            ->orderByDesc('id');
+
+        return $cursorEncoded !== null
+            ? $query->cursorPaginate($perPage, ['*'], 'cursor', \Illuminate\Pagination\Cursor::fromEncoded($cursorEncoded))
+            : $query->paginate($perPage);
     }
 
     /**
