@@ -104,4 +104,11 @@ class AuditAction
     const SUPPLIER_RETURN_ITEM_ADDED   = 'supplier_return.item_added';
     const SUPPLIER_RETURN_ITEM_REMOVED = 'supplier_return.item_removed';
     const SUPPLIER_RETURN_COMPLETED    = 'supplier_return.completed';
+
+    // -------------------------------------------------------------------------
+    // Usage Summary
+    // -------------------------------------------------------------------------
+    const USAGE_SUMMARY_GENERATED = 'usage_summary.generated';
+    const USAGE_SUMMARY_PUSHED    = 'usage_summary.pushed';
+    const USAGE_SUMMARY_EXPORTED  = 'usage_summary.exported';
 }
