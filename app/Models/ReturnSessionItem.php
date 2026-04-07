@@ -12,6 +12,10 @@ class ReturnSessionItem extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'returned_at' => 'datetime',
+    ];
+
     public function returnSession(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\ReturnSession');

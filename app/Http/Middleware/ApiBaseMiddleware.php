@@ -19,9 +19,12 @@ class ApiBaseMiddleware
         // Set API response headers
         $response = $next($request);
 
-        $response->header('Content-Type', 'application/json');
-        $response->header('X-API-Version', '1.0');
-        $response->header('X-Request-ID', $request->header('X-Request-ID') ?? $this->generateRequestId());
+        // Only force JSON Content-Type on normal API responses, not file downloads
+        if ($response instanceof \Illuminate\Http\Response || $response instanceof \Illuminate\Http\JsonResponse) {
+            $response->header('Content-Type', 'application/json');
+        }
+        $response->headers->set('X-API-Version', '1.0');
+        $response->headers->set('X-Request-ID', $request->header('X-Request-ID') ?? $this->generateRequestId());
 
         return $response;
     }

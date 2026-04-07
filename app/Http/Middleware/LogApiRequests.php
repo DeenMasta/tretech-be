@@ -35,7 +35,7 @@ class LogApiRequests
         Log::channel('api')->info('API Response', [
             'method' => $request->method(),
             'path' => $request->path(),
-            'status' => $response->status(),
+            'status' => $response->getStatusCode(),
             'duration_ms' => $duration,
             'user_id' => $request->user()?->id,
         ]);

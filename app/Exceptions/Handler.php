@@ -11,6 +11,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class Handler extends ExceptionHandler
@@ -129,6 +130,17 @@ class Handler extends ExceptionHandler
                 'errors' => [],
                 'timestamp' => now()->toIso8601String(),
             ], 404);
+        }
+
+        // Handle HTTP exceptions from abort() (e.g. abort(422), abort(403), etc.)
+        if ($exception instanceof HttpException) {
+            return response()->json([
+                'success'    => false,
+                'message'    => $exception->getMessage() ?: 'HTTP error',
+                'status_code' => $exception->getStatusCode(),
+                'errors'     => [],
+                'timestamp'  => now()->toIso8601String(),
+            ], $exception->getStatusCode());
         }
 
         // Handle database exceptions

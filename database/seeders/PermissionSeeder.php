@@ -77,6 +77,7 @@ class PermissionSeeder extends Seeder
 
             // Reporting & Analytics
             'Reporting & Analytics' => [
+                ['code' => 'reports.view', 'name' => 'View Reports'],
                 ['code' => 'reports.stock_analytics', 'name' => 'View Stock Analytics'],
                 ['code' => 'reports.consignments', 'name' => 'View Consignment Reports'],
                 ['code' => 'reports.returns_analysis', 'name' => 'View Returns vs Used Analysis'],
@@ -136,7 +137,7 @@ class PermissionSeeder extends Seeder
                 'returns.create', 'returns.view', 'returns.finalize', 'returns.reopen_reconciliation',
                 'disposals.create', 'supplier_returns.create', 'disposals.view',
                 'holding_area.view', 'holding_area.assign_lot',
-                'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
+                'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
                 'usage_summary.view', 'usage_summary.generate', 'usage_summary.view_logs',
                 'audit.view_logs', 'audit.export_logs',
                 'system.configure', 'system.manage_users', 'system.manage_roles',
@@ -152,7 +153,7 @@ class PermissionSeeder extends Seeder
                 'returns.create', 'returns.view', 'returns.finalize',
                 'disposals.create', 'supplier_returns.create', 'disposals.view',
                 'holding_area.view',
-                'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
+                'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
             ],
         ];
 

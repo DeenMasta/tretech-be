@@ -11,13 +11,15 @@ return new class extends Migration
         Schema::create('usage_summary_items', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('usage_summary_id');
-            $table->unsignedBigInteger('lot_id');
+            $table->unsignedBigInteger('lot_id')->nullable();
             $table->unsignedBigInteger('product_id');
-            $table->string('product_ref_num_snapshot');
-            $table->string('lot_number_snapshot');
-            $table->date('expiry_date_snapshot')->nullable();
-            $table->unsignedBigInteger('client_id');
-            $table->unsignedBigInteger('consignment_id');
+            $table->unsignedInteger('qty_consigned')->default(0);
+            $table->unsignedInteger('qty_returned')->default(0);
+            $table->unsignedInteger('qty_used')->default(0);
+            $table->unsignedInteger('qty_disposed')->default(0);
+            $table->unsignedInteger('qty_returned_to_supplier')->default(0);
+            $table->unsignedBigInteger('client_id')->nullable();
+            $table->unsignedBigInteger('consignment_id')->nullable();
             $table->timestamps();
 
             $table->unique(['usage_summary_id', 'lot_id'], 'uq_usage_summary_items_usage_summary_id_lot_id');
@@ -29,7 +31,7 @@ return new class extends Migration
             $table->foreign('usage_summary_id', 'fk_usage_summary_items_usage_summary_id')
                 ->references('id')->on('usage_summaries')
                 ->onUpdate('cascade')
-                ->onDelete('restrict');
+                ->onDelete('cascade');
             $table->foreign('lot_id', 'fk_usage_summary_items_lot_id')
                 ->references('id')->on('lots')
                 ->onUpdate('cascade')

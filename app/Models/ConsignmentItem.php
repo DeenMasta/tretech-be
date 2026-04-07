@@ -12,6 +12,10 @@ class ConsignmentItem extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'issued_at' => 'datetime',
+    ];
+
     public function consignment(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\Consignment');
