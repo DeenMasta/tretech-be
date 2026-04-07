@@ -227,4 +227,184 @@ class ReportingTest extends FeatureTestCase
         $this->postJson('/api/v1/reports/unknown-type/export', ['format' => 'csv'])
             ->assertStatus(404);
     }
+
+    // =========================================================================
+    // Date filtering — stock-in
+    // =========================================================================
+
+    public function test_stock_in_report_excludes_lots_before_from_date(): void
+    {
+        $user     = $this->makeUserWithPermissions(['reports.view']);
+        $product  = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        // Lot received long in the past
+        \App\Models\Lot::query()->create([
+            'product_id'            => $product->id,
+            'supplier_id'           => $supplier->id,
+            'lot_number'            => 'LOT-OLD-FILTER',
+            'supplier_batch_code'   => 'BATCH-OLD',
+            'expiry_date'           => '2028-01-01',
+            'status'                => 'available',
+            'current_location_type' => 'warehouse',
+            'received_at'           => '2020-01-01',
+        ]);
+
+        // Filter: only from yesterday onwards — should exclude the old lot
+        $response = $this->getJson('/api/v1/reports/stock-in?from_date=' . now()->subDay()->toDateString());
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        // The old lot should not appear in the filtered data rows
+        $lotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
+        $this->assertNotContains('LOT-OLD-FILTER', $lotNumbers);
+    }
+
+    public function test_stock_in_report_respects_to_date_filter(): void
+    {
+        $user     = $this->makeUserWithPermissions(['reports.view']);
+        $product  = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        // Lot received in the future (simulate a future date)
+        \App\Models\Lot::query()->create([
+            'product_id'            => $product->id,
+            'supplier_id'           => $supplier->id,
+            'lot_number'            => 'LOT-FUTURE-FILTER',
+            'supplier_batch_code'   => 'BATCH-FUTURE',
+            'expiry_date'           => '2029-01-01',
+            'status'                => 'available',
+            'current_location_type' => 'warehouse',
+            'received_at'           => now()->addDays(30),
+        ]);
+
+        // Filter: only up to yesterday — should exclude the future lot
+        $response = $this->getJson('/api/v1/reports/stock-in?to_date=' . now()->subDay()->toDateString());
+
+        $response->assertOk();
+
+        $lotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
+        $this->assertNotContains('LOT-FUTURE-FILTER', $lotNumbers);
+    }
+
+    public function test_stock_in_report_filters_by_supplier(): void
+    {
+        $user      = $this->makeUserWithPermissions(['reports.view']);
+        $product   = $this->createProduct();
+        $supplier1 = $this->createSupplier();
+        $supplier2 = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $this->createLot($product, $supplier1, 'available', 'LOT-SUP1-001');
+        $this->createLot($product, $supplier2, 'available', 'LOT-SUP2-001');
+
+        $response = $this->getJson("/api/v1/reports/stock-in?supplier_id={$supplier1->id}");
+
+        $response->assertOk();
+
+        $lotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
+        $this->assertContains('LOT-SUP1-001', $lotNumbers);
+        $this->assertNotContains('LOT-SUP2-001', $lotNumbers);
+    }
+
+    // =========================================================================
+    // Date filtering — disposals
+    // =========================================================================
+
+    public function test_disposal_report_filters_by_category(): void
+    {
+        $user     = $this->makeUserWithPermissions(['reports.view']);
+        $product  = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        // Create two completed disposals with different categories
+        $disposalExpired = Disposal::query()->create([
+            'disposal_no'  => 'DSP-CAT-EXPIRED',
+            'disposed_at'  => now(),
+            'pic_user_id'  => $user->id,
+            'status'       => 'completed',
+            'completed_at' => now(),
+        ]);
+        DisposalItem::query()->create([
+            'disposal_id'       => $disposalExpired->id,
+            'lot_id'            => $this->createLot($product, $supplier, 'disposed')->id,
+            'disposal_category' => 'expired',
+            'reason_text'       => 'Past expiry',
+        ]);
+
+        $disposalDamaged = Disposal::query()->create([
+            'disposal_no'  => 'DSP-CAT-DAMAGED',
+            'disposed_at'  => now(),
+            'pic_user_id'  => $user->id,
+            'status'       => 'completed',
+            'completed_at' => now(),
+        ]);
+        DisposalItem::query()->create([
+            'disposal_id'       => $disposalDamaged->id,
+            'lot_id'            => $this->createLot($product, $supplier, 'disposed')->id,
+            'disposal_category' => 'damaged',
+            'reason_text'       => 'Physical damage',
+        ]);
+
+        // Filter by 'expired' category only
+        $response = $this->getJson('/api/v1/reports/disposals?disposal_category=expired');
+
+        $response->assertOk();
+
+        // All returned disposal_items should have category 'expired'
+        $categories = collect($response->json('data.data'))->pluck('disposal_category')->unique()->values()->all();
+        if (!empty($categories)) {
+            $this->assertNotContains('damaged', $categories);
+        }
+    }
+
+    // =========================================================================
+    // Expiry window parameter
+    // =========================================================================
+
+    public function test_expiry_report_window_filters_results(): void
+    {
+        $user     = $this->makeUserWithPermissions(['reports.view']);
+        $product  = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        // Lot expiring in 10 days — should appear in window=30 response
+        \App\Models\Lot::query()->create([
+            'product_id'            => $product->id,
+            'supplier_id'           => $supplier->id,
+            'lot_number'            => 'LOT-WIN-10DAYS',
+            'supplier_batch_code'   => 'BATCH-WIN',
+            'expiry_date'           => now()->addDays(10)->toDateString(),
+            'status'                => 'available',
+            'current_location_type' => 'warehouse',
+            'received_at'           => now(),
+        ]);
+
+        // Lot expiring in 45 days — should NOT appear in window=30 response
+        \App\Models\Lot::query()->create([
+            'product_id'            => $product->id,
+            'supplier_id'           => $supplier->id,
+            'lot_number'            => 'LOT-WIN-45DAYS',
+            'supplier_batch_code'   => 'BATCH-WIN2',
+            'expiry_date'           => now()->addDays(45)->toDateString(),
+            'status'                => 'available',
+            'current_location_type' => 'warehouse',
+            'received_at'           => now(),
+        ]);
+
+        $response = $this->getJson('/api/v1/reports/expiry?window=30');
+
+        $response->assertOk();
+
+        // With window=30 the service returns a flat data array of lots nested under data.data
+        $allLotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
+
+        $this->assertContains('LOT-WIN-10DAYS', $allLotNumbers);
+        $this->assertNotContains('LOT-WIN-45DAYS', $allLotNumbers);
+    }
 }

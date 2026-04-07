@@ -21,8 +21,12 @@ class AuditLogResource extends JsonResource
             'device_id'          => $this->device_id,
             'before_json'        => $this->before_json,
             'after_json'         => $this->after_json,
-            'server_timestamp'   => $this->server_timestamp?->toIso8601String(),
-            'created_at'         => $this->created_at?->toIso8601String(),
+            'server_timestamp'   => $this->server_timestamp
+                ? \Carbon\Carbon::parse($this->server_timestamp)->toIso8601String()
+                : null,
+            'created_at'         => $this->created_at
+                ? \Carbon\Carbon::parse($this->created_at)->toIso8601String()
+                : null,
             'user'               => $this->whenLoaded('user', fn() => [
                 'id'         => $this->user->id,
                 'full_name'  => $this->user->full_name,
