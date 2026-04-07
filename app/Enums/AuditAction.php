@@ -83,6 +83,24 @@ class AuditAction
     const RECONCILIATION_CREATED   = 'reconciliation.created';
     const RECONCILIATION_FINALIZED = 'reconciliation.finalized';
     const RECONCILIATION_REOPENED  = 'reconciliation.reopened';
-    const INSTRUMENT_SET_UPDATED = 'instrument_set.updated';
-    const INSTRUMENT_SET_DELETED = 'instrument_set.deleted';
+    const INSTRUMENT_SET_UPDATED   = 'instrument_set.updated';
+    const INSTRUMENT_SET_DELETED   = 'instrument_set.deleted';
+
+    // -------------------------------------------------------------------------
+    // Disposal
+    // -------------------------------------------------------------------------
+    const DISPOSAL_CREATED      = 'disposal.created';
+    const DISPOSAL_UPDATED      = 'disposal.updated';
+    const DISPOSAL_ITEM_ADDED   = 'disposal.item_added';
+    const DISPOSAL_ITEM_REMOVED = 'disposal.item_removed';
+    const DISPOSAL_COMPLETED    = 'disposal.completed';
+
+    // -------------------------------------------------------------------------
+    // Supplier Return
+    // -------------------------------------------------------------------------
+    const SUPPLIER_RETURN_CREATED      = 'supplier_return.created';
+    const SUPPLIER_RETURN_UPDATED      = 'supplier_return.updated';
+    const SUPPLIER_RETURN_ITEM_ADDED   = 'supplier_return.item_added';
+    const SUPPLIER_RETURN_ITEM_REMOVED = 'supplier_return.item_removed';
+    const SUPPLIER_RETURN_COMPLETED    = 'supplier_return.completed';
 }

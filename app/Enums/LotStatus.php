@@ -4,11 +4,12 @@ namespace App\Enums;
 
 class LotStatus
 {
-    const AVAILABLE = 'available';
-    const SUPPLIED  = 'supplied';
-    const USED      = 'used';
-    const DISPOSED  = 'disposed';
-    const HOLDING   = 'holding';
+    const AVAILABLE           = 'available';
+    const SUPPLIED             = 'supplied';
+    const USED                 = 'used';
+    const DISPOSED             = 'disposed';
+    const HOLDING              = 'holding';
+    const RETURNED_TO_SUPPLIER = 'returned_to_supplier';
 
     const ALL = [
         self::AVAILABLE,
@@ -16,5 +17,6 @@ class LotStatus
         self::USED,
         self::DISPOSED,
         self::HOLDING,
+        self::RETURNED_TO_SUPPLIER,
     ];
 }

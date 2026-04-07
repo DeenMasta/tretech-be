@@ -68,7 +68,7 @@ TRETECH is a hybrid system composed of:
 - May view audit logs.
 
 #### Logistic Staff
-- Perform Stock-In sessions.
+- Perform Stock-In sessions.c
 - Create Consignment Notes.
 - Execute Return Sessions.
 - Reprint labels.

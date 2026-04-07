@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['supplier_return_id', 'lot_id', 'scanned_lot_number', 'return_reason_category', 'return_reason_description'])]
+#[Fillable(['supplier_return_id', 'lot_id', 'return_reason', 'remarks'])]
 class SupplierReturnItem extends Model
 {
     use HasFactory;

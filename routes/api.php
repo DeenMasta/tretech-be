@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\V1\Consignment\ConsignmentController;
 use App\Http\Controllers\Api\V1\Consignment\ConsignmentItemController;
 use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
 use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
+use App\Http\Controllers\Api\V1\Disposal\DisposalController;
+use App\Http\Controllers\Api\V1\SupplierReturn\SupplierReturnController;
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -279,5 +281,79 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:returns.finalize');
         Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
             ->middleware('permission:returns.reopen_reconciliation');
+    });
+
+    // =========================================================================
+    // WEEK 3 — Disposal
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // Disposals
+    // POST   /v1/disposals                              — create draft
+    // GET    /v1/disposals                              — list with filters
+    // GET    /v1/disposals/{disposal}                   — detail with items
+    // PUT    /v1/disposals/{disposal}                   — update draft header
+    // PATCH  /v1/disposals/{disposal}                   — update draft header
+    // GET    /v1/disposals/{disposal}/items             — list items
+    // POST   /v1/disposals/{disposal}/items             — add item
+    // DELETE /v1/disposals/{disposal}/items/{item}      — remove item
+    // POST   /v1/disposals/{disposal}/complete          — complete (atomic)
+    // -------------------------------------------------------------------------
+    Route::prefix('disposals')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [DisposalController::class, 'index'])
+            ->middleware('permission:disposals.view');
+        Route::post('/', [DisposalController::class, 'store'])
+            ->middleware('permission:disposals.create');
+        Route::get('/{disposal}', [DisposalController::class, 'show'])
+            ->middleware('permission:disposals.view');
+        Route::put('/{disposal}', [DisposalController::class, 'update'])
+            ->middleware('permission:disposals.create');
+        Route::patch('/{disposal}', [DisposalController::class, 'update'])
+            ->middleware('permission:disposals.create');
+        Route::get('/{disposal}/items', [DisposalController::class, 'indexItems'])
+            ->middleware('permission:disposals.view');
+        Route::post('/{disposal}/items', [DisposalController::class, 'storeItem'])
+            ->middleware('permission:disposals.create');
+        Route::delete('/{disposal}/items/{disposalItem}', [DisposalController::class, 'destroyItem'])
+            ->middleware('permission:disposals.create');
+        Route::post('/{disposal}/complete', [DisposalController::class, 'complete'])
+            ->middleware('permission:disposals.create');
+    });
+
+    // =========================================================================
+    // WEEK 3 — Supplier Returns
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // Supplier Returns
+    // POST   /v1/supplier-returns                                   — create draft
+    // GET    /v1/supplier-returns                                   — list with filters
+    // GET    /v1/supplier-returns/{supplierReturn}                  — detail with items
+    // PUT    /v1/supplier-returns/{supplierReturn}                  — update draft header
+    // PATCH  /v1/supplier-returns/{supplierReturn}                  — update draft header
+    // GET    /v1/supplier-returns/{supplierReturn}/items            — list items
+    // POST   /v1/supplier-returns/{supplierReturn}/items            — add item
+    // DELETE /v1/supplier-returns/{supplierReturn}/items/{item}     — remove item
+    // POST   /v1/supplier-returns/{supplierReturn}/complete         — complete (atomic)
+    // -------------------------------------------------------------------------
+    Route::prefix('supplier-returns')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [SupplierReturnController::class, 'index'])
+            ->middleware('permission:disposals.view');
+        Route::post('/', [SupplierReturnController::class, 'store'])
+            ->middleware('permission:supplier_returns.create');
+        Route::get('/{supplierReturn}', [SupplierReturnController::class, 'show'])
+            ->middleware('permission:disposals.view');
+        Route::put('/{supplierReturn}', [SupplierReturnController::class, 'update'])
+            ->middleware('permission:supplier_returns.create');
+        Route::patch('/{supplierReturn}', [SupplierReturnController::class, 'update'])
+            ->middleware('permission:supplier_returns.create');
+        Route::get('/{supplierReturn}/items', [SupplierReturnController::class, 'indexItems'])
+            ->middleware('permission:disposals.view');
+        Route::post('/{supplierReturn}/items', [SupplierReturnController::class, 'storeItem'])
+            ->middleware('permission:supplier_returns.create');
+        Route::delete('/{supplierReturn}/items/{supplierReturnItem}', [SupplierReturnController::class, 'destroyItem'])
+            ->middleware('permission:supplier_returns.create');
+        Route::post('/{supplierReturn}/complete', [SupplierReturnController::class, 'complete'])
+            ->middleware('permission:supplier_returns.create');
     });
 });
