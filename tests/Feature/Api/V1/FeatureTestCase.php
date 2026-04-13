@@ -54,7 +54,7 @@ abstract class FeatureTestCase extends TestCase
         ]);
     }
 
-    protected function createProduct(string $refNum = null, string $productType = 'consumable'): Product
+    protected function createProduct(?string $refNum = null, string $productType = 'consumable'): Product
     {
         return Product::query()->create([
             'ref_num'         => $refNum ?? 'PROD-' . str()->upper(str()->random(6)),
@@ -89,7 +89,7 @@ abstract class FeatureTestCase extends TestCase
         ]);
     }
 
-    protected function createLot(Product $product, Supplier $supplier, string $status = 'available', string $lotNumber = null): Lot
+    protected function createLot(Product $product, Supplier $supplier, string $status = 'available', ?string $lotNumber = null): Lot
     {
         return Lot::query()->create([
             'product_id'            => $product->id,
