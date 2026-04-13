@@ -24,7 +24,33 @@ use App\Http\Controllers\Api\V1\HoldingArea\HoldingAreaController;
 use App\Http\Controllers\Api\V1\Reporting\ReportController;
 use App\Http\Controllers\Api\V1\UsageSummary\UsageSummaryController;
 
+// Public health-check endpoint (legacy and versioned path support).
+Route::get('/health', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'API is healthy',
+        'status_code' => 200,
+        'data' => [
+            'status' => 'ok',
+        ],
+        'timestamp' => now()->toIso8601String(),
+    ]);
+});
+
 Route::prefix('v1')->group(function () {
+    // Public health-check endpoint.
+    Route::get('/health', function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'API is healthy',
+            'status_code' => 200,
+            'data' => [
+                'status' => 'ok',
+            ],
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    });
+
     Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
