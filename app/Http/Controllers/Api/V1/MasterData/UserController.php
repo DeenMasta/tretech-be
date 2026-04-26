@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\MasterData\StoreUserRequest;
 use App\Http\Requests\Api\V1\MasterData\UpdateUserRequest;
 use App\Http\Resources\Api\V1\MasterData\UserResource;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Audit\AuditLogService;
 use App\Services\MasterData\UserService;
@@ -32,6 +33,21 @@ class UserController extends Controller
             currentPage: $paginator->currentPage(),
             message: 'Users fetched successfully'
         );
+    }
+
+    public function roles(): JsonResponse
+    {
+        $roles = Role::query()
+            ->orderBy('role_name')
+            ->get(['id', 'role_name', 'role_code'])
+            ->map(fn (Role $role) => [
+                'id' => $role->id,
+                'name' => $role->role_name,
+                'code' => $role->role_code,
+            ])
+            ->values();
+
+        return $this->successResponse($roles, 'Roles fetched successfully');
     }
 
     public function store(StoreUserRequest $request): JsonResponse

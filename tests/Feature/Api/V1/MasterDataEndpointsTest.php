@@ -72,6 +72,22 @@ class MasterDataEndpointsTest extends TestCase
             ->assertJsonPath('data.0.ref_num', 'PRD-001');
     }
 
+    public function test_user_with_manage_users_permission_can_list_roles(): void
+    {
+        $role = Role::query()->where('role_code', 'admin')->firstOrFail();
+
+        $user = $this->makeUserWithPermissions(['system.manage_users']);
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/master-data/users/roles');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.id', $role->id)
+            ->assertJsonPath('data.0.name', $role->role_name)
+            ->assertJsonPath('data.0.code', $role->role_code);
+    }
+
     public function test_product_crud_endpoints_work_and_write_audit_logs(): void
     {
         $user = $this->makeUserWithPermissions(['products.view', 'products.create', 'products.edit', 'products.delete']);

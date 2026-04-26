@@ -74,6 +74,7 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('master-data')->middleware('auth:sanctum')->group(function () {
         Route::get('users', [UserController::class, 'index'])->middleware('permission:system.manage_users');
+        Route::get('users/roles', [UserController::class, 'roles'])->middleware('permission:system.manage_users');
         Route::post('users', [UserController::class, 'store'])->middleware('permission:system.manage_users');
         Route::get('users/{user}', [UserController::class, 'show'])->middleware('permission:system.manage_users');
         Route::put('users/{user}', [UserController::class, 'update'])->middleware('permission:system.manage_users');
