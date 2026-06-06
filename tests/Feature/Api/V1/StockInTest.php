@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\Lot;
 use App\Models\LotHolding;
 use App\Models\StockIn;
 use App\Models\StockInItem;
@@ -148,6 +149,40 @@ class StockInTest extends FeatureTestCase
         ])->assertStatus(422);
     }
 
+    public function test_can_add_item_without_lot_number_when_product_does_not_require_lot(): void
+    {
+        $user     = $this->makeUserWithPermissions(['stock_in.edit_draft']);
+        $supplier = $this->createSupplier();
+        $product  = $this->createProduct();
+        $product->update(['requires_lot' => false]);
+        Sanctum::actingAs($user);
+
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no'  => 'SI-20250101-0004',
+            'do_number'   => 'DO-004',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status'      => 'draft',
+        ]);
+
+        $response = $this->postJson("/api/v1/stock-in-sessions/{$session->id}/items", [
+            'product_id'          => $product->id,
+            'supplier_batch_code' => 'BATCH-NOLOT-001',
+            'expiry_date'         => '2027-01-01',
+            'missing_lot_flag'    => false,
+        ]);
+
+        $response->assertCreated()->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('stock_in_items', [
+            'stock_in_id'         => $session->id,
+            'product_id'          => $product->id,
+            'scanned_lot_number'  => null,
+            'missing_lot_flag'    => false,
+        ]);
+    }
+
     // -------------------------------------------------------------------------
     // Finalize — normal path (lot gets 'available')
     // -------------------------------------------------------------------------
@@ -232,6 +267,48 @@ class StockInTest extends FeatureTestCase
 
         $this->assertNotNull($lot);
         $this->assertDatabaseHas('lot_holdings', ['lot_id' => $lot->id]);
+    }
+
+    public function test_finalize_creates_available_lot_for_non_lot_product_without_lot_number(): void
+    {
+        $user     = $this->makeUserWithPermissions(['stock_in.confirm']);
+        $supplier = $this->createSupplier();
+        $product  = $this->createProduct();
+        $product->update(['requires_lot' => false]);
+        Sanctum::actingAs($user);
+
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no'  => 'SI-20250101-0021',
+            'do_number'   => 'DO-021',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status'      => 'draft',
+        ]);
+
+        StockInItem::query()->create([
+            'stock_in_id'           => $session->id,
+            'product_id'            => $product->id,
+            'supplier_batch_code'   => 'BATCH-NOLOT-FINALIZE-001',
+            'expiry_date'           => '2027-01-01',
+            'lot_entry_mode'        => 'scan',
+            'missing_lot_flag'      => false,
+            'entry_override_reason' => null,
+        ]);
+
+        $response = $this->postJson("/api/v1/stock-in-sessions/{$session->id}/finalize");
+
+        $response->assertOk()->assertJsonPath('success', true);
+
+        $lot = Lot::query()
+            ->where('product_id', $product->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($lot);
+        $this->assertSame('available', $lot->status);
+        $this->assertStringStartsWith('AUTO-', $lot->lot_number);
+        $this->assertDatabaseMissing('lot_holdings', ['lot_id' => $lot->id]);
     }
 
     // -------------------------------------------------------------------------

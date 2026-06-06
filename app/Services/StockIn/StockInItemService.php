@@ -4,6 +4,7 @@ namespace App\Services\StockIn;
 
 use App\Exceptions\BusinessLogicException;
 use App\Models\Lot;
+use App\Models\Product;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use Illuminate\Database\Eloquent\Collection;
@@ -34,8 +35,9 @@ class StockInItemService
 
         $lotNumber = $this->normalizeLotNumber($data['scanned_lot_number'] ?? null);
         $missingLotFlag = (bool) ($data['missing_lot_flag'] ?? false);
+        $requiresLotTracking = $this->requiresLotTracking((int) $data['product_id']);
 
-        if (!$missingLotFlag && $lotNumber === null) {
+        if ($requiresLotTracking && !$missingLotFlag && $lotNumber === null) {
             throw new BusinessLogicException('Lot number is required unless missing_lot_flag is true.');
         }
 
@@ -66,6 +68,11 @@ class StockInItemService
         $this->stockInSessionService->ensureDraft($stockIn);
         $this->ensureBelongsToSession($stockIn, $stockInItem);
 
+        $nextProductId = array_key_exists('product_id', $data)
+            ? (int) $data['product_id']
+            : (int) $stockInItem->product_id;
+        $requiresLotTracking = $this->requiresLotTracking($nextProductId);
+
         $nextLotNumber = array_key_exists('scanned_lot_number', $data)
             ? $this->normalizeLotNumber($data['scanned_lot_number'])
             : $this->normalizeLotNumber($stockInItem->scanned_lot_number);
@@ -73,7 +80,7 @@ class StockInItemService
             ? (bool) $data['missing_lot_flag']
             : (bool) $stockInItem->missing_lot_flag;
 
-        if (!$nextMissingFlag && $nextLotNumber === null) {
+        if ($requiresLotTracking && !$nextMissingFlag && $nextLotNumber === null) {
             throw new BusinessLogicException('Lot number is required unless missing_lot_flag is true.');
         }
 
@@ -129,5 +136,16 @@ class StockInItemService
         if ($inDatabaseExists) {
             throw new BusinessLogicException("Lot number {$lotNumber} already exists in inventory.");
         }
+    }
+
+    private function requiresLotTracking(int $productId): bool
+    {
+        $product = Product::query()->select(['id', 'requires_lot'])->find($productId);
+
+        if (!$product) {
+            throw new BusinessLogicException('Selected product is not found.');
+        }
+
+        return (bool) $product->requires_lot;
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Models\Lot;
 use App\Models\LotHolding;
 use App\Models\LotMovement;
+use App\Models\Product;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use App\Models\User;
@@ -94,12 +95,17 @@ class StockInFinalizeService
 
     private function createLotForItem(StockIn $stockIn, StockInItem $item, User $actor): Lot
     {
+        $requiresLotTracking = $this->requiresLotTracking((int) $item->product_id);
         $incomingLotNumber = trim((string) ($item->scanned_lot_number ?? ''));
-        $isHolding = (bool) $item->missing_lot_flag || $incomingLotNumber === '';
+        $isHolding = $requiresLotTracking && ((bool) $item->missing_lot_flag || $incomingLotNumber === '');
 
-        $lotNumber = $isHolding
-            ? $this->generateHoldingLotNumber($stockIn, $item)
-            : $incomingLotNumber;
+        if ($isHolding) {
+            $lotNumber = $this->generateHoldingLotNumber($stockIn, $item);
+        } elseif ($incomingLotNumber !== '') {
+            $lotNumber = $incomingLotNumber;
+        } else {
+            $lotNumber = $this->generateAutoLotNumber($stockIn, $item);
+        }
 
         if (Lot::query()->where('lot_number', $lotNumber)->exists()) {
             throw new BusinessLogicException("Lot number {$lotNumber} already exists in inventory.");
@@ -167,5 +173,34 @@ class StockInFinalizeService
         }
 
         throw new BusinessLogicException('Unable to generate unique holding lot number.');
+    }
+
+    private function generateAutoLotNumber(StockIn $stockIn, StockInItem $item): string
+    {
+        $base = sprintf('AUTO-%s-%d-%d', now()->format('YmdHis'), $stockIn->id, $item->id);
+
+        if (!Lot::query()->where('lot_number', $base)->exists()) {
+            return $base;
+        }
+
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $candidate = $base . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+            if (!Lot::query()->where('lot_number', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        throw new BusinessLogicException('Unable to generate unique lot number.');
+    }
+
+    private function requiresLotTracking(int $productId): bool
+    {
+        $product = Product::query()->select(['id', 'requires_lot'])->find($productId);
+
+        if (!$product) {
+            throw new BusinessLogicException('Selected product is not found.');
+        }
+
+        return (bool) $product->requires_lot;
     }
 }

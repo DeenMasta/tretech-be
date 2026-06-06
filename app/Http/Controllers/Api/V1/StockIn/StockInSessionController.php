@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\StockIn;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StockIn\StoreStockInSessionRequest;
 use App\Http\Requests\Api\V1\StockIn\UpdateStockInSessionRequest;
@@ -13,6 +14,7 @@ use App\Services\StockIn\StockInFinalizeService;
 use App\Services\StockIn\StockInSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class StockInSessionController extends Controller
 {
@@ -132,5 +134,24 @@ class StockInSessionController extends Controller
             'created_lots_count' => $lots->count(),
             'created_lots' => LotResource::collection($lots),
         ], 'Stock-in session finalized successfully');
+    }
+
+    public function print(StockIn $stockIn): Response
+    {
+        $stockIn->load([
+            'supplier:id,supplier_name',
+            'picUser:id,full_name',
+            'confirmedByUser:id,full_name',
+            'stockInItems.product:id,ref_num,product_name',
+            'stockInItems.lot:id,lot_number,status',
+        ]);
+
+        $pdf = Pdf::loadView('exports.stock-in-session', [
+            'stockIn' => $stockIn,
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = sprintf('stock_in_session_%s_%s.pdf', $stockIn->session_no, now()->format('Ymd_His'));
+
+        return $pdf->download($fileName);
     }
 }

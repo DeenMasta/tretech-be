@@ -47,7 +47,7 @@ class UatSeeder extends Seeder
         $staffRole     = Role::query()->where('role_code', 'logistic_staff')->firstOrFail();
 
         /** @var User $admin */
-        $admin = User::query()->where('email', config('app.admin_email', 'admin@tretech.com'))->firstOrFail();
+        $admin = User::query()->where('email', config('app.admin.email', 'admin@tretech.com'))->firstOrFail();
         $adminId = $admin->id;
 
         // ------------------------------------------------------------------ //
@@ -56,29 +56,29 @@ class UatSeeder extends Seeder
         $supplierGmp = Supplier::query()->firstOrCreate(
             ['supplier_name' => 'Global MedPharm'],
             [
-                'phone'     => '+62-21-555-0103',
-                'email'     => 'supply@globalmedpharm.id',
-                'address'   => 'Surabaya, Indonesia',
+                'phone'     => '+60-3-5555-0103',
+                'email'     => 'supply@globalmedpharm.my',
+                'address'   => 'Shah Alam, Selangor',
                 'is_active' => true,
             ]
         );
 
         $clientPkm = Client::query()->firstOrCreate(
-            ['client_name' => 'PKM Cipete', 'client_type' => 'clinic'],
+            ['client_name' => 'Klinik Kesehatan Bandar Johor', 'client_type' => 'clinic'],
             [
-                'phone'     => '+62-21-555-0203',
-                'email'     => 'pkm.cipete@dkijakarta.go.id',
-                'address'   => 'Jakarta Selatan, Indonesia',
+                'phone'     => '+60-7-5555-0203',
+                'email'     => 'admin@kkhbandarjohor.gov.my',
+                'address'   => 'Johor Bahru, Johor',
                 'is_active' => true,
             ]
         );
 
         $clientHhb = Client::query()->firstOrCreate(
-            ['client_name' => 'Hospital Harapan Bunda', 'client_type' => 'hospital'],
+            ['client_name' => 'Hospital Ampang Putra', 'client_type' => 'hospital'],
             [
-                'phone'     => '+62-21-555-0204',
-                'email'     => 'procurement@harapanbunda.id',
-                'address'   => 'Jakarta Timur, Indonesia',
+                'phone'     => '+60-3-4555-0204',
+                'email'     => 'procurement@hap.com.my',
+                'address'   => 'Ampang, Selangor',
                 'is_active' => true,
             ]
         );
@@ -110,9 +110,9 @@ class UatSeeder extends Seeder
         );
 
         // Resolve existing master data created by SampleMasterDataSeeder
-        $supplierMed = Supplier::query()->where('supplier_name', 'Medline Nusantara')->firstOrFail();
-        $supplierStp = Supplier::query()->where('supplier_name', 'SteriPro Labs')->firstOrFail();
-        $clientRss   = Client::query()->where('client_name', 'RS Sehat Sentosa')->firstOrFail();
+        $supplierMed = Supplier::query()->where('supplier_name', 'Medline Malaysia')->firstOrFail();
+        $supplierStp = Supplier::query()->where('supplier_name', 'SteriPro Asia')->firstOrFail();
+        $clientRss   = Client::query()->where('client_name', 'Hospital Selangor Daya')->firstOrFail();
         $clientKpc   = Client::query()->where('client_name', 'Klinik Prima Care')->firstOrFail();
         $productGlv  = Product::query()->where('ref_num', 'P-GLV-001')->firstOrFail();
         $productSyr  = Product::query()->where('ref_num', 'P-SYR-001')->firstOrFail();
@@ -122,20 +122,20 @@ class UatSeeder extends Seeder
         // STEP 2 · Logistic staff users
         // ------------------------------------------------------------------ //
         $staff1 = User::query()->updateOrCreate(
-            ['email' => 'ahmad.fauzi@tretech.com'],
+            ['email' => 'muhammad.hassan@tretech.com'],
             [
                 'role_id'       => $staffRole->id,
-                'full_name'     => 'Ahmad Fauzi',
+                'full_name'     => 'Muhammad Hassan',
                 'password_hash' => Hash::make('Staff123!'),
                 'is_active'     => true,
             ]
         );
 
         $staff2 = User::query()->updateOrCreate(
-            ['email' => 'siti.rahayu@tretech.com'],
+            ['email' => 'nurul.aida@tretech.com'],
             [
                 'role_id'       => $staffRole->id,
-                'full_name'     => 'Siti Rahayu',
+                'full_name'     => 'Nurul Aida',
                 'password_hash' => Hash::make('Staff123!'),
                 'is_active'     => true,
             ]
@@ -363,7 +363,7 @@ class UatSeeder extends Seeder
         );
 
         // ------------------------------------------------------------------ //
-        // STEP 6 · Consignment CON-UAT-001  (RS Sehat Sentosa · fully reconciled)
+        // STEP 6 · Consignment CON-UAT-001  (Hospital Selangor Daya · fully reconciled)
         // ------------------------------------------------------------------ //
         $con1At = $now->copy()->subDays(25);
         $con1ConfirmedAt = $con1At->copy()->addHours(3);
@@ -374,7 +374,7 @@ class UatSeeder extends Seeder
             'consignment_at'         => $con1At,
             'pic_user_id'            => $staff1Id,
             'status'                 => 'confirmed',
-            'remarks'                => 'UAT scenario: fully reconciled consignment to RS Sehat Sentosa.',
+            'remarks'                => 'UAT scenario: fully reconciled consignment to Hospital Selangor Daya.',
             'confirmed_at'           => $con1ConfirmedAt,
             'confirmed_by_user_id'   => $adminId,
             'edited_after_confirmation' => false,
@@ -551,7 +551,7 @@ class UatSeeder extends Seeder
                 'released_by_user_id'   => null,
                 'corrected_lot_number'  => null,
                 'resolution_reason'     => null,
-                'remarks'               => 'Awaiting replacement or RMA from SteriPro Labs.',
+                'remarks'               => 'Awaiting replacement or RMA from SteriPro Asia.',
                 'created_at'            => $holdAt,
                 'updated_at'            => $holdAt,
             ]);

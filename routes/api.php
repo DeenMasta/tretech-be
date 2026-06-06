@@ -1,28 +1,30 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\MasterData\UserController;
-use App\Http\Controllers\Api\V1\MasterData\ClientController;
-use App\Http\Controllers\Api\V1\MasterData\ProductController;
-use App\Http\Controllers\Api\V1\MasterData\SupplierController;
-use App\Http\Controllers\Api\V1\MasterData\InstrumentSetController;
-use App\Http\Controllers\Api\V1\Inventory\InventoryController;
-use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
-use App\Http\Controllers\Api\V1\StockIn\StockInSessionController;
-use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
-use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
 use App\Http\Controllers\Api\V1\Audit\AuditLogController;
 use App\Http\Controllers\Api\V1\Audit\ErrorLogController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\Consignment\ConsignmentController;
 use App\Http\Controllers\Api\V1\Consignment\ConsignmentItemController;
-use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
-use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
+use App\Http\Controllers\Api\V1\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Disposal\DisposalController;
-use App\Http\Controllers\Api\V1\SupplierReturn\SupplierReturnController;
 use App\Http\Controllers\Api\V1\HoldingArea\HoldingAreaController;
+use App\Http\Controllers\Api\V1\Inventory\InventoryController;
+use App\Http\Controllers\Api\V1\MasterData\ClientController;
+use App\Http\Controllers\Api\V1\MasterData\InstrumentSetController;
+use App\Http\Controllers\Api\V1\MasterData\InstrumentSetItemController;
+use App\Http\Controllers\Api\V1\MasterData\ProductController;
+use App\Http\Controllers\Api\V1\MasterData\SupplierController;
+use App\Http\Controllers\Api\V1\MasterData\UserController;
+use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
+use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
+use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
 use App\Http\Controllers\Api\V1\Reporting\ReportController;
+use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
+use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
+use App\Http\Controllers\Api\V1\StockIn\StockInSessionController;
+use App\Http\Controllers\Api\V1\SupplierReturn\SupplierReturnController;
 use App\Http\Controllers\Api\V1\UsageSummary\UsageSummaryController;
+use Illuminate\Support\Facades\Route;
 
 // Public health-check endpoint (legacy and versioned path support).
 Route::get('/health', function () {
@@ -72,6 +74,9 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary'])
+        ->middleware(['auth:sanctum', 'permission:dashboard.view']);
+
     Route::prefix('master-data')->middleware('auth:sanctum')->group(function () {
         Route::get('users', [UserController::class, 'index'])->middleware('permission:system.manage_users');
         Route::get('users/roles', [UserController::class, 'roles'])->middleware('permission:system.manage_users');
@@ -108,12 +113,17 @@ Route::prefix('v1')->group(function () {
         Route::put('instrument-sets/{instrumentSet}', [InstrumentSetController::class, 'update'])->middleware('permission:instrument_sets.manage');
         Route::patch('instrument-sets/{instrumentSet}', [InstrumentSetController::class, 'update'])->middleware('permission:instrument_sets.manage');
         Route::delete('instrument-sets/{instrumentSet}', [InstrumentSetController::class, 'destroy'])->middleware('permission:instrument_sets.manage');
+        Route::get('instrument-sets/{instrumentSet}/items', [InstrumentSetItemController::class, 'index'])->middleware('permission:instrument_sets.view,instrument_sets.manage');
+        Route::post('instrument-sets/{instrumentSet}/items', [InstrumentSetItemController::class, 'store'])->middleware('permission:instrument_sets.manage');
+        Route::patch('instrument-sets/{instrumentSet}/items/{instrumentSetItem}', [InstrumentSetItemController::class, 'update'])->middleware('permission:instrument_sets.manage');
+        Route::delete('instrument-sets/{instrumentSet}/items/{instrumentSetItem}', [InstrumentSetItemController::class, 'destroy'])->middleware('permission:instrument_sets.manage');
     });
 
     Route::prefix('stock-in-sessions')->middleware('auth:sanctum')->group(function () {
         Route::get('/', [StockInSessionController::class, 'index'])->middleware('permission:stock_in.view');
         Route::post('/', [StockInSessionController::class, 'store'])->middleware('permission:stock_in.create');
         Route::get('/{stockIn}', [StockInSessionController::class, 'show'])->middleware('permission:stock_in.view');
+        Route::get('/{stockIn}/print', [StockInSessionController::class, 'print'])->middleware('permission:stock_in.view');
         Route::put('/{stockIn}', [StockInSessionController::class, 'update'])->middleware('permission:stock_in.edit_draft');
         Route::patch('/{stockIn}', [StockInSessionController::class, 'update'])->middleware('permission:stock_in.edit_draft');
         Route::get('/{stockIn}/review', [StockInSessionController::class, 'review'])->middleware('permission:stock_in.view');
@@ -368,17 +378,17 @@ Route::prefix('v1')->group(function () {
     // -------------------------------------------------------------------------
     Route::prefix('supplier-returns')->middleware('auth:sanctum')->group(function () {
         Route::get('/', [SupplierReturnController::class, 'index'])
-            ->middleware('permission:disposals.view');
+            ->middleware('permission:supplier_returns.view');
         Route::post('/', [SupplierReturnController::class, 'store'])
             ->middleware('permission:supplier_returns.create');
         Route::get('/{supplierReturn}', [SupplierReturnController::class, 'show'])
-            ->middleware('permission:disposals.view');
+            ->middleware('permission:supplier_returns.view');
         Route::put('/{supplierReturn}', [SupplierReturnController::class, 'update'])
             ->middleware('permission:supplier_returns.create');
         Route::patch('/{supplierReturn}', [SupplierReturnController::class, 'update'])
             ->middleware('permission:supplier_returns.create');
         Route::get('/{supplierReturn}/items', [SupplierReturnController::class, 'indexItems'])
-            ->middleware('permission:disposals.view');
+            ->middleware('permission:supplier_returns.view');
         Route::post('/{supplierReturn}/items', [SupplierReturnController::class, 'storeItem'])
             ->middleware('permission:supplier_returns.create');
         Route::delete('/{supplierReturn}/items/{supplierReturnItem}', [SupplierReturnController::class, 'destroyItem'])

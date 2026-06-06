@@ -27,6 +27,11 @@ class Product extends Model
         return $this->hasMany('App\\Models\\UsageSummaryItem');
     }
 
+    public function instrumentSetItems(): HasMany
+    {
+        return $this->hasMany('App\\Models\\InstrumentSetItem');
+    }
+
     protected function casts(): array
     {
         return [

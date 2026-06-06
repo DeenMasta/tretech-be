@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Role;
 use App\Models\Permission;
+use App\Models\Role;
 use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
@@ -15,6 +15,11 @@ class PermissionSeeder extends Seeder
     {
         // Define all permissions organized by module
         $permissionsData = [
+            // Dashboard
+            'Dashboard' => [
+                ['code' => 'dashboard.view', 'name' => 'View Dashboard'],
+            ],
+
             // Master Data
             'Master Data' => [
                 ['code' => 'products.view', 'name' => 'View Products'],
@@ -65,6 +70,7 @@ class PermissionSeeder extends Seeder
             // Disposal & Returns
             'Disposal & Returns' => [
                 ['code' => 'disposals.create', 'name' => 'Dispose Units'],
+                ['code' => 'supplier_returns.view', 'name' => 'View Supplier Returns'],
                 ['code' => 'supplier_returns.create', 'name' => 'Return Units to Supplier'],
                 ['code' => 'disposals.view', 'name' => 'View Disposal/Return History'],
             ],
@@ -127,6 +133,7 @@ class PermissionSeeder extends Seeder
         $rolePermissionsMap = [
             'admin' => [
                 // All permissions for Admin
+                'dashboard.view',
                 'products.view', 'products.create', 'products.edit', 'products.delete',
                 'suppliers.view', 'suppliers.manage',
                 'clients.view', 'clients.manage',
@@ -135,7 +142,7 @@ class PermissionSeeder extends Seeder
                 'qr_labels.print', 'qr_labels.reprint', 'qr_labels.view_jobs',
                 'consignments.create', 'consignments.view', 'consignments.confirm', 'consignments.edit_draft', 'consignments.edit_confirmed',
                 'returns.create', 'returns.view', 'returns.finalize', 'returns.reopen_reconciliation',
-                'disposals.create', 'supplier_returns.create', 'disposals.view',
+                'disposals.create', 'supplier_returns.view', 'supplier_returns.create', 'disposals.view',
                 'holding_area.view', 'holding_area.assign_lot',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
                 'usage_summary.view', 'usage_summary.generate', 'usage_summary.view_logs',
@@ -144,6 +151,7 @@ class PermissionSeeder extends Seeder
             ],
             'logistic_staff' => [
                 // Logistic Staff permissions
+                'dashboard.view',
                 'suppliers.view',
                 'clients.view',
                 'instrument_sets.view',
@@ -151,7 +159,7 @@ class PermissionSeeder extends Seeder
                 'qr_labels.print', 'qr_labels.reprint', 'qr_labels.view_jobs',
                 'consignments.create', 'consignments.view', 'consignments.confirm', 'consignments.edit_draft',
                 'returns.create', 'returns.view', 'returns.finalize',
-                'disposals.create', 'supplier_returns.create', 'disposals.view',
+                'disposals.create', 'supplier_returns.view', 'supplier_returns.create', 'disposals.view',
                 'holding_area.view',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
             ],
@@ -173,16 +181,17 @@ class PermissionSeeder extends Seeder
 
             // Sync permissions (remove old ones, add new ones)
             $permissionIds = array_map(
-                fn($code) => $permissionsMap[$code],
+                fn ($code) => $permissionsMap[$code],
                 $permissionCodes
             );
 
             $role->permissions()->sync($permissionIds);
+            $role->flushPermissionCache();
         }
 
         $this->command->info('Permissions and role permissions seeded successfully!');
-        $this->command->info("Total permissions created: " . count($permissionsMap));
-        $this->command->info("Admin role assigned: " . count($rolePermissionsMap['admin']) . " permissions");
-        $this->command->info("Logistic Staff role assigned: " . count($rolePermissionsMap['logistic_staff']) . " permissions");
+        $this->command->info('Total permissions created: '.count($permissionsMap));
+        $this->command->info('Admin role assigned: '.count($rolePermissionsMap['admin']).' permissions');
+        $this->command->info('Logistic Staff role assigned: '.count($rolePermissionsMap['logistic_staff']).' permissions');
     }
 }

@@ -16,8 +16,8 @@ class SampleMasterDataSeeder extends Seeder
     public function run(): void
     {
         $suppliers = [
-            ['supplier_name' => 'Medline Nusantara', 'phone' => '+62-21-555-0101', 'email' => 'ops@medline-nusantara.id', 'address' => 'Jakarta, Indonesia', 'is_active' => true],
-            ['supplier_name' => 'SteriPro Labs', 'phone' => '+62-21-555-0102', 'email' => 'sales@steriprolabs.id', 'address' => 'Bandung, Indonesia', 'is_active' => true],
+            ['supplier_name' => 'Medline Malaysia', 'phone' => '+60-3-5555-0101', 'email' => 'ops@medline-malaysia.com.my', 'address' => 'Kuala Lumpur, Malaysia', 'is_active' => true],
+            ['supplier_name' => 'SteriPro Asia', 'phone' => '+60-3-5555-0102', 'email' => 'sales@steproasia.com.my', 'address' => 'Petaling Jaya, Selangor', 'is_active' => true],
         ];
 
         foreach ($suppliers as $supplier) {
@@ -25,8 +25,8 @@ class SampleMasterDataSeeder extends Seeder
         }
 
         $clients = [
-            ['client_name' => 'RS Sehat Sentosa', 'client_type' => 'hospital', 'phone' => '+62-21-555-0201', 'email' => 'procurement@rssehatsentosa.id', 'address' => 'Jakarta, Indonesia', 'is_active' => true],
-            ['client_name' => 'Klinik Prima Care', 'client_type' => 'clinic', 'phone' => '+62-21-555-0202', 'email' => 'admin@primacare.id', 'address' => 'Depok, Indonesia', 'is_active' => true],
+            ['client_name' => 'Hospital Selangor Daya', 'client_type' => 'hospital', 'phone' => '+60-3-4555-0201', 'email' => 'procurement@hsd.com.my', 'address' => 'Shah Alam, Selangor', 'is_active' => true],
+            ['client_name' => 'Klinik Prima Care', 'client_type' => 'clinic', 'phone' => '+60-3-7555-0202', 'email' => 'admin@primacare.com.my', 'address' => 'Petaling Jaya, Selangor', 'is_active' => true],
         ];
 
         foreach ($clients as $client) {

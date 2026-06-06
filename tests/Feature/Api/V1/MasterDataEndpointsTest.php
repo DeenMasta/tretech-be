@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1;
 
 use App\Models\AuditLog;
+use App\Models\InstrumentSet;
 use App\Models\Permission;
 use App\Models\Product;
 use App\Models\Role;
@@ -197,6 +198,82 @@ class MasterDataEndpointsTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'feature-user@test.local']);
 
         $this->assertSame(4, AuditLog::query()->count());
+    }
+
+    public function test_instrument_set_can_register_and_manage_registered_products(): void
+    {
+        $user = $this->makeUserWithPermissions([
+            'instrument_sets.manage',
+            'products.create',
+        ]);
+        Sanctum::actingAs($user);
+
+        $productA = Product::query()->create([
+            'ref_num' => 'SET-PROD-001',
+            'product_name' => 'Forceps Curved',
+            'product_type' => 'instrument',
+            'category' => 'surgical',
+            'uom' => 'pcs',
+            'requires_expiry' => false,
+            'requires_lot' => false,
+            'is_active' => true,
+        ]);
+
+        $productB = Product::query()->create([
+            'ref_num' => 'SET-PROD-002',
+            'product_name' => 'Scalpel Handle',
+            'product_type' => 'instrument',
+            'category' => 'surgical',
+            'uom' => 'pcs',
+            'requires_expiry' => false,
+            'requires_lot' => false,
+            'is_active' => true,
+        ]);
+
+        $setResponse = $this->postJson('/api/v1/master-data/instrument-sets', [
+            'set_code' => 'SET-FLOW-001',
+            'set_name' => 'General Surgery Set',
+            'description' => 'Set for standard surgery prep',
+            'is_active' => true,
+        ])->assertCreated();
+
+        $setId = (int) $setResponse->json('data.id');
+
+        $itemResponse = $this->postJson("/api/v1/master-data/instrument-sets/{$setId}/items", [
+            'product_id' => $productA->id,
+            'quantity' => 2,
+            'sort_order' => 1,
+            'remarks' => 'Primary clamp item',
+        ])->assertCreated();
+
+        $itemId = (int) $itemResponse->json('data.id');
+
+        $this->postJson("/api/v1/master-data/instrument-sets/{$setId}/items", [
+            'product_id' => $productB->id,
+            'quantity' => 1,
+            'sort_order' => 2,
+        ])->assertCreated();
+
+        $this->getJson("/api/v1/master-data/instrument-sets/{$setId}/items")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(2, 'data');
+
+        $this->patchJson("/api/v1/master-data/instrument-sets/{$setId}/items/{$itemId}", [
+            'quantity' => 3,
+            'remarks' => 'Updated quantity',
+        ])->assertOk()
+            ->assertJsonPath('data.quantity', 3)
+            ->assertJsonPath('data.remarks', 'Updated quantity');
+
+        $this->deleteJson("/api/v1/master-data/instrument-sets/{$setId}/items/{$itemId}")
+            ->assertOk();
+
+        $instrumentSet = InstrumentSet::query()
+            ->withCount('instrumentSetItems')
+            ->findOrFail($setId);
+
+        $this->assertSame(1, $instrumentSet->instrument_set_items_count);
     }
 
     /**

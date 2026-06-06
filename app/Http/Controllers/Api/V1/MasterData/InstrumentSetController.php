@@ -55,6 +55,12 @@ class InstrumentSetController extends Controller
 
     public function show(InstrumentSet $instrumentSet): JsonResponse
     {
+        $instrumentSet->loadCount('instrumentSetItems');
+        $instrumentSet->load([
+            'instrumentSetItems' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
+            'instrumentSetItems.product:id,ref_num,product_name,is_active',
+        ]);
+
         return $this->successResponse(new InstrumentSetResource($instrumentSet), 'Instrument set fetched successfully');
     }
 
