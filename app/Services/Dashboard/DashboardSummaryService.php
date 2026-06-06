@@ -2,21 +2,25 @@
 
 namespace App\Services\Dashboard;
 
+use App\Models\Consignment;
+use App\Models\Disposal;
 use App\Models\Lot;
 use App\Models\LotMovement;
+use App\Models\Reconciliation;
+use App\Models\ReturnSession;
 use App\Models\StockIn;
+use App\Models\SupplierReturn;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DashboardSummaryService
 {
     /**
-     * Build the dashboard payload expected by the web app.
+     * Build the dashboard payload from real lot lifecycle data
+     * and actual operations sub-module states.
      *
-     * A few frontend labels come from a broader ERP vocabulary than the current
-     * backend model. For those, the service uses the closest truthful signal in
-     * the existing domain: draft stock-ins as open inbound orders and a recent
-     * outbound-coverage heuristic for low-stock risk.
+     * Every field maps 1-to-1 to a real status, model, or movement type.
+     * No fabricated ERP vocabulary.
      *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
@@ -26,69 +30,154 @@ class DashboardSummaryService
         [$dateFrom, $dateTo] = $this->normalizeDateRange($filters);
 
         return [
-            'items_in_stock' => $this->countLotsByStatus('available'),
-            'movements_today' => LotMovement::query()
-                ->whereDate('performed_at', '=', now()->toDateString(), 'and')
-                ->count(),
-            'low_stock_count' => $this->countLowStockProducts(),
-            'open_po_count' => StockIn::query()
-                ->where('status', 'draft')
-                ->count(),
-            'overdue_po_count' => StockIn::query()
-                ->where('status', 'draft')
-                ->whereDate('stock_in_at', '<', now()->toDateString())
-                ->count(),
-            'items_received_pending_qc' => $this->countLotsByStatus('holding'),
-            'items_under_repair' => 0,
-            'items_delivered' => $this->countLotsByStatus('supplied'),
-            'items_returned' => $this->countMovementEvents(['returned'], $dateFrom, $dateTo),
-            'items_returned_to_supplier' => $this->countLotsByStatus('returned_to_supplier'),
-            'stock_in_trend' => $this->buildMovementTrend(['stock_in'], $dateFrom, $dateTo),
-            'stock_out_trend' => $this->buildMovementTrend(
-                ['consigned', 'disposed', 'returned_to_supplier'],
-                $dateFrom,
-                $dateTo
-            ),
-            'top_moved_products' => $this->buildTopMovedProducts($dateFrom, $dateTo),
+            'lot_counts'          => $this->buildLotCounts(),
+            'operations_pipeline' => $this->buildOperationsPipeline(),
+            'today_activity'      => $this->buildTodayActivity(),
+            'alerts'              => $this->buildAlerts(),
+            'low_stock_risk_count' => $this->countLowStockProducts(),
+            'stock_in_trend'      => $this->buildMovementTrend(['stock_in'], $dateFrom, $dateTo),
+            'consignment_trend'   => $this->buildMovementTrend(['consigned'], $dateFrom, $dateTo),
+            'top_moved_products'  => $this->buildTopMovedProducts($dateFrom, $dateTo),
         ];
     }
 
+    // -------------------------------------------------------------------------
+    // Lot Counts — one counter per real LotStatus enum value
+    // -------------------------------------------------------------------------
+
     /**
-     * @param  array<string, mixed>  $filters
-     * @return array{0: ?Carbon, 1: ?Carbon}
+     * @return array<string, int>
      */
-    private function normalizeDateRange(array $filters): array
+    private function buildLotCounts(): array
     {
-        $dateFrom = !empty($filters['date_from'])
-            ? Carbon::parse((string) $filters['date_from'])->startOfDay()
-            : null;
+        $counts = Lot::query()
+            ->select('status', DB::raw('COUNT(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->all();
 
-        $dateTo = !empty($filters['date_to'])
-            ? Carbon::parse((string) $filters['date_to'])->endOfDay()
-            : null;
+        $statuses = ['available', 'holding', 'supplied', 'used', 'disposed', 'returned_to_supplier'];
+        $result = [];
+        $total = 0;
 
-        return [$dateFrom, $dateTo];
-    }
-
-    private function countLotsByStatus(string $status): int
-    {
-        return Lot::query()->where('status', $status)->count();
-    }
-
-    private function countMovementEvents(array $movementTypes, ?Carbon $dateFrom, ?Carbon $dateTo): int
-    {
-        $query = LotMovement::query()->whereIn('movement_type', $movementTypes, 'and', false);
-
-        if ($dateFrom !== null) {
-            $query->where('performed_at', '>=', $dateFrom);
+        foreach ($statuses as $status) {
+            $value = (int) ($counts[$status] ?? 0);
+            $result[$status] = $value;
+            $total += $value;
         }
 
-        if ($dateTo !== null) {
-            $query->where('performed_at', '<=', $dateTo);
+        $result['total'] = $total;
+
+        return $result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Operations Pipeline — pending work across every sub-module
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, int>
+     */
+    private function buildOperationsPipeline(): array
+    {
+        $today = now()->toDateString();
+
+        return [
+            'stock_in_draft'              => StockIn::query()->where('status', 'draft')->count(),
+            'stock_in_finalized_today'    => StockIn::query()
+                ->where('status', 'finalized')
+                ->whereDate('confirmed_at', $today)
+                ->count(),
+            'consignment_draft'           => Consignment::query()->where('status', 'draft')->count(),
+            'consignment_confirmed_today' => Consignment::query()
+                ->where('status', 'confirmed')
+                ->whereDate('confirmed_at', $today)
+                ->count(),
+            'return_sessions_in_progress' => ReturnSession::query()->where('status', 'in_progress')->count(),
+            'reconciliation_pending'      => Reconciliation::query()
+                ->whereIn('status', ['pending', 'reopened'])
+                ->count(),
+            'disposal_draft'              => Disposal::query()->where('status', 'draft')->count(),
+            'supplier_return_draft'       => SupplierReturn::query()->where('status', 'draft')->count(),
+        ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Today's Activity — movement breakdown for today
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, int>
+     */
+    private function buildTodayActivity(): array
+    {
+        $today = now()->toDateString();
+
+        $counts = LotMovement::query()
+            ->select('movement_type', DB::raw('COUNT(*) as count'))
+            ->whereDate('performed_at', $today)
+            ->groupBy('movement_type')
+            ->pluck('count', 'movement_type')
+            ->all();
+
+        $types = [
+            'stock_in', 'consigned', 'returned', 'used',
+            'disposed', 'returned_to_supplier', 'holding_released',
+        ];
+
+        $result = [];
+        $total = 0;
+
+        foreach ($types as $type) {
+            $value = (int) ($counts[$type] ?? 0);
+            $result[$type . '_count'] = $value;
+            $total += $value;
         }
 
-        return $query->count();
+        $result['movements_total'] = $total;
+
+        return $result;
     }
+
+    // -------------------------------------------------------------------------
+    // Alerts — real actionable items that need attention
+    // -------------------------------------------------------------------------
+
+    /**
+     * @return array<string, int>
+     */
+    private function buildAlerts(): array
+    {
+        return [
+            // Lots stuck in holding — need admin to assign lot numbers
+            'holding_lots_pending' => Lot::query()
+                ->where('status', 'holding')
+                ->count(),
+
+            // Lots expiring within 30 days (only available ones matter)
+            'expiring_soon_30_days' => Lot::query()
+                ->where('status', 'available')
+                ->whereNotNull('expiry_date')
+                ->whereDate('expiry_date', '<=', now()->addDays(30)->toDateString())
+                ->whereDate('expiry_date', '>=', now()->toDateString())
+                ->count(),
+
+            // Draft stock-in sessions older than 7 days
+            'overdue_stock_in_drafts' => StockIn::query()
+                ->where('status', 'draft')
+                ->whereDate('stock_in_at', '<', now()->subDays(7)->toDateString())
+                ->count(),
+
+            // Reconciliations waiting for finalization
+            'reconciliation_pending' => Reconciliation::query()
+                ->whereIn('status', ['pending', 'reopened'])
+                ->count(),
+        ];
+    }
+
+    // -------------------------------------------------------------------------
+    // Low Stock Heuristic
+    // -------------------------------------------------------------------------
 
     /**
      * Products are flagged as low stock when recent outbound demand suggests
@@ -123,6 +212,27 @@ class DashboardSummaryService
         }
 
         return $lowStockCount;
+    }
+
+    // -------------------------------------------------------------------------
+    // Trend Builders
+    // -------------------------------------------------------------------------
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function normalizeDateRange(array $filters): array
+    {
+        $dateFrom = !empty($filters['date_from'])
+            ? Carbon::parse((string) $filters['date_from'])->startOfDay()
+            : null;
+
+        $dateTo = !empty($filters['date_to'])
+            ? Carbon::parse((string) $filters['date_to'])->endOfDay()
+            : null;
+
+        return [$dateFrom, $dateTo];
     }
 
     /**
@@ -190,7 +300,7 @@ class DashboardSummaryService
             ->groupBy('products.id', 'products.product_name', 'products.ref_num')
             ->orderByDesc('moved_qty')
             ->orderBy('products.product_name')
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(fn ($row) => [
                 'product_id' => (int) $row->product_id,
