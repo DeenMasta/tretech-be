@@ -51,7 +51,7 @@ class DashboardSummaryService
     private function buildLotCounts(): array
     {
         $counts = Lot::query()
-            ->select('status', DB::raw('COUNT(*) as count'))
+            ->select(['status', DB::raw('COUNT(*) as count')])
             ->groupBy('status')
             ->pluck('count', 'status')
             ->all();
@@ -95,7 +95,7 @@ class DashboardSummaryService
                 ->count(),
             'return_sessions_in_progress' => ReturnSession::query()->where('status', 'in_progress')->count(),
             'reconciliation_pending'      => Reconciliation::query()
-                ->whereIn('status', ['pending', 'reopened'])
+                ->whereIn('status', ['pending', 'reopened'], 'and', false)
                 ->count(),
             'disposal_draft'              => Disposal::query()->where('status', 'draft')->count(),
             'supplier_return_draft'       => SupplierReturn::query()->where('status', 'draft')->count(),
@@ -114,7 +114,7 @@ class DashboardSummaryService
         $today = now()->toDateString();
 
         $counts = LotMovement::query()
-            ->select('movement_type', DB::raw('COUNT(*) as count'))
+            ->select(['movement_type', DB::raw('COUNT(*) as count')])
             ->whereDate('performed_at', $today)
             ->groupBy('movement_type')
             ->pluck('count', 'movement_type')
@@ -170,7 +170,7 @@ class DashboardSummaryService
 
             // Reconciliations waiting for finalization
             'reconciliation_pending' => Reconciliation::query()
-                ->whereIn('status', ['pending', 'reopened'])
+                ->whereIn('status', ['pending', 'reopened'], 'and', false)
                 ->count(),
         ];
     }
@@ -186,14 +186,14 @@ class DashboardSummaryService
     private function countLowStockProducts(): int
     {
         $availableByProduct = Lot::query()
-            ->select('product_id', DB::raw('COUNT(*) as available_qty'))
+            ->select(['product_id', DB::raw('COUNT(*) as available_qty')])
             ->where('status', 'available')
             ->groupBy('product_id')
             ->pluck('available_qty', 'product_id');
 
         $outboundByProduct = DB::table('lot_movements')
             ->join('lots', 'lots.id', '=', 'lot_movements.lot_id')
-            ->select('lots.product_id', DB::raw('COUNT(*) as outbound_qty'))
+            ->select(['lots.product_id', DB::raw('COUNT(*) as outbound_qty')])
             ->whereIn('lot_movements.movement_type', ['consigned', 'disposed', 'returned_to_supplier'])
             ->where('lot_movements.performed_at', '>=', now()->subDays(30)->startOfDay())
             ->groupBy('lots.product_id')
@@ -273,12 +273,12 @@ class DashboardSummaryService
         $query = DB::table('lot_movements')
             ->join('lots', 'lots.id', '=', 'lot_movements.lot_id')
             ->join('products', 'products.id', '=', 'lots.product_id')
-            ->select(
+            ->select([
                 'products.id as product_id',
                 'products.product_name',
                 'products.ref_num as product_code',
-                DB::raw('COUNT(*) as moved_qty')
-            )
+                DB::raw('COUNT(*) as moved_qty'),
+            ])
             ->whereIn('lot_movements.movement_type', [
                 'stock_in',
                 'consigned',
