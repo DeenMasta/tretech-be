@@ -22,6 +22,23 @@ class InstrumentSet extends Model
         return $this->hasMany('App\\Models\\InstrumentSetItem');
     }
 
+    /**
+     * Non-product instruments registered directly under this set.
+     * Complements instrumentSetItems(), which links existing Products.
+     */
+    public function setInstruments(): HasMany
+    {
+        return $this->hasMany('App\\Models\\SetInstrument');
+    }
+
+    /**
+     * Stock-in lines that received this set as a unit (entry_kind = 'set').
+     */
+    public function stockInItems(): HasMany
+    {
+        return $this->hasMany('App\\Models\\StockInItem');
+    }
+
     protected function casts(): array
     {
         return [

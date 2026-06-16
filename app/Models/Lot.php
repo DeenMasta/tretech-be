@@ -23,6 +23,20 @@ class Lot extends Model
         ];
     }
 
+    /**
+     * A Lot represents either a product instance or a set instance.
+     * Use these helpers instead of inspecting the FK columns directly.
+     */
+    public function isSetInstance(): bool
+    {
+        return $this->instrument_set_id !== null && $this->product_id === null;
+    }
+
+    public function isProductInstance(): bool
+    {
+        return $this->product_id !== null && $this->instrument_set_id === null;
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\Product');

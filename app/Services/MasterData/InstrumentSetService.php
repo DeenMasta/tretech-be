@@ -16,7 +16,7 @@ class InstrumentSetService
         $isActive = $filters['is_active'] ?? null;
 
         return InstrumentSet::query()
-            ->withCount('instrumentSetItems')
+            ->withCount(['instrumentSetItems', 'setInstruments'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('set_code', 'like', "%{$search}%")

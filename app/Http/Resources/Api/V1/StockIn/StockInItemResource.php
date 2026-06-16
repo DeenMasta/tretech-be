@@ -17,12 +17,29 @@ class StockInItemResource extends JsonResource
         return [
             'id' => $this->id,
             'stock_in_id' => $this->stock_in_id,
+            'entry_kind' => $this->entry_kind ?? 'product',
             'product_id' => $this->product_id,
             'product' => $this->whenLoaded('product', function () {
+                if (!$this->product) {
+                    return null;
+                }
+
                 return [
-                    'id' => $this->product?->id,
-                    'ref_num' => $this->product?->ref_num,
-                    'product_name' => $this->product?->product_name,
+                    'id' => $this->product->id,
+                    'ref_num' => $this->product->ref_num,
+                    'product_name' => $this->product->product_name,
+                ];
+            }),
+            'instrument_set_id' => $this->instrument_set_id,
+            'instrument_set' => $this->whenLoaded('instrumentSet', function () {
+                if (!$this->instrumentSet) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->instrumentSet->id,
+                    'set_code' => $this->instrumentSet->set_code,
+                    'set_name' => $this->instrumentSet->set_name,
                 ];
             }),
             'lot_id' => $this->lot_id,

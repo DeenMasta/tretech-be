@@ -4,6 +4,7 @@ namespace App\Services\StockIn;
 
 use App\Exceptions\BusinessLogicException;
 use App\Enums\AuditAction;
+use App\Models\InstrumentSet;
 use App\Models\Lot;
 use App\Models\LotHolding;
 use App\Models\LotMovement;
@@ -95,6 +96,11 @@ class StockInFinalizeService
 
     private function createLotForItem(StockIn $stockIn, StockInItem $item, User $actor): Lot
     {
+        // Set-instance entry: mint a Lot tagged to the InstrumentSet, not a Product.
+        if ($item->isSetEntry()) {
+            return $this->createSetInstanceLot($stockIn, $item, $actor);
+        }
+
         $requiresLotTracking = $this->requiresLotTracking((int) $item->product_id);
         $incomingLotNumber = trim((string) ($item->scanned_lot_number ?? ''));
         $isHolding = $requiresLotTracking && ((bool) $item->missing_lot_flag || $incomingLotNumber === '');
@@ -155,6 +161,79 @@ class StockInFinalizeService
         }
 
         return $lot;
+    }
+
+    /**
+     * Mints a Lot that represents a single physical instrument-set instance.
+     * The lot_number is derived from the set code so it is human-readable on
+     * the QR label and easy to reconcile against.
+     */
+    private function createSetInstanceLot(StockIn $stockIn, StockInItem $item, User $actor): Lot
+    {
+        $set = InstrumentSet::query()->select(['id', 'set_code', 'set_name'])->find($item->instrument_set_id);
+
+        if (!$set) {
+            throw new BusinessLogicException('Selected instrument set is not found.');
+        }
+
+        $lotNumber = $this->generateSetInstanceLotNumber($set);
+
+        $lot = Lot::query()->create([
+            'product_id' => null,
+            'instrument_set_id' => $set->id,
+            'supplier_id' => $stockIn->supplier_id,
+            'lot_number' => $lotNumber,
+            'original_lot_number' => null,
+            'is_system_generated_lot' => true,
+            'supplier_batch_code' => null,
+            'expiry_date' => null,
+            'status' => 'available',
+            'current_location_type' => 'warehouse',
+            'current_location_id' => null,
+            'remarks' => $item->remarks,
+            'received_at' => $stockIn->stock_in_at,
+        ]);
+
+        $item->fill(['lot_id' => $lot->id])->save();
+
+        LotMovement::query()->create([
+            'lot_id' => $lot->id,
+            'movement_type' => 'stock_in',
+            'reference_type' => StockIn::class,
+            'reference_id' => $stockIn->id,
+            'from_status' => null,
+            'to_status' => $lot->status,
+            'from_location_type' => null,
+            'from_location_id' => null,
+            'to_location_type' => $lot->current_location_type,
+            'to_location_id' => $lot->current_location_id,
+            'performed_at' => now(),
+            'performed_by_user_id' => $actor->id,
+            'remarks' => 'Set instance created during stock-in finalization',
+        ]);
+
+        return $lot;
+    }
+
+    private function generateSetInstanceLotNumber(InstrumentSet $set): string
+    {
+        $codePart = $set->set_code !== null && $set->set_code !== ''
+            ? preg_replace('/[^A-Z0-9_-]+/', '', strtoupper((string) $set->set_code))
+            : 'SET' . $set->id;
+
+        $datePart = now()->format('Ymd');
+        $base = sprintf('SET-%s-%s', $codePart, $datePart);
+
+        // Append a 4-digit sequence within the day so each instance is unique.
+        for ($attempt = 1; $attempt <= 9999; $attempt++) {
+            $candidate = sprintf('%s-%04d', $base, $attempt);
+
+            if (!Lot::query()->where('lot_number', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        throw new BusinessLogicException('Unable to generate unique set-instance lot number.');
     }
 
     private function generateHoldingLotNumber(StockIn $stockIn, StockInItem $item): string

@@ -3,6 +3,7 @@
 namespace App\Services\StockIn;
 
 use App\Exceptions\BusinessLogicException;
+use App\Models\InstrumentSet;
 use App\Models\Lot;
 use App\Models\Product;
 use App\Models\StockIn;
@@ -21,7 +22,11 @@ class StockInItemService
     public function listBySession(StockIn $stockIn): Collection
     {
         return $stockIn->stockInItems()
-            ->with(['product:id,ref_num,product_name', 'lot:id,lot_number,status'])
+            ->with([
+                'product:id,ref_num,product_name',
+                'instrumentSet:id,set_code,set_name',
+                'lot:id,lot_number,status',
+            ])
             ->orderByDesc('id')
             ->get();
     }
@@ -33,6 +38,20 @@ class StockInItemService
     {
         $this->stockInSessionService->ensureDraft($stockIn);
 
+        $entryKind = ($data['entry_kind'] ?? 'product') === 'set' ? 'set' : 'product';
+
+        if ($entryKind === 'set') {
+            return $this->addSetItem($stockIn, $data);
+        }
+
+        return $this->addProductItem($stockIn, $data);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function addProductItem(StockIn $stockIn, array $data): StockInItem
+    {
         $lotNumber = $this->normalizeLotNumber($data['scanned_lot_number'] ?? null);
         $missingLotFlag = (bool) ($data['missing_lot_flag'] ?? false);
         $requiresLotTracking = $this->requiresLotTracking((int) $data['product_id']);
@@ -47,7 +66,9 @@ class StockInItemService
 
         return StockInItem::query()->create([
             'stock_in_id' => $stockIn->id,
+            'entry_kind' => 'product',
             'product_id' => $data['product_id'],
+            'instrument_set_id' => null,
             'scanned_lot_number' => $lotNumber,
             'supplier_batch_code' => $data['supplier_batch_code'],
             'expiry_date' => $data['expiry_date'] ?? null,
@@ -57,7 +78,52 @@ class StockInItemService
             'source_barcode' => $data['source_barcode'] ?? null,
             'entry_override_reason' => $data['entry_override_reason'] ?? null,
             'remarks' => $data['remarks'] ?? null,
-        ])->load(['product:id,ref_num,product_name', 'lot:id,lot_number,status']);
+        ])->load([
+            'product:id,ref_num,product_name',
+            'instrumentSet:id,set_code,set_name',
+            'lot:id,lot_number,status',
+        ]);
+    }
+
+    /**
+     * Set-instance entry. No lot number is captured here — finalize will mint
+     * one from the set code. Supplier batch / expiry are not collected.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function addSetItem(StockIn $stockIn, array $data): StockInItem
+    {
+        $instrumentSetId = (int) ($data['instrument_set_id'] ?? 0);
+
+        $set = InstrumentSet::query()->select(['id', 'is_active'])->find($instrumentSetId);
+
+        if (!$set) {
+            throw new BusinessLogicException('Selected instrument set is not found.');
+        }
+
+        if (!$set->is_active) {
+            throw new BusinessLogicException('Inactive instrument sets cannot be received.');
+        }
+
+        return StockInItem::query()->create([
+            'stock_in_id' => $stockIn->id,
+            'entry_kind' => 'set',
+            'product_id' => null,
+            'instrument_set_id' => $instrumentSetId,
+            'scanned_lot_number' => null,
+            'supplier_batch_code' => null,
+            'expiry_date' => null,
+            'lot_entry_mode' => 'scan',
+            'expiry_entry_mode' => 'scan',
+            'missing_lot_flag' => false,
+            'source_barcode' => $data['source_barcode'] ?? null,
+            'entry_override_reason' => null,
+            'remarks' => $data['remarks'] ?? null,
+        ])->load([
+            'product:id,ref_num,product_name',
+            'instrumentSet:id,set_code,set_name',
+            'lot:id,lot_number,status',
+        ]);
     }
 
     /**
@@ -67,6 +133,21 @@ class StockInItemService
     {
         $this->stockInSessionService->ensureDraft($stockIn);
         $this->ensureBelongsToSession($stockIn, $stockInItem);
+
+        $reload = [
+            'product:id,ref_num,product_name',
+            'instrumentSet:id,set_code,set_name',
+            'lot:id,lot_number,status',
+        ];
+
+        // Set-entry items are minimal: only remarks/source_barcode are
+        // editable while in draft. Product/lot fields are not applicable.
+        if ($stockInItem->isSetEntry()) {
+            $allowed = array_intersect_key($data, array_flip(['remarks', 'source_barcode']));
+            $stockInItem->fill($allowed)->save();
+
+            return $stockInItem->refresh()->load($reload);
+        }
 
         $nextProductId = array_key_exists('product_id', $data)
             ? (int) $data['product_id']
@@ -95,7 +176,7 @@ class StockInItemService
 
         $stockInItem->fill($payload)->save();
 
-        return $stockInItem->refresh()->load(['product:id,ref_num,product_name', 'lot:id,lot_number,status']);
+        return $stockInItem->refresh()->load($reload);
     }
 
     public function deleteItem(StockIn $stockIn, StockInItem $stockInItem): void

@@ -21,7 +21,9 @@ class InstrumentSetResource extends JsonResource
             'description' => $this->description,
             'is_active' => $this->is_active,
             'items_count' => $this->whenCounted('instrumentSetItems'),
+            'instruments_count' => $this->whenCounted('setInstruments'),
             'items' => $this->whenLoaded('instrumentSetItems', fn () => InstrumentSetItemResource::collection($this->instrumentSetItems)),
+            'instruments' => $this->whenLoaded('setInstruments', fn () => SetInstrumentResource::collection($this->setInstruments)),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
