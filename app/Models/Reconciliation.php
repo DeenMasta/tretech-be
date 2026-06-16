@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['consignment_id', 'return_session_id', 'reconciliation_no', 'pic_user_id', 'status', 'remarks', 'completed_at', 'completed_by_user_id', 'reopened_at', 'reopened_by_user_id', 'reopen_reason'])]
 class Reconciliation extends Model
@@ -50,10 +49,5 @@ class Reconciliation extends Model
     public function reconciliationItems(): HasMany
     {
         return $this->hasMany('App\\Models\\ReconciliationItem');
-    }
-
-    public function usageSummary(): HasOne
-    {
-        return $this->hasOne('App\\Models\\UsageSummary');
     }
 }

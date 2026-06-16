@@ -22,11 +22,6 @@ class Product extends Model
         return $this->hasMany('App\\Models\\StockInItem');
     }
 
-    public function usageSummaryItems(): HasMany
-    {
-        return $this->hasMany('App\\Models\\UsageSummaryItem');
-    }
-
     public function instrumentSetItems(): HasMany
     {
         return $this->hasMany('App\\Models\\InstrumentSetItem');

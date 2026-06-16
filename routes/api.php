@@ -24,7 +24,6 @@ use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
 use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
 use App\Http\Controllers\Api\V1\StockIn\StockInSessionController;
 use App\Http\Controllers\Api\V1\SupplierReturn\SupplierReturnController;
-use App\Http\Controllers\Api\V1\UsageSummary\UsageSummaryController;
 use Illuminate\Support\Facades\Route;
 
 // Public health-check endpoint (legacy and versioned path support).
@@ -439,25 +438,4 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:reports.export');
     });
 
-    // WEEK 4 — Usage Summary & ERP Integration
-    // GET    /v1/usage-summaries                          — list summaries
-    // GET    /v1/usage-summaries/{id}                     — show with items
-    // POST   /v1/usage-summaries/generate                 — generate from finalized reconciliation
-    // POST   /v1/usage-summaries/{id}/push                — dispatch ERP push
-    // GET    /v1/usage-summaries/{id}/push-logs           — list push attempt logs
-    // POST   /v1/usage-summaries/{id}/export              — download CSV/XLSX/PDF
-    Route::prefix('usage-summaries')->middleware('auth:sanctum')->group(function () {
-        Route::get('/', [UsageSummaryController::class, 'index'])
-            ->middleware('permission:usage_summary.view');
-        Route::post('/generate', [UsageSummaryController::class, 'generate'])
-            ->middleware('permission:usage_summary.generate');
-        Route::get('/{usageSummary}', [UsageSummaryController::class, 'show'])
-            ->middleware('permission:usage_summary.view');
-        Route::post('/{usageSummary}/push', [UsageSummaryController::class, 'push'])
-            ->middleware('permission:usage_summary.generate');
-        Route::get('/{usageSummary}/push-logs', [UsageSummaryController::class, 'pushLogs'])
-            ->middleware('permission:usage_summary.view_logs');
-        Route::post('/{usageSummary}/export', [UsageSummaryController::class, 'export'])
-            ->middleware('permission:usage_summary.view');
-    });
 });

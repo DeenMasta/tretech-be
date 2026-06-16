@@ -107,17 +107,6 @@ class User extends Authenticatable
         return $this->hasMany('App\\Models\\Reconciliation', 'reopened_by_user_id');
     }
 
-    // Usage Summary relationships
-    public function generatedUsageSummaries(): HasMany
-    {
-        return $this->hasMany('App\\Models\\UsageSummary', 'generated_by_user_id');
-    }
-
-    public function pushedUsageSummaries(): HasMany
-    {
-        return $this->hasMany('App\\Models\\UsageSummaryPushLog', 'pushed_by_user_id');
-    }
-
     // Disposal relationships
     public function picDisposals(): HasMany
     {

@@ -92,13 +92,6 @@ class PermissionSeeder extends Seeder
                 ['code' => 'reports.export', 'name' => 'Export Reports (CSV/XLSX/PDF)'],
             ],
 
-            // Usage Summary & Integration
-            'Usage Summary & Integration' => [
-                ['code' => 'usage_summary.view', 'name' => 'View Usage Summary'],
-                ['code' => 'usage_summary.generate', 'name' => 'Generate Usage Summary'],
-                ['code' => 'usage_summary.view_logs', 'name' => 'View Push Logs'],
-            ],
-
             // Audit & Governance
             'Audit & Governance' => [
                 ['code' => 'audit.view_logs', 'name' => 'View Audit Logs'],
@@ -145,7 +138,6 @@ class PermissionSeeder extends Seeder
                 'disposals.create', 'supplier_returns.view', 'supplier_returns.create', 'disposals.view',
                 'holding_area.view', 'holding_area.assign_lot',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
-                'usage_summary.view', 'usage_summary.generate', 'usage_summary.view_logs',
                 'audit.view_logs', 'audit.export_logs',
                 'system.configure', 'system.manage_users', 'system.manage_roles',
             ],

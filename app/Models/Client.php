@@ -17,11 +17,6 @@ class Client extends Model
         return $this->hasMany('App\\Models\\Consignment');
     }
 
-    public function usageSummaryItems(): HasMany
-    {
-        return $this->hasMany('App\\Models\\UsageSummaryItem');
-    }
-
     protected function casts(): array
     {
         return [

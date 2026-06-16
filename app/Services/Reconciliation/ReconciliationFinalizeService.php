@@ -12,14 +12,12 @@ use App\Models\ReconciliationItem;
 use App\Models\ReturnSessionItem;
 use App\Models\User;
 use App\Services\Audit\AuditLogService;
-use App\Services\UsageSummary\UsageSummaryGenerateService;
 use Illuminate\Support\Facades\DB;
 
 class ReconciliationFinalizeService
 {
     public function __construct(
         private readonly AuditLogService             $auditLogService,
-        private readonly UsageSummaryGenerateService $usageSummaryGenerateService,
     ) {
     }
 
@@ -184,9 +182,6 @@ class ReconciliationFinalizeService
                 'completedByUser:id,full_name',
                 'reconciliationItems.lot:id,lot_number,status',
             ]);
-
-            // Auto-generate usage summary now that reconciliation is finalized
-            $this->usageSummaryGenerateService->generate($refreshed, $actor);
 
             return $refreshed;
         });
