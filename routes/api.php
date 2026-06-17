@@ -255,14 +255,16 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:consignments.view');
         Route::post('/', [ConsignmentController::class, 'store'])
             ->middleware('permission:consignments.create');
+        Route::get('/{consignment}/review', [ConsignmentController::class, 'review'])
+            ->middleware('permission:consignments.view');
+        Route::get('/{consignment}/print', [ConsignmentController::class, 'print'])
+            ->middleware('permission:consignments.view');
         Route::get('/{consignment}', [ConsignmentController::class, 'show'])
             ->middleware('permission:consignments.view');
         Route::put('/{consignment}', [ConsignmentController::class, 'update'])
             ->middleware('permission:consignments.edit_draft');
         Route::patch('/{consignment}', [ConsignmentController::class, 'update'])
             ->middleware('permission:consignments.edit_draft');
-        Route::get('/{consignment}/review', [ConsignmentController::class, 'review'])
-            ->middleware('permission:consignments.view');
         Route::post('/{consignment}/confirm', [ConsignmentController::class, 'confirm'])
             ->middleware('permission:consignments.confirm');
         Route::put('/{consignment}/post-confirm-edit', [ConsignmentController::class, 'postConfirmEdit'])

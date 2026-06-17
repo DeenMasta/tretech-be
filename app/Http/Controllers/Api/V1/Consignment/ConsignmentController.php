@@ -13,8 +13,10 @@ use App\Services\Audit\AuditLogService;
 use App\Services\Consignment\ConsignmentConfirmService;
 use App\Services\Consignment\ConsignmentPostConfirmEditService;
 use App\Services\Consignment\ConsignmentService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class ConsignmentController extends Controller
 {
@@ -124,5 +126,23 @@ class ConsignmentController extends Controller
         $updated = $this->postConfirmEditService->edit($consignment, $request->validated(), $request->user());
 
         return $this->successResponse(new ConsignmentResource($updated), 'Consignment updated successfully');
+    }
+
+    public function print(Consignment $consignment): Response
+    {
+        $consignment->load([
+            'client:id,client_name',
+            'picUser:id,full_name',
+            'consignmentItems.lot.product:id,ref_num,product_name',
+            'consignmentItems.lot:id,lot_number,product_id',
+        ]);
+
+        $pdf = Pdf::loadView('exports.consignment-note', [
+            'consignment' => $consignment,
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = sprintf('consignment_%s_%s.pdf', $consignment->consignment_no, now()->format('Ymd_His'));
+
+        return $pdf->download($fileName);
     }
 }
