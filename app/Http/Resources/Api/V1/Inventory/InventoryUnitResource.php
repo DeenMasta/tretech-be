@@ -37,6 +37,7 @@ class InventoryUnitResource extends JsonResource
                 'ref_num'      => $this->product?->ref_num,
                 'product_name' => $this->product?->product_name,
                 'product_type' => $this->product?->product_type,
+                'category'     => $this->product?->category,
                 'uom'          => $this->product?->uom,
             ]),
 

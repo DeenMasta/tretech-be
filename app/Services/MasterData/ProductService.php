@@ -16,6 +16,9 @@ class ProductService
         $isActive = $filters['is_active'] ?? null;
 
         return Product::query()
+            ->withCount(['lots as available_lots_count' => function ($query) {
+                $query->where('status', 'available');
+            }])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('ref_num', 'like', "%{$search}%")
