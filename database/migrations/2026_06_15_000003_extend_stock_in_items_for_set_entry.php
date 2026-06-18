@@ -18,11 +18,17 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('stock_in_items', function (Blueprint $table) {
-            $table->dropForeign('fk_stock_in_items_product_id');
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->dropForeign('fk_stock_in_items_product_id');
+            }
         });
 
-        DB::statement('ALTER TABLE `stock_in_items` MODIFY `product_id` BIGINT UNSIGNED NULL');
-        DB::statement("ALTER TABLE `stock_in_items` MODIFY `supplier_batch_code` VARCHAR(255) NULL");
+        Schema::table('stock_in_items', function (Blueprint $table) {
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->unsignedBigInteger('product_id')->nullable()->change();
+                $table->string('supplier_batch_code')->nullable()->change();
+            }
+        });
 
         Schema::table('stock_in_items', function (Blueprint $table) {
             $table->string('entry_kind', 20)->default('product')->after('stock_in_id');
@@ -46,22 +52,14 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('stock_in_items', function (Blueprint $table) {
-            $table->dropForeign('fk_stock_in_items_product_id');
-            $table->dropForeign('fk_stock_in_items_instrument_set_id');
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->dropForeign('fk_stock_in_items_product_id');
+                $table->dropForeign('fk_stock_in_items_instrument_set_id');
+            }
             $table->dropIndex('idx_stock_in_items_entry_kind');
             $table->dropIndex('idx_stock_in_items_instrument_set_id');
             $table->dropColumn('entry_kind');
             $table->dropColumn('instrument_set_id');
-        });
-
-        DB::statement('ALTER TABLE `stock_in_items` MODIFY `product_id` BIGINT UNSIGNED NOT NULL');
-        DB::statement("ALTER TABLE `stock_in_items` MODIFY `supplier_batch_code` VARCHAR(255) NOT NULL");
-
-        Schema::table('stock_in_items', function (Blueprint $table) {
-            $table->foreign('product_id', 'fk_stock_in_items_product_id')
-                ->references('id')->on('products')
-                ->onUpdate('cascade')
-                ->onDelete('restrict');
         });
     }
 };

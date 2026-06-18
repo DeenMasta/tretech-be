@@ -35,7 +35,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('consignment_items', function (Blueprint $table) {
-            $table->dropForeign(['instrument_set_id']);
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->dropForeign(['instrument_set_id']);
+            }
             $table->dropColumn(['entry_kind', 'instrument_set_id']);
 
             // Restore lot_id as NOT NULL.

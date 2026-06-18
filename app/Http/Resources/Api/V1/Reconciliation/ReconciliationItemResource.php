@@ -29,9 +29,26 @@ class ReconciliationItemResource extends JsonResource
                     ] : null,
                 ];
             }),
-            'result'     => $this->result,
-            'remarks'    => $this->remarks,
-            'created_at' => $this->created_at?->toIso8601String(),
+            'result'             => $this->result,
+            'remarks'            => $this->remarks,
+            'instrument_results' => $this->whenLoaded('setInstrumentResults', function () {
+                return $this->setInstrumentResults->map(fn ($item) => [
+                    'set_instrument_id' => $item->set_instrument_id,
+                    'product_id'        => $item->product_id,
+                    'expected_quantity' => $item->expected_quantity,
+                    'returned_quantity' => $item->returned_quantity,
+                    'used_quantity'     => $item->used_quantity,
+                    'missing_quantity'  => $item->missing_quantity,
+                    'damaged_quantity'  => $item->damaged_quantity,
+                    'result'            => $item->result,
+                    'product'           => $item->relationLoaded('product') ? [
+                        'id'           => $item->product?->id,
+                        'product_name' => $item->product?->product_name,
+                        'ref_num'      => $item->product?->ref_num,
+                    ] : null,
+                ]);
+            }),
+            'created_at'         => $this->created_at?->toIso8601String(),
         ];
     }
 }

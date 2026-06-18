@@ -44,7 +44,18 @@ class StoreStockInItemRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:255',
-                Rule::requiredIf(fn () => !$isSet && !$this->boolean('missing_lot_flag')),
+                Rule::requiredIf(function () use ($isSet) {
+                    if ($isSet || $this->boolean('missing_lot_flag')) {
+                        return false;
+                    }
+                    if ($productId = $this->input('product_id')) {
+                        $product = \App\Models\Product::find($productId);
+                        if ($product && !$product->requires_lot) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }),
             ],
             'supplier_batch_code' => [
                 Rule::requiredIf(fn () => !$isSet),

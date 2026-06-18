@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['reconciliation_id', 'lot_id', 'result', 'remarks'])]
+#[Fillable(['reconciliation_id', 'lot_id', 'instrument_set_id', 'product_id', 'result', 'remarks'])]
 class ReconciliationItem extends Model
 {
     use HasFactory;
@@ -29,5 +29,15 @@ class ReconciliationItem extends Model
     public function setInstrumentResults(): HasMany
     {
         return $this->hasMany('App\\Models\\ReconciliationSetInstrumentResult');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo('App\\Models\\Product');
+    }
+
+    public function instrumentSet(): BelongsTo
+    {
+        return $this->belongsTo('App\\Models\\InstrumentSet');
     }
 }

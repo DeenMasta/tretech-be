@@ -52,7 +52,7 @@ class ReconciliationFinalizeServiceTest extends ServiceTestCase
         $this->assertSame('finalized', $result->status);
 
         foreach ($lots as $lot) {
-            $this->assertSame('available', $lot->refresh()->status);
+            $this->assertSame('holding', $lot->refresh()->status);
         }
 
         $this->assertSame(0, ReconciliationItem::query()
@@ -134,7 +134,7 @@ class ReconciliationFinalizeServiceTest extends ServiceTestCase
 
         // No ConsignmentItems were created
         $this->expectException(BusinessLogicException::class);
-        $this->expectExceptionMessageMatches('/no consigned lots/i');
+        $this->expectExceptionMessageMatches('/no consigned items/i');
 
         $this->service->finalize($reconciliation, $this->actor);
     }

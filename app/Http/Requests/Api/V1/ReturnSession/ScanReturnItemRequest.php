@@ -17,10 +17,16 @@ class ScanReturnItemRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'lot_id'           => ['nullable', 'integer', 'exists:lots,id'],
-            'lot_number'       => ['nullable', 'string', 'max:255'],
+            'lot_id'            => ['nullable', 'integer', 'exists:lots,id'],
+            'lot_number'        => ['nullable', 'string', 'max:255'],
+            'instrument_set_id' => ['nullable', 'integer', 'exists:instrument_sets,id'],
+            'product_id'        => ['nullable', 'integer', 'exists:products,id'],
             'source_qr_payload' => ['nullable', 'string'],
             'remarks'          => ['nullable', 'string'],
+            'instrument_results'                     => ['nullable', 'array'],
+            'instrument_results.*.set_instrument_id' => ['nullable', 'integer', 'exists:set_instruments,id'],
+            'instrument_results.*.product_id'        => ['nullable', 'integer', 'exists:products,id'],
+            'instrument_results.*.returned_quantity' => ['required', 'integer', 'min:0'],
         ];
     }
 
@@ -42,8 +48,13 @@ class ScanReturnItemRequest extends FormRequest
     public function withValidator(\Illuminate\Validation\Validator $validator): void
     {
         $validator->after(function ($v) {
-            if (empty($this->input('lot_id')) && empty($this->input('lot_number'))) {
-                $v->errors()->add('lot_id', 'Either lot_id or lot_number must be provided.');
+            if (
+                empty($this->input('lot_id')) && 
+                empty($this->input('lot_number')) &&
+                empty($this->input('instrument_set_id')) &&
+                empty($this->input('product_id'))
+            ) {
+                $v->errors()->add('item', 'Either a lot, instrument set, or product must be provided.');
             }
         });
     }

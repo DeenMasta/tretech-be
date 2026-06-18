@@ -29,56 +29,151 @@ class ReturnScanService
             throw new BusinessLogicException('Items can only be scanned into an in-progress return session.');
         }
 
-        $lot = $this->resolveLot($data);
+        $isGenericSet = !empty($data['instrument_set_id']);
+        $isGenericProduct = !empty($data['product_id']);
+        $isLot = !empty($data['lot_id']) || !empty($data['lot_number']);
 
-        // Lot must be supplied (i.e. it was consigned)
-        if ($lot->status !== 'supplied') {
-            throw new BusinessLogicException(
-                "Lot {$lot->lot_number} cannot be returned (current status: {$lot->status})."
-            );
+        if ($isLot) {
+            $lot = $this->resolveLot($data);
+
+            if ($lot->status !== 'supplied') {
+                throw new BusinessLogicException(
+                    "Lot {$lot->lot_number} cannot be returned (current status: {$lot->status})."
+                );
+            }
+
+            $belongsToConsignment = ConsignmentItem::query()
+                ->where('consignment_id', $session->consignment_id)
+                ->where('lot_id', $lot->id)
+                ->exists();
+
+            if (!$belongsToConsignment) {
+                throw new BusinessLogicException(
+                    "Lot {$lot->lot_number} was not part of the consignment linked to this return session."
+                );
+            }
+
+            $alreadyScanned = ReturnSessionItem::query()
+                ->where('return_session_id', $session->id)
+                ->where('lot_id', $lot->id)
+                ->exists();
+
+            if ($alreadyScanned) {
+                throw new BusinessLogicException("Lot {$lot->lot_number} has already been scanned in this return session.");
+            }
+
+            if ($lot->isSetInstance() && empty($data['instrument_results'])) {
+                throw new BusinessLogicException('Instrument results must be provided when scanning a set instance.');
+            }
+
+            $item = ReturnSessionItem::query()->create([
+                'return_session_id'    => $session->id,
+                'lot_id'               => $lot->id,
+                'returned_at'          => now(),
+                'returned_by_user_id'  => $actor->id,
+                'source_qr_payload'    => $data['source_qr_payload'] ?? null,
+                'remarks'              => $data['remarks'] ?? null,
+            ]);
+
+            $description = "Scanned lot {$lot->lot_number} into return session {$session->return_session_no}";
+            $isSet = $lot->isSetInstance();
+
+        } else if ($isGenericSet) {
+            $setId = (int) $data['instrument_set_id'];
+
+            $belongsToConsignment = ConsignmentItem::query()
+                ->where('consignment_id', $session->consignment_id)
+                ->where('instrument_set_id', $setId)
+                ->whereNull('lot_id')
+                ->exists();
+
+            if (!$belongsToConsignment) {
+                throw new BusinessLogicException("This instrument set was not part of the consignment linked to this return session.");
+            }
+
+            $alreadyScanned = ReturnSessionItem::query()
+                ->where('return_session_id', $session->id)
+                ->where('instrument_set_id', $setId)
+                ->exists();
+
+            if ($alreadyScanned) {
+                throw new BusinessLogicException("This generic instrument set has already been scanned in this return session.");
+            }
+
+            if (empty($data['instrument_results'])) {
+                throw new BusinessLogicException('Instrument results must be provided when scanning an instrument set.');
+            }
+
+            $item = ReturnSessionItem::query()->create([
+                'return_session_id'    => $session->id,
+                'instrument_set_id'    => $setId,
+                'returned_at'          => now(),
+                'returned_by_user_id'  => $actor->id,
+                'source_qr_payload'    => $data['source_qr_payload'] ?? null,
+                'remarks'              => $data['remarks'] ?? null,
+            ]);
+
+            $description = "Scanned generic set into return session {$session->return_session_no}";
+            $isSet = true;
+
+        } else if ($isGenericProduct) {
+            $productId = (int) $data['product_id'];
+
+            $belongsToConsignment = ConsignmentItem::query()
+                ->where('consignment_id', $session->consignment_id)
+                ->where('product_id', $productId)
+                ->whereNull('lot_id')
+                ->exists();
+
+            if (!$belongsToConsignment) {
+                throw new BusinessLogicException("This product was not part of the consignment linked to this return session.");
+            }
+
+            $alreadyScanned = ReturnSessionItem::query()
+                ->where('return_session_id', $session->id)
+                ->where('product_id', $productId)
+                ->exists();
+
+            if ($alreadyScanned) {
+                throw new BusinessLogicException("This generic product has already been scanned in this return session.");
+            }
+
+            $item = ReturnSessionItem::query()->create([
+                'return_session_id'    => $session->id,
+                'product_id'           => $productId,
+                'returned_at'          => now(),
+                'returned_by_user_id'  => $actor->id,
+                'source_qr_payload'    => $data['source_qr_payload'] ?? null,
+                'remarks'              => $data['remarks'] ?? null,
+            ]);
+
+            $description = "Scanned generic product into return session {$session->return_session_no}";
+            $isSet = false;
+        } else {
+            throw new BusinessLogicException('No valid item provided for scanning.');
         }
-
-        // Lot must belong to the consignment linked to this session
-        $belongsToConsignment = ConsignmentItem::query()
-            ->where('consignment_id', $session->consignment_id)
-            ->where('lot_id', $lot->id)
-            ->exists();
-
-        if (!$belongsToConsignment) {
-            throw new BusinessLogicException(
-                "Lot {$lot->lot_number} was not part of the consignment linked to this return session."
-            );
-        }
-
-        // Prevent duplicate scanning within the same session
-        $alreadyScanned = ReturnSessionItem::query()
-            ->where('return_session_id', $session->id)
-            ->where('lot_id', $lot->id)
-            ->exists();
-
-        if ($alreadyScanned) {
-            throw new BusinessLogicException("Lot {$lot->lot_number} has already been scanned in this return session.");
-        }
-
-        $item = ReturnSessionItem::query()->create([
-            'return_session_id'    => $session->id,
-            'lot_id'               => $lot->id,
-            'returned_at'          => now(),
-            'returned_by_user_id'  => $actor->id,
-            'source_qr_payload'    => $data['source_qr_payload'] ?? null,
-            'remarks'              => $data['remarks'] ?? null,
-        ]);
 
         $this->auditLogService->logModelAction(
             auditableType: ReturnSessionItem::class,
             auditableId:   $item->id,
             actionType:    AuditAction::RETURN_SESSION_ITEM_SCANNED,
             actor:         $actor,
-            description:   "Scanned lot {$lot->lot_number} into return session {$session->return_session_no}",
+            description:   $description,
             after: $item->toArray(),
         );
 
-        return $item->load(['lot.product:id,ref_num,product_name']);
+        if ($isSet && !empty($data['instrument_results'])) {
+            foreach ($data['instrument_results'] as $result) {
+                $item->setInstrumentItems()->create([
+                    'set_instrument_id' => $result['set_instrument_id'] ?? null,
+                    'product_id'        => $result['product_id'] ?? null,
+                    'returned_quantity' => $result['returned_quantity'],
+                    'remarks'           => null,
+                ]);
+            }
+        }
+
+        return $item->load(['lot.product:id,ref_num,product_name', 'instrumentSet', 'product:id,ref_num,product_name']);
     }
 
     /**

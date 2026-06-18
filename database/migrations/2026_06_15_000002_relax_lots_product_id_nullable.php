@@ -21,11 +21,15 @@ return new class extends Migration {
     {
         // We need to drop the FK before changing nullability on MySQL.
         Schema::table('lots', function (Blueprint $table) {
-            $table->dropForeign('fk_lots_product_id');
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->dropForeign('fk_lots_product_id');
+            }
         });
 
         // Use raw DDL because doctrine/dbal isn't included in this project.
-        DB::statement('ALTER TABLE `lots` MODIFY `product_id` BIGINT UNSIGNED NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE `lots` MODIFY `product_id` BIGINT UNSIGNED NULL');
+        }
 
         Schema::table('lots', function (Blueprint $table) {
             $table->foreign('product_id', 'fk_lots_product_id')
@@ -40,10 +44,15 @@ return new class extends Migration {
         // Roll back to NOT NULL. Any rows where product_id is null must be
         // cleaned up manually first; we deliberately do not coerce them here.
         Schema::table('lots', function (Blueprint $table) {
-            $table->dropForeign('fk_lots_product_id');
+            if (DB::getDriverName() !== 'sqlite') {
+                // Drop existing foreign key
+                $table->dropForeign('fk_lots_product_id');
+            }
         });
 
-        DB::statement('ALTER TABLE `lots` MODIFY `product_id` BIGINT UNSIGNED NOT NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE `lots` MODIFY `product_id` BIGINT UNSIGNED NOT NULL');
+        }
 
         Schema::table('lots', function (Blueprint $table) {
             $table->foreign('product_id', 'fk_lots_product_id')

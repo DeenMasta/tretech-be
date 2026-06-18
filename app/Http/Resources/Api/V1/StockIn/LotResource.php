@@ -17,6 +17,7 @@ class LotResource extends JsonResource
         return [
             'id' => $this->id,
             'product_id' => $this->product_id,
+            'instrument_set_id' => $this->instrument_set_id,
             'supplier_id' => $this->supplier_id,
             'lot_number' => $this->lot_number,
 

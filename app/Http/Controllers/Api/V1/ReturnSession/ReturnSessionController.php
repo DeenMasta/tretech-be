@@ -54,6 +54,7 @@ class ReturnSessionController extends Controller
             'picUser:id,full_name',
             'completedByUser:id,full_name',
             'returnSessionItems.lot.product:id,ref_num,product_name',
+            'returnSessionItems.setInstrumentItems',
         ])->loadCount('returnSessionItems');
 
         return $this->successResponse(new ReturnSessionResource($returnSession), 'Return session fetched successfully');

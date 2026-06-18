@@ -33,6 +33,14 @@ class ReturnSessionItemResource extends JsonResource
             'returned_by_user_id'  => $this->returned_by_user_id,
             'source_qr_payload'    => $this->source_qr_payload,
             'remarks'              => $this->remarks,
+            'instrument_results'   => $this->whenLoaded('setInstrumentItems', function () {
+                return $this->setInstrumentItems->map(fn ($item) => [
+                    'set_instrument_id' => $item->set_instrument_id,
+                    'product_id'        => $item->product_id,
+                    'returned_quantity' => $item->returned_quantity,
+                    'remarks'           => $item->remarks,
+                ]);
+            }),
             'created_at'           => $this->created_at?->toIso8601String(),
         ];
     }
