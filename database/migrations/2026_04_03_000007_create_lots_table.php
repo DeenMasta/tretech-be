@@ -14,7 +14,7 @@ return new class extends Migration
             $table->unsignedBigInteger('instrument_set_id')->nullable();
             $table->unsignedBigInteger('supplier_id')->nullable();
             $table->string('lot_number')->unique('uq_lots_lot_number');
-            $table->string('original_lot_number')->nullable();
+
             $table->boolean('is_system_generated_lot')->default(false);
             $table->string('supplier_batch_code');
             $table->date('expiry_date')->nullable();
@@ -32,7 +32,7 @@ return new class extends Migration
             $table->index(['current_location_type', 'current_location_id'], 'idx_lots_location');
             $table->index('supplier_batch_code', 'idx_lots_supplier_batch_code');
             $table->index('expiry_date', 'idx_lots_expiry_date');
-            $table->index('original_lot_number', 'idx_lots_original_lot_number');
+
 
             $table->foreign('product_id', 'fk_lots_product_id')
                 ->references('id')->on('products')

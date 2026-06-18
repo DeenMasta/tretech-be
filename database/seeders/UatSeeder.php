@@ -588,7 +588,7 @@ class UatSeeder extends Seeder
             'instrument_set_id'     => null,
             'supplier_id'           => $params['supplier_id'],
             'lot_number'            => $params['lot_number'],
-            'original_lot_number'   => null,
+
             'is_system_generated_lot' => false,
             'supplier_batch_code'   => $params['supplier_batch_code'],
             'expiry_date'           => $params['expiry_date'],

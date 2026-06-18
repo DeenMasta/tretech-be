@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['product_id', 'instrument_set_id', 'supplier_id', 'lot_number', 'original_lot_number', 'is_system_generated_lot', 'supplier_batch_code', 'expiry_date', 'status', 'current_location_type', 'current_location_id', 'remarks', 'received_at'])]
+#[Fillable(['product_id', 'instrument_set_id', 'supplier_id', 'lot_number', 'is_system_generated_lot', 'supplier_batch_code', 'expiry_date', 'status', 'current_location_type', 'current_location_id', 'remarks', 'received_at'])]
 class Lot extends Model
 {
     use HasFactory;

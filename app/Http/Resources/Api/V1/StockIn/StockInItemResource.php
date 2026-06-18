@@ -36,10 +36,37 @@ class StockInItemResource extends JsonResource
                     return null;
                 }
 
+                $items = collect();
+
+                if ($this->instrumentSet->relationLoaded('instrumentSetItems')) {
+                    foreach ($this->instrumentSet->instrumentSetItems as $item) {
+                        $items->push([
+                            'id' => $item->id,
+                            'name' => $item->product?->product_name ?? 'Unknown Product',
+                            'code' => $item->product?->ref_num,
+                            'quantity' => $item->quantity,
+                            'type' => 'product',
+                        ]);
+                    }
+                }
+
+                if ($this->instrumentSet->relationLoaded('setInstruments')) {
+                    foreach ($this->instrumentSet->setInstruments as $inst) {
+                        $items->push([
+                            'id' => $inst->id,
+                            'name' => $inst->name,
+                            'code' => $inst->code,
+                            'quantity' => $inst->quantity,
+                            'type' => 'instrument',
+                        ]);
+                    }
+                }
+
                 return [
                     'id' => $this->instrumentSet->id,
                     'set_code' => $this->instrumentSet->set_code,
                     'set_name' => $this->instrumentSet->set_name,
+                    'items' => $items->toArray(),
                 ];
             }),
             'lot_id' => $this->lot_id,

@@ -37,6 +37,11 @@ class ConsignmentConfirmService
             }
 
             foreach ($locked->consignmentItems as $item) {
+                // Set-type items track the instrument set reference only — no lot validation needed.
+                if ($item->isSetEntry()) {
+                    continue;
+                }
+
                 $lot = $item->lot;
 
                 if ($lot === null) {
@@ -51,6 +56,11 @@ class ConsignmentConfirmService
             }
 
             foreach ($locked->consignmentItems as $item) {
+                // Set-type items have no associated lot — skip lot movement.
+                if ($item->isSetEntry()) {
+                    continue;
+                }
+
                 $lot = $item->lot;
 
                 $fromStatus = $lot->status;

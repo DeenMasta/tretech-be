@@ -97,6 +97,26 @@
             padding: 16px;
         }
 
+        /* ── Signatures ── */
+        .signatures {
+            width: 100%;
+            margin-top: 60px;
+            page-break-inside: avoid;
+        }
+        .signatures td {
+            width: 50%;
+            vertical-align: top;
+            text-align: center;
+        }
+        .signature-line {
+            border-top: 1.5px solid #111;
+            width: 220px;
+            margin: 0 auto;
+            padding-top: 6px;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
         /* ── Footer ── */
         .footer {
             margin-top: 20px;
@@ -110,15 +130,36 @@
 <body>
 
     {{-- ═══ HEADER ═══ --}}
-    <div class="header">
-        <div>
-            <div class="company-name">Tremed Surgical Solution Sdn. Bhd.</div>
-            <div class="company-reg">(202301013019 / 1506941-M)</div>
-            <div class="company-address">
-                No 6-1, Block A, Zenith Corporate Park, Jalan SS 7/26, Kelana Jaya, 47301 Petaling Jaya, Selangor.<br>
-                Tel : +603-7886 1704 / +6012-633 8787 &nbsp;&nbsp; Email : tremedsurgical@gmail.com
-            </div>
-        </div>
+    <div class="header" style="width: 100%; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px;">
+        <table style="width: 100%; border: none;">
+            <tr>
+                <td style="width: 90px; vertical-align: middle; border: none; padding: 0;">
+                    @php
+                        $logoPath = base_path('../tretech-frontend/src/assets/tremed_logo.png');
+                        $logoData = '';
+                        if (file_exists($logoPath)) {
+                            $type = pathinfo($logoPath, PATHINFO_EXTENSION);
+                            $data = file_get_contents($logoPath);
+                            $logoData = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                        }
+                    @endphp
+                    @if($logoData)
+                        <img src="{{ $logoData }}" alt="Logo" style="width: 130px; height: auto;">
+                    @endif
+                </td>
+                <td style="vertical-align: top; border: none; padding: 10;">
+                    <div class="company-name">Tremed Surgical Solution Sdn. Bhd.</div>
+                    <div class="company-reg">(202301013019 / 1506941-M)</div>
+                    <div class="company-address">
+                        No 6-1, Block A, Zenith Corporate Park, Jalan SS 7/26, Kelana Jaya, 47301 Petaling Jaya, Selangor.<br>
+                        Tel : +603-7886 1704 / +6012-633 8787 &nbsp;&nbsp; Email : tremedsurgical@gmail.com
+                    </div>
+                </td>
+                <td style="vertical-align: middle; border: none; padding: 0; text-align: right;">
+                    <div class="doc-type-badge" style="margin-bottom: 0;">Consignment / Template</div>
+                </td>
+            </tr>
+        </table>
     </div>
 
     {{-- ═══ INFO BOX ═══ --}}
@@ -151,9 +192,8 @@
                     </table>
                 </td>
 
-                {{-- Right column: Badge + dates + prepared by + ref --}}
+                {{-- Right column: dates + prepared by + ref --}}
                 <td class="info-col-right">
-                    <div class="doc-type-badge">Consignment / Template</div>
                     <table>
                         <tr class="field-row">
                             <td class="field-label">Date Prepared</td>
@@ -189,7 +229,7 @@
                 <th style="width:80px;">Product Code</th>
                 <th class="th-desc">
                     Description<br>
-                    <span class="th-sub">Set / Instrument list</span>
+                    <!-- <span class="th-sub">Set / Instrument list</span> -->
                 </th>
                 <th style="width:42px;">Proposed<br>Qty</th>
                 <th style="width:70px;">Lot No</th>
@@ -199,29 +239,116 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($consignment->consignmentItems as $index => $item)
-            <tr>
-                <td class="center">{{ $index + 1 }}</td>
-                <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
-                <td>{{ $item->lot?->product?->product_name ?? '-' }}</td>
-                <td class="center">1</td>
-                <td>{{ $item->lot?->lot_number ?? '-' }}</td>
-                <td class="center">&nbsp;</td>
-                <td class="center">&nbsp;</td>
-                <td>{{ $item->remarks ?? '' }}</td>
-            </tr>
-            @empty
-            <tr class="empty-row">
-                <td colspan="8">No items in this consignment.</td>
-            </tr>
-            @endforelse
+            @php
+                $setItems = $consignment->consignmentItems->filter(fn($i) => $i->entry_kind === 'set');
+                $lotItems = $consignment->consignmentItems->filter(fn($i) => $i->entry_kind === 'lot' || empty($i->entry_kind));
+                $hasSets = $setItems->isNotEmpty();
+                $hasLots = $lotItems->isNotEmpty();
+            @endphp
+
+            @if(!$hasSets && !$hasLots)
+                <tr class="empty-row">
+                    <td colspan="8">No items in this consignment.</td>
+                </tr>
+            @endif
+
+            {{-- 1. Sets --}}
+            @foreach($setItems as $setItem)
+                <tr>
+                    <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                        {{ $setItem->instrumentSet?->set_name }} {{ $setItem->instrumentSet?->set_code ? '(' . $setItem->instrumentSet->set_code . ')' : '' }}
+                    </td>
+                </tr>
+                
+                @php $setNo = 1; @endphp
+                
+                @if($setItem->instrumentSet && $setItem->instrumentSet->relationLoaded('instrumentSetItems'))
+                    @foreach($setItem->instrumentSet->instrumentSetItems as $subItem)
+                        <tr>
+                            <td class="center">{{ $setNo++ }}</td>
+                            <td>{{ $subItem->product?->ref_num ?? '-' }}</td>
+                            <td>{{ $subItem->product?->product_name ?? '-' }}</td>
+                            <td class="center">{{ $subItem->quantity }}</td>
+                            <td>-</td>
+                            <td class="center">&nbsp;</td>
+                            <td class="center">&nbsp;</td>
+                            <td>{{ $setItem->remarks ?? '' }}</td>
+                        </tr>
+                    @endforeach
+                @endif
+                
+                @if($setItem->instrumentSet && $setItem->instrumentSet->relationLoaded('setInstruments'))
+                    @foreach($setItem->instrumentSet->setInstruments as $subItem)
+                        <tr>
+                            <td class="center">{{ $setNo++ }}</td>
+                            <td>{{ $subItem->code ?? '-' }}</td>
+                            <td>{{ $subItem->name ?? '-' }}</td>
+                            <td class="center">{{ $subItem->quantity }}</td>
+                            <td>-</td>
+                            <td class="center">&nbsp;</td>
+                            <td class="center">&nbsp;</td>
+                            <td>{{ $setItem->remarks ?? '' }}</td>
+                        </tr>
+                    @endforeach
+                @endif
+                
+                {{-- If the set itself is somehow empty --}}
+                @if($setNo === 1)
+                    <tr>
+                        <td colspan="8" class="center" style="color: #888; font-style: italic;">No instruments listed in this set.</td>
+                    </tr>
+                @endif
+            @endforeach
+
+            {{-- 2. Implants --}}
+            @if($hasLots)
+                <tr>
+                    <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                        Implants
+                    </td>
+                </tr>
+                @php $implantNo = 1; @endphp
+                @foreach($lotItems as $item)
+                    <tr>
+                        <td class="center">{{ $implantNo++ }}</td>
+                        <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
+                        <td>{{ $item->lot?->product?->product_name ?? '-' }}</td>
+                        <td class="center">1</td>
+                        <td>{{ $item->lot?->lot_number ?? '-' }}</td>
+                        <td class="center">&nbsp;</td>
+                        <td class="center">&nbsp;</td>
+                        <td>{{ $item->remarks ?? '' }}</td>
+                    </tr>
+                @endforeach
+            @endif
         </tbody>
     </table>
 
-    {{-- ═══ FOOTER ═══ --}}
+    {{-- ═══ SIGNATURES ═══ --}}
+    <table class="signatures">
+        <tr>
+            <td>
+                <div class="signature-line">
+                    TREMED SURGICAL SOLUTION
+                </div>
+            </td>
+            <td>
+                <div class="signature-line">
+                    CUSTOMER SIGNATURE & STAMP
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- {{-- ═══ FOOTER ═══ --}}
     <div class="footer">
-        Printed at: {{ now()->format('d M Y H:i') }}
-    </div>
+        <table style="width: 100%; border: none; font-size: 8px; color: #666;">
+            <tr>
+
+                <td style="text-align: right; border: none; padding: 0;">Printed at: {{ now()->format('d M Y H:i') }}</td>
+            </tr>
+        </table>
+    </div> -->
 
 </body>
 </html>

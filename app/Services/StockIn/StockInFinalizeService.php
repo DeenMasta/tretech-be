@@ -121,7 +121,7 @@ class StockInFinalizeService
             'product_id' => $item->product_id,
             'supplier_id' => $stockIn->supplier_id,
             'lot_number' => $lotNumber,
-            'original_lot_number' => $isHolding ? ($incomingLotNumber !== '' ? $incomingLotNumber : null) : null,
+
             'is_system_generated_lot' => $isHolding,
             'supplier_batch_code' => $item->supplier_batch_code,
             'expiry_date' => $item->expiry_date,
@@ -170,7 +170,7 @@ class StockInFinalizeService
      */
     private function createSetInstanceLot(StockIn $stockIn, StockInItem $item, User $actor): Lot
     {
-        $set = InstrumentSet::query()->select(['id', 'set_code', 'set_name'])->find($item->instrument_set_id);
+        $set = InstrumentSet::query()->find($item->instrument_set_id, ['id', 'set_code', 'set_name']);
 
         if (!$set) {
             throw new BusinessLogicException('Selected instrument set is not found.');
@@ -183,7 +183,7 @@ class StockInFinalizeService
             'instrument_set_id' => $set->id,
             'supplier_id' => $stockIn->supplier_id,
             'lot_number' => $lotNumber,
-            'original_lot_number' => null,
+
             'is_system_generated_lot' => true,
             'supplier_batch_code' => null,
             'expiry_date' => null,

@@ -19,7 +19,7 @@ class InventoryUnitResource extends JsonResource
         return [
             'id'                      => $this->id,
             'lot_number'              => $this->lot_number,
-            'original_lot_number'     => $this->original_lot_number,
+
             'is_system_generated_lot' => (bool) $this->is_system_generated_lot,
             'supplier_batch_code'     => $this->supplier_batch_code,
             'expiry_date'             => $this->expiry_date?->format('Y-m-d'),

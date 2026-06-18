@@ -25,6 +25,8 @@ class StockInItemService
             ->with([
                 'product:id,ref_num,product_name',
                 'instrumentSet:id,set_code,set_name',
+                'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
+                'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
                 'lot:id,lot_number,status',
             ])
             ->orderByDesc('id')
@@ -81,6 +83,8 @@ class StockInItemService
         ])->load([
             'product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
+            'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
+            'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
             'lot:id,lot_number,status',
         ]);
     }
@@ -122,6 +126,8 @@ class StockInItemService
         ])->load([
             'product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
+            'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
+            'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
             'lot:id,lot_number,status',
         ]);
     }
@@ -137,6 +143,8 @@ class StockInItemService
         $reload = [
             'product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
+            'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
+            'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
             'lot:id,lot_number,status',
         ];
 

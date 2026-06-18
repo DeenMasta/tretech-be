@@ -22,13 +22,20 @@ class QrPayloadService
      */
     public function generatePayload(Lot $lot): string
     {
-        $lot->loadMissing('product:id,ref_num');
+        $lot->loadMissing(['product:id,ref_num', 'instrumentSet:id,set_code']);
 
-        $ref   = $lot->product?->ref_num ?? '';
+        if ($lot->product_id !== null) {
+            $ref = $lot->product?->ref_num ?? '';
+        } elseif ($lot->instrument_set_id !== null) {
+            $ref = $lot->instrumentSet?->set_code ?? '';
+        } else {
+            $ref = '';
+        }
+
         $lotNo = $lot->lot_number ?? '';
 
         if ($ref === '' || $lotNo === '') {
-            throw new BusinessLogicException('Cannot generate QR payload: lot is missing ref_num or lot_number.');
+            throw new BusinessLogicException('Cannot generate QR payload: lot is missing ref_num/set_code or lot_number.');
         }
 
         $batch = ($lot->supplier_batch_code !== null && $lot->supplier_batch_code !== '')
@@ -111,10 +118,18 @@ class QrPayloadService
      */
     public function buildTsplPayload(string $qrPayload, Lot $lot): string
     {
-        $lot->loadMissing('product:id,ref_num,product_name');
+        $lot->loadMissing(['product:id,ref_num,product_name', 'instrumentSet:id,set_code,set_name']);
 
-        $ref        = $lot->product?->ref_num ?? '-';
-        $productName = $lot->product?->product_name ?? '';
+        if ($lot->product_id !== null) {
+            $ref         = $lot->product?->ref_num ?? '-';
+            $productName = $lot->product?->product_name ?? '';
+        } elseif ($lot->instrument_set_id !== null) {
+            $ref         = $lot->instrumentSet?->set_code ?? '-';
+            $productName = $lot->instrumentSet?->set_name ?? '';
+        } else {
+            $ref         = '-';
+            $productName = '';
+        }
         $lotNo      = $lot->lot_number;
         $exp        = $lot->expiry_date ? $lot->expiry_date->format('d/m/Y') : 'NO EXPIRY';
 
