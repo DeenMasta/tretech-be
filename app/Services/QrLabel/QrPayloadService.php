@@ -148,12 +148,12 @@ class QrPayloadService
             // QR code: top-left area
             "QRCODE 20,20,H,4,A,0,M2,S6,\"{$qrPayload}\"",
             // Company Address Header: right of QR code
-            "TEXT 200,20,\"2\",0,1,1,\"TREMED Surgical Solution Sdn Bhd\"",
-            "TEXT 200,50,\"1\",0,1,1,\"No 6-1, Block A, Zenith Corporate\"",
-            "TEXT 200,70,\"1\",0,1,1,\"Park, Jalan SS 7/26, Kelana Jaya\"",
-            "TEXT 200,90,\"1\",0,1,1,\"47301 Petaling Jaya, Selangor\"",
-            "TEXT 200,110,\"1\",0,1,1,\"Tel: 0126338787\"",
-            "TEXT 200,130,\"1\",0,1,1,\"Email: finance@tremedsurgical.com\"",
+            "TEXT 220,20,\"2\",0,1,1,\"TREMED Surgical Solution Sdn Bhd\"",
+            "TEXT 220,50,\"1\",0,1,1,\"No 6-1, Block A, Zenith Corporate\"",
+            "TEXT 220,70,\"1\",0,1,1,\"Park, Jalan SS 7/26, Kelana Jaya\"",
+            "TEXT 220,90,\"1\",0,1,1,\"47301 Petaling Jaya, Selangor\"",
+            "TEXT 220,110,\"1\",0,1,1,\"Tel: 0126338787\"",
+            "TEXT 220,130,\"1\",0,1,1,\"Email: finance@tremedsurgical.com\"",
         ];
 
         if ($lot->product_id !== null) {
