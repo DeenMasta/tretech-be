@@ -91,8 +91,17 @@ class QrPayloadService
      */
     public function createLabelForLot(Lot $lot, User $actor): QrLabel
     {
-        $existing = QrLabel::query()->where('lot_id', $lot->id)->first();
+        $existing = QrLabel::query()->where(['lot_id' => $lot->id])->first();
         if ($existing !== null) {
+            // Self-heal: if the stored payload is the old JSON format, regenerate it.
+            if (str_starts_with(trim($existing->qr_payload), '{')) {
+                try {
+                    $existing->qr_payload = $this->generatePayload($lot);
+                    $existing->save();
+                } catch (\Throwable) {
+                    // Ignore regeneration errors; buildTsplPayload will also regenerate.
+                }
+            }
             return $existing;
         }
 
@@ -122,6 +131,14 @@ class QrPayloadService
         $lotNo = $lot->lot_number;
         $exp   = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';
 
+        // Always regenerate the canonical QR payload from the lot to avoid
+        // using stale records that may contain the old JSON format.
+        try {
+            $qrPayload = $this->generatePayload($lot);
+        } catch (\Throwable) {
+            // If regeneration fails, fall back to the stored value.
+        }
+
         // TSPL commands for a 100mm × 150mm label at 203 DPI (1mm = 8 dots)
         $lines = [
             'SIZE 100 mm, 150 mm',
@@ -129,14 +146,14 @@ class QrPayloadService
             'DIRECTION 1',
             'CLS',
             // QR code: top-left area
-            "QRCODE 20,20,H,6,A,0,M2,S6,\"{$qrPayload}\"",
+            "QRCODE 20,20,H,4,A,0,M2,S6,\"{$qrPayload}\"",
             // Company Address Header: right of QR code
-            "TEXT 250,20,\"2\",0,1,1,\"TREMED Surgical Solution Sdn Bhd\"",
-            "TEXT 250,50,\"1\",0,1,1,\"No 6-1, Block A, Zenith Corporate\"",
-            "TEXT 250,70,\"1\",0,1,1,\"Park, Jalan SS 7/26, Kelana Jaya\"",
-            "TEXT 250,90,\"1\",0,1,1,\"47301 Petaling Jaya, Selangor\"",
-            "TEXT 250,110,\"1\",0,1,1,\"Tel: 0126338787\"",
-            "TEXT 250,130,\"1\",0,1,1,\"Email: finance@tremedsurgical.com\"",
+            "TEXT 200,20,\"2\",0,1,1,\"TREMED Surgical Solution Sdn Bhd\"",
+            "TEXT 200,50,\"1\",0,1,1,\"No 6-1, Block A, Zenith Corporate\"",
+            "TEXT 200,70,\"1\",0,1,1,\"Park, Jalan SS 7/26, Kelana Jaya\"",
+            "TEXT 200,90,\"1\",0,1,1,\"47301 Petaling Jaya, Selangor\"",
+            "TEXT 200,110,\"1\",0,1,1,\"Tel: 0126338787\"",
+            "TEXT 200,130,\"1\",0,1,1,\"Email: finance@tremedsurgical.com\"",
         ];
 
         if ($lot->product_id !== null) {
@@ -144,9 +161,9 @@ class QrPayloadService
             
             $lines = array_merge($lines, [
                 // Product Details
-                "TEXT 20,250,\"2\",0,1,1,\"Ref : {$ref}\"",
-                "TEXT 20,280,\"2\",0,1,1,\"Lot : {$lotNo}\"",
-                "TEXT 20,310,\"2\",0,1,1,\"Exp : {$exp}\"",
+                "TEXT 20,230,\"2\",0,1,1,\"Ref : {$ref}\"",
+                "TEXT 20,260,\"2\",0,1,1,\"Lot : {$lotNo}\"",
+                "TEXT 20,290,\"2\",0,1,1,\"Exp : {$exp}\"",
             ]);
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
