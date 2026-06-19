@@ -107,50 +107,59 @@ class QrPayloadService
     }
 
     /**
-     * Build a minimal TSPL command string suitable for a 40×30 mm ZPL/TSPL Bluetooth label printer.
+     * Build a TSPL command string suitable for a 100×150 mm Bluetooth label printer.
      * The Flutter app sends this string to the printer via BLE.
      *
-     * Layout (top → bottom):
-     *   Line 1: REF value (large)
-     *   Line 2: LOT value
-     *   Line 3: EXP value
-     *   QR code: the canonical payload
+     * Layout:
+     *   QR Code: Top Left
+     *   Address: Top Right
+     *   Details (Ref, Lot, Exp / Set Name, Set Code): Bottom
      */
     public function buildTsplPayload(string $qrPayload, Lot $lot): string
     {
         $lot->loadMissing(['product:id,ref_num,product_name', 'instrumentSet:id,set_code,set_name']);
 
-        if ($lot->product_id !== null) {
-            $ref         = $lot->product?->ref_num ?? '-';
-            $productName = $lot->product?->product_name ?? '';
-        } elseif ($lot->instrument_set_id !== null) {
-            $ref         = $lot->instrumentSet?->set_code ?? '-';
-            $productName = $lot->instrumentSet?->set_name ?? '';
-        } else {
-            $ref         = '-';
-            $productName = '';
-        }
-        $lotNo      = $lot->lot_number;
-        $exp        = $lot->expiry_date ? $lot->expiry_date->format('d/m/Y') : 'NO EXPIRY';
+        $lotNo = $lot->lot_number;
+        $exp   = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';
 
-        // TSPL commands for a 40mm × 30mm label at 203 DPI
+        // TSPL commands for a 100mm × 150mm label at 203 DPI (1mm = 8 dots)
         $lines = [
-            'SIZE 40 mm, 30 mm',
+            'SIZE 100 mm, 150 mm',
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
             // QR code: top-left area
-            "QRCODE 5,5,H,4,A,0,M2,S3,\"{$qrPayload}\"",
-            // Product REF — right of QR
-            "TEXT 130,5,\"3\",0,1,1,\"{$ref}\"",
-            // Product name (truncated to 18 chars)
-            'TEXT 130,25,"2",0,1,1,"' . mb_substr($productName, 0, 18) . '"',
-            // LOT
-            "TEXT 130,45,\"2\",0,1,1,\"LOT:{$lotNo}\"",
-            // EXP
-            "TEXT 130,65,\"2\",0,1,1,\"EXP:{$exp}\"",
-            'PRINT 1,1',
+            "QRCODE 20,20,H,6,A,0,M2,S6,\"{$qrPayload}\"",
+            // Company Address Header: right of QR code
+            "TEXT 250,20,\"2\",0,1,1,\"TREMED Surgical Solution Sdn Bhd\"",
+            "TEXT 250,50,\"1\",0,1,1,\"No 6-1, Block A, Zenith Corporate\"",
+            "TEXT 250,70,\"1\",0,1,1,\"Park, Jalan SS 7/26, Kelana Jaya\"",
+            "TEXT 250,90,\"1\",0,1,1,\"47301 Petaling Jaya, Selangor\"",
+            "TEXT 250,110,\"1\",0,1,1,\"Tel: 0126338787\"",
+            "TEXT 250,130,\"1\",0,1,1,\"Email: finance@tremedsurgical.com\"",
         ];
+
+        if ($lot->product_id !== null) {
+            $ref = $lot->product?->ref_num ?? '-';
+            
+            $lines = array_merge($lines, [
+                // Product Details
+                "TEXT 20,250,\"2\",0,1,1,\"Ref : {$ref}\"",
+                "TEXT 20,280,\"2\",0,1,1,\"Lot : {$lotNo}\"",
+                "TEXT 20,310,\"2\",0,1,1,\"Exp : {$exp}\"",
+            ]);
+        } elseif ($lot->instrument_set_id !== null) {
+            $setCode = $lot->instrumentSet?->set_code ?? '-';
+            $setName = $lot->instrumentSet?->set_name ?? '-';
+            
+            $lines = array_merge($lines, [
+                // Instrument Details
+                "TEXT 20,250,\"2\",0,1,1,\"Set Name : {$setName}\"",
+                "TEXT 20,280,\"2\",0,1,1,\"Set Code : {$setCode}\"",
+            ]);
+        }
+
+        $lines[] = 'PRINT 1,1';
 
         return implode("\r\n", $lines);
     }
