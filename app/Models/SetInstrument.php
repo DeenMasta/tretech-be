@@ -33,4 +33,9 @@ class SetInstrument extends Model
     {
         return $this->hasMany('App\\Models\\ReconciliationSetInstrumentResult');
     }
+
+    public function instances(): HasMany
+    {
+        return $this->hasMany('App\\Models\\SetInstrumentInstance');
+    }
 }

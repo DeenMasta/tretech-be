@@ -87,6 +87,12 @@ class ConsignmentConfirmService
                     'current_location_type' => 'client',
                     'current_location_id'   => $locked->client_id,
                 ])->save();
+
+                if ($lot->isSetInstance()) {
+                    $lot->setInstrumentInstances()->update([
+                        'status' => 'supplied',
+                    ]);
+                }
             }
 
             $locked->fill([

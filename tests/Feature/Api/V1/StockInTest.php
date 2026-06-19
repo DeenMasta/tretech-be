@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\InstrumentSet;
 use App\Models\Lot;
 use App\Models\LotHolding;
+use App\Models\SetInstrument;
+use App\Models\SetInstrumentInstance;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use Laravel\Sanctum\Sanctum;
@@ -309,6 +312,81 @@ class StockInTest extends FeatureTestCase
         $this->assertSame('available', $lot->status);
         $this->assertStringStartsWith('AUTO-', $lot->lot_number);
         $this->assertDatabaseMissing('lot_holdings', ['lot_id' => $lot->id]);
+    }
+
+    public function test_finalize_set_entry_creates_tracked_instrument_instances(): void
+    {
+        $user = $this->makeUserWithPermissions(['stock_in.confirm']);
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $set = InstrumentSet::query()->create([
+            'set_code' => 'SET-GEN-01',
+            'set_name' => 'General Surgery Starter Set',
+            'description' => 'Tracked instance test',
+            'is_active' => true,
+        ]);
+
+        $instrumentA = SetInstrument::query()->create([
+            'instrument_set_id' => $set->id,
+            'code' => 'SI-SET-GEN-01-001',
+            'name' => 'Test 1',
+            'quantity' => 1,
+            'sort_order' => 1,
+            'remarks' => null,
+            'is_active' => true,
+        ]);
+
+        $instrumentB = SetInstrument::query()->create([
+            'instrument_set_id' => $set->id,
+            'code' => 'SI-SET-GEN-01-002',
+            'name' => 'Test 2',
+            'quantity' => 2,
+            'sort_order' => 2,
+            'remarks' => null,
+            'is_active' => true,
+        ]);
+
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-20250101-9001',
+            'do_number' => 'DO-9001',
+            'stock_in_at' => now()->startOfDay(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+
+        StockInItem::query()->create([
+            'stock_in_id' => $session->id,
+            'entry_kind' => StockInItem::ENTRY_KIND_SET,
+            'instrument_set_id' => $set->id,
+            'lot_entry_mode' => 'scan',
+            'expiry_entry_mode' => 'manual',
+            'missing_lot_flag' => false,
+        ]);
+
+        $response = $this->postJson("/api/v1/stock-in-sessions/{$session->id}/finalize");
+
+        $response->assertOk()->assertJsonPath('success', true);
+
+        $lot = Lot::query()
+            ->where('instrument_set_id', $set->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($lot);
+        $this->assertStringStartsWith('SET-SET-GEN-01-', $lot->lot_number);
+
+        $instances = SetInstrumentInstance::query()
+            ->where('lot_id', $lot->id)
+            ->orderBy('set_instrument_id')
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(3, $instances);
+        $this->assertSame([$instrumentA->id, $instrumentB->id, $instrumentB->id], $instances->pluck('set_instrument_id')->all());
+        $this->assertTrue($instances->every(fn ($instance) => $instance->status === 'available'));
+        $this->assertStringStartsWith('INS-' . now()->startOfDay()->format('Ymd') . '-', $instances->first()->instance_number);
     }
 
     // -------------------------------------------------------------------------

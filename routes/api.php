@@ -329,6 +329,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:returns.finalize');
         Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
             ->middleware('permission:returns.reopen_reconciliation');
+        Route::get('/{reconciliation}/print', [ReconciliationController::class, 'print'])
+            ->middleware('permission:returns.view');
     });
 
     // =========================================================================

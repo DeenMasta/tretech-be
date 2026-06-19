@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1\ReturnSession;
 
+use App\Http\Resources\Api\V1\MasterData\SetInstrumentInstanceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,6 +23,9 @@ class ReturnSessionItemResource extends JsonResource
                     'lot_number'  => $this->lot?->lot_number,
                     'status'      => $this->lot?->status,
                     'expiry_date' => $this->lot?->expiry_date?->toDateString(),
+                    'set_instrument_instances' => $this->lot?->relationLoaded('setInstrumentInstances')
+                        ? SetInstrumentInstanceResource::collection($this->lot->setInstrumentInstances)->resolve()
+                        : [],
                     'product'     => $this->lot?->relationLoaded('product') ? [
                         'id'           => $this->lot->product?->id,
                         'ref_num'      => $this->lot->product?->ref_num,

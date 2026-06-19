@@ -96,4 +96,9 @@ class Lot extends Model
     {
         return $this->hasOne('App\\Models\\LotHolding');
     }
+
+    public function setInstrumentInstances(): HasMany
+    {
+        return $this->hasMany('App\\Models\\SetInstrumentInstance');
+    }
 }

@@ -39,6 +39,11 @@ class InstrumentSet extends Model
         return $this->hasMany('App\\Models\\StockInItem');
     }
 
+    public function setInstrumentInstances(): HasMany
+    {
+        return $this->hasMany('App\\Models\\SetInstrumentInstance');
+    }
+
     protected function casts(): array
     {
         return [

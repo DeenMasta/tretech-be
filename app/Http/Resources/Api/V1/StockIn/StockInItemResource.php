@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1\StockIn;
 
+use App\Http\Resources\Api\V1\MasterData\SetInstrumentInstanceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -75,6 +76,9 @@ class StockInItemResource extends JsonResource
                     'id' => $this->lot?->id,
                     'lot_number' => $this->lot?->lot_number,
                     'status' => $this->lot?->status,
+                    'set_instrument_instances' => $this->lot?->relationLoaded('setInstrumentInstances')
+                        ? SetInstrumentInstanceResource::collection($this->lot->setInstrumentInstances)->resolve()
+                        : [],
                 ];
             }),
             'scanned_lot_number' => $this->scanned_lot_number,

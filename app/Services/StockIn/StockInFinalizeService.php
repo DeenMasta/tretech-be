@@ -9,6 +9,8 @@ use App\Models\Lot;
 use App\Models\LotHolding;
 use App\Models\LotMovement;
 use App\Models\Product;
+use App\Models\SetInstrument;
+use App\Models\SetInstrumentInstance;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use App\Models\User;
@@ -57,6 +59,8 @@ class StockInFinalizeService
                 $this->printJobService->createPrintJob(lot: $lot, actor: $actor);
             }
 
+            $createdLots->load('setInstrumentInstances.setInstrument');
+
             $session->fill([
                 'status' => 'finalized',
                 'confirmed_at' => now(),
@@ -86,9 +90,11 @@ class StockInFinalizeService
                     'supplier:id,supplier_name',
                     'picUser:id,full_name',
                     'confirmedByUser:id,full_name',
-                    'stockInItems.product:id,ref_num,product_name',
-                    'stockInItems.lot:id,lot_number,status',
-                ]),
+                'stockInItems.product:id,ref_num,product_name',
+                'stockInItems.instrumentSet:id,set_code,set_name',
+                'stockInItems.lot:id,lot_number,status',
+                'stockInItems.lot.setInstrumentInstances.setInstrument:id,code,name',
+            ]),
                 'lots' => $createdLots,
             ];
         });
@@ -163,6 +169,34 @@ class StockInFinalizeService
         return $lot;
     }
 
+    private function createSetInstrumentInstances(Lot $lot, StockIn $stockIn, StockInItem $item): void
+    {
+        if (!$lot->instrument_set_id) {
+            throw new BusinessLogicException('Selected instrument set is not found.');
+        }
+
+        $setInstruments = SetInstrument::query()
+            ->where('instrument_set_id', $lot->instrument_set_id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'instrument_set_id', 'quantity']);
+
+        foreach ($setInstruments as $setInstrument) {
+            for ($sequence = 1; $sequence <= max(1, (int) $setInstrument->quantity); $sequence++) {
+                SetInstrumentInstance::query()->create([
+                    'lot_id' => $lot->id,
+                    'instrument_set_id' => $lot->instrument_set_id,
+                    'set_instrument_id' => $setInstrument->id,
+                    'stock_in_id' => $stockIn->id,
+                    'stock_in_item_id' => $item->id,
+                    'instance_number' => $this->generateSetInstrumentInstanceNumber($stockIn, $lot, $setInstrument, $sequence),
+                    'status' => 'available',
+                    'remarks' => $item->remarks,
+                ]);
+            }
+        }
+    }
+
     /**
      * Mints a Lot that represents a single physical instrument-set instance.
      * The lot_number is derived from the set code so it is human-readable on
@@ -185,7 +219,7 @@ class StockInFinalizeService
             'lot_number' => $lotNumber,
 
             'is_system_generated_lot' => true,
-            'supplier_batch_code' => null,
+            'supplier_batch_code' => '',
             'expiry_date' => null,
             'status' => 'available',
             'current_location_type' => 'warehouse',
@@ -195,6 +229,7 @@ class StockInFinalizeService
         ]);
 
         $item->fill(['lot_id' => $lot->id])->save();
+        $this->createSetInstrumentInstances($lot, $stockIn, $item);
 
         LotMovement::query()->create([
             'lot_id' => $lot->id,
@@ -234,6 +269,36 @@ class StockInFinalizeService
         }
 
         throw new BusinessLogicException('Unable to generate unique set-instance lot number.');
+    }
+
+    private function generateSetInstrumentInstanceNumber(
+        StockIn $stockIn,
+        Lot $lot,
+        SetInstrument $setInstrument,
+        int $sequence
+    ): string {
+        $datePart = $stockIn->stock_in_at?->format('Ymd') ?? now()->format('Ymd');
+        $base = sprintf(
+            'INS-%s-%d-%d-%03d',
+            $datePart,
+            $lot->id,
+            $setInstrument->id,
+            $sequence
+        );
+
+        if (!SetInstrumentInstance::query()->where('instance_number', $base)->exists()) {
+            return $base;
+        }
+
+        for ($attempt = 1; $attempt <= 99; $attempt++) {
+            $candidate = sprintf('%s-%02d', $base, $attempt);
+
+            if (!SetInstrumentInstance::query()->where('instance_number', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        throw new BusinessLogicException('Unable to generate unique set instrument instance number.');
     }
 
     private function generateHoldingLotNumber(StockIn $stockIn, StockInItem $item): string

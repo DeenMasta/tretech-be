@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'stock_in_id',
@@ -56,6 +57,11 @@ class StockInItem extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\Lot');
+    }
+
+    public function setInstrumentInstances(): HasMany
+    {
+        return $this->hasMany('App\\Models\\SetInstrumentInstance');
     }
 
     public function isSetEntry(): bool

@@ -13,6 +13,8 @@ use App\Services\Reconciliation\ReconciliationReopenService;
 use App\Services\Reconciliation\ReconciliationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReconciliationController extends Controller
 {
@@ -68,6 +70,7 @@ class ReconciliationController extends Controller
             'completedByUser:id,full_name',
             'reopenedByUser:id,full_name',
             'reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliationItems.lot.setInstrumentInstances.setInstrument:id,code,name',
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ])->loadCount('reconciliationItems');
 
@@ -99,5 +102,30 @@ class ReconciliationController extends Controller
             new ReconciliationResource($reopened),
             'Reconciliation reopened successfully'
         );
+    }
+
+    public function print(Request $request, Reconciliation $reconciliation): Response
+    {
+        $reconciliation->load([
+            'consignment:id,consignment_no,client_id,pic_user_id,consignment_at',
+            'consignment.client:id,client_name',
+            'consignment.picUser:id,full_name',
+            'returnSession:id,return_session_no',
+            'picUser:id,full_name',
+            'completedByUser:id,full_name',
+            'reopenedByUser:id,full_name',
+            'reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliationItems.lot.setInstrumentInstances.setInstrument:id,code,name',
+            'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
+        ]);
+
+        $pdf = Pdf::loadView('exports.reconciliation-note', [
+            'reconciliation' => $reconciliation,
+            'printedBy' => $request->user(),
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = sprintf('reconciliation_%s_%s.pdf', $reconciliation->reconciliation_no ?? $reconciliation->id, now()->format('Ymd_His'));
+
+        return $pdf->download($fileName);
     }
 }

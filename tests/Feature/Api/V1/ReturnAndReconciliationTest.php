@@ -4,9 +4,15 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Consignment;
 use App\Models\ConsignmentItem;
+use App\Models\InstrumentSet;
+use App\Models\Lot;
 use App\Models\Reconciliation;
 use App\Models\ReturnSession;
 use App\Models\ReturnSessionItem;
+use App\Models\SetInstrument;
+use App\Models\SetInstrumentInstance;
+use App\Models\StockIn;
+use App\Models\StockInItem;
 use Laravel\Sanctum\Sanctum;
 
 class ReturnAndReconciliationTest extends FeatureTestCase
@@ -323,6 +329,144 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
         $this->assertDatabaseHas('lots', ['id' => $lotUsed->id, 'status' => 'used']);
         $this->assertDatabaseHas('lots', ['id' => $lotReturned->id, 'status' => 'holding']);
+    }
+
+    public function test_reconciliation_finalize_updates_set_instrument_instance_statuses(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
+        $client = $this->createClient();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $set = InstrumentSet::query()->create([
+            'set_code' => 'SET-RET-01',
+            'set_name' => 'Returned Set',
+            'description' => 'Set tracking test',
+            'is_active' => true,
+        ]);
+
+        $setInstrument = SetInstrument::query()->create([
+            'instrument_set_id' => $set->id,
+            'code' => 'SI-SET-RET-01-001',
+            'name' => 'Forceps',
+            'quantity' => 2,
+            'sort_order' => 1,
+            'remarks' => null,
+            'is_active' => true,
+        ]);
+
+        $lot = Lot::query()->create([
+            'product_id' => null,
+            'instrument_set_id' => $set->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'SET-RET-LOT-001',
+            'is_system_generated_lot' => true,
+            'supplier_batch_code' => '',
+            'status' => 'supplied',
+            'current_location_type' => 'client',
+            'current_location_id' => $client->id,
+            'received_at' => now(),
+        ]);
+
+        $stockIn = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-20250201-SET1',
+            'do_number' => 'DO-SET1',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'finalized',
+        ]);
+
+        $stockInItem = StockInItem::query()->create([
+            'stock_in_id' => $stockIn->id,
+            'entry_kind' => StockInItem::ENTRY_KIND_SET,
+            'instrument_set_id' => $set->id,
+            'lot_id' => $lot->id,
+            'lot_entry_mode' => 'scan',
+            'expiry_entry_mode' => 'manual',
+            'missing_lot_flag' => false,
+        ]);
+
+        SetInstrumentInstance::query()->create([
+            'lot_id' => $lot->id,
+            'instrument_set_id' => $set->id,
+            'set_instrument_id' => $setInstrument->id,
+            'stock_in_id' => $stockIn->id,
+            'stock_in_item_id' => $stockInItem->id,
+            'instance_number' => 'INS-20250201-1-1-001',
+            'status' => 'supplied',
+            'remarks' => null,
+        ]);
+
+        SetInstrumentInstance::query()->create([
+            'lot_id' => $lot->id,
+            'instrument_set_id' => $set->id,
+            'set_instrument_id' => $setInstrument->id,
+            'stock_in_id' => $stockIn->id,
+            'stock_in_item_id' => $stockInItem->id,
+            'instance_number' => 'INS-20250201-1-1-002',
+            'status' => 'supplied',
+            'remarks' => null,
+        ]);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-20250201-SET1',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+
+        ConsignmentItem::query()->create([
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'issued_at' => now(),
+            'issued_by_user_id' => $user->id,
+        ]);
+
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-20250201-SET1',
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $returnItem = ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lot->id,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+        ]);
+
+        $returnItem->setInstrumentItems()->create([
+            'set_instrument_id' => $setInstrument->id,
+            'product_id' => null,
+            'returned_quantity' => 1,
+            'remarks' => null,
+        ]);
+
+        $reconciliation = Reconciliation::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_id' => $returnSession->id,
+            'reconciliation_no' => 'REC-20250201-SET1',
+            'pic_user_id' => $user->id,
+            'status' => 'pending',
+        ]);
+
+        $response = $this->postJson("/api/v1/reconciliations/{$reconciliation->id}/finalize");
+
+        $response->assertOk()->assertJsonPath('data.status', 'finalized');
+
+        $this->assertSame(
+            ['returned', 'used'],
+            SetInstrumentInstance::query()
+                ->where('lot_id', $lot->id)
+                ->orderBy('id')
+                ->pluck('status')
+                ->all()
+        );
     }
 
     public function test_cannot_finalize_reconciliation_with_no_consigned_lots(): void

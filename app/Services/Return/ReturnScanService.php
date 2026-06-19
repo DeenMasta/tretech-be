@@ -173,7 +173,12 @@ class ReturnScanService
             }
         }
 
-        return $item->load(['lot.product:id,ref_num,product_name', 'instrumentSet', 'product:id,ref_num,product_name']);
+        return $item->load([
+            'lot.product:id,ref_num,product_name',
+            'lot.setInstrumentInstances.setInstrument:id,code,name',
+            'instrumentSet',
+            'product:id,ref_num,product_name',
+        ]);
     }
 
     /**

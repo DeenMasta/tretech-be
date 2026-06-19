@@ -27,15 +27,17 @@ class SetInstrumentService
     {
         $code = $this->normalizeCode($data['code'] ?? null);
 
-        if ($code !== null) {
-            $exists = SetInstrument::query()
-                ->where('instrument_set_id', $instrumentSet->id)
-                ->where('code', $code)
-                ->exists();
+        if ($code === null) {
+            $code = $this->generateSetInstrumentCode($instrumentSet);
+        }
 
-            if ($exists) {
-                throw new BusinessLogicException("An instrument with code {$code} already exists in this set.");
-            }
+        $exists = SetInstrument::query()
+            ->where('instrument_set_id', $instrumentSet->id)
+            ->where('code', $code)
+            ->exists();
+
+        if ($exists) {
+            throw new BusinessLogicException("An instrument with code {$code} already exists in this set.");
         }
 
         return SetInstrument::query()->create([
@@ -100,5 +102,30 @@ class SetInstrumentService
         $code = trim((string) ($value ?? ''));
 
         return $code === '' ? null : $code;
+    }
+
+    private function generateSetInstrumentCode(InstrumentSet $instrumentSet): string
+    {
+        $setCode = trim((string) ($instrumentSet->set_code ?? ''));
+        $codePart = $setCode !== ''
+            ? preg_replace('/[^A-Z0-9_-]+/', '', strtoupper($setCode))
+            : 'SET' . $instrumentSet->id;
+
+        $base = 'SI-' . $codePart;
+
+        for ($attempt = 1; $attempt <= 9999; $attempt++) {
+            $candidate = sprintf('%s-%03d', $base, $attempt);
+
+            $exists = SetInstrument::query()
+                ->where('instrument_set_id', $instrumentSet->id)
+                ->where('code', $candidate)
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+        }
+
+        throw new BusinessLogicException('Unable to generate unique instrument code for this set.');
     }
 }

@@ -26,8 +26,12 @@ return new class extends Migration {
             }
         });
 
-        // Use raw DDL because doctrine/dbal isn't included in this project.
-        if (DB::getDriverName() !== 'sqlite') {
+        // Use native schema change for sqlite tests, raw DDL for MySQL.
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('lots', function (Blueprint $table) {
+                $table->unsignedBigInteger('product_id')->nullable()->change();
+            });
+        } else {
             DB::statement('ALTER TABLE `lots` MODIFY `product_id` BIGINT UNSIGNED NULL');
         }
 
@@ -50,7 +54,11 @@ return new class extends Migration {
             }
         });
 
-        if (DB::getDriverName() !== 'sqlite') {
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('lots', function (Blueprint $table) {
+                $table->unsignedBigInteger('product_id')->nullable(false)->change();
+            });
+        } else {
             DB::statement('ALTER TABLE `lots` MODIFY `product_id` BIGINT UNSIGNED NOT NULL');
         }
 

@@ -153,8 +153,9 @@ class ReconciliationFinalizeService
                     ]);
 
                     if ($lot->isSetInstance() && $returnItem) {
-                        $instrumentSet = $lot->instrumentSet()->with(['items.product', 'setInstruments'])->first();
+                        $instrumentSet = $lot->instrumentSet()->with(['instrumentSetItems.product', 'setInstruments'])->first();
                         $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
+                        $this->markReturnedSetInstrumentInstances($lot, $returnItem);
                     }
                 } elseif (str_starts_with($key, 'set_')) {
                     $setId = (int) substr($key, 4);
@@ -165,7 +166,7 @@ class ReconciliationFinalizeService
                         'remarks'           => null,
                     ]);
                     
-                    $instrumentSet = \App\Models\InstrumentSet::with(['items.product', 'setInstruments'])->find($setId);
+                    $instrumentSet = \App\Models\InstrumentSet::with(['instrumentSetItems.product', 'setInstruments'])->find($setId);
                     $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
                 } elseif (str_starts_with($key, 'prod_')) {
                     $productId = (int) substr($key, 5);
@@ -212,8 +213,9 @@ class ReconciliationFinalizeService
                     ]);
 
                     if ($lot->isSetInstance()) {
-                        $instrumentSet = $lot->instrumentSet()->with(['items.product', 'setInstruments'])->first();
+                        $instrumentSet = $lot->instrumentSet()->with(['instrumentSetItems.product', 'setInstruments'])->first();
                         $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
+                        $this->markAllSetInstrumentInstancesUsed($lot);
                     }
                 } elseif (str_starts_with($key, 'set_')) {
                     $setId = (int) substr($key, 4);
@@ -224,7 +226,7 @@ class ReconciliationFinalizeService
                         'remarks'           => null,
                     ]);
                     
-                    $instrumentSet = \App\Models\InstrumentSet::with(['items.product', 'setInstruments'])->find($setId);
+                    $instrumentSet = \App\Models\InstrumentSet::with(['instrumentSetItems.product', 'setInstruments'])->find($setId);
                     $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
                 } elseif (str_starts_with($key, 'prod_')) {
                     $productId = (int) substr($key, 5);
@@ -272,6 +274,7 @@ class ReconciliationFinalizeService
                 'picUser:id,full_name',
                 'completedByUser:id,full_name',
                 'reconciliationItems.lot:id,lot_number,status',
+                'reconciliationItems.lot.setInstrumentInstances.setInstrument:id,code,name',
             ]);
 
             return $refreshed;
@@ -289,7 +292,7 @@ class ReconciliationFinalizeService
         // Process Non-Product Instruments
         if ($instrumentSet && $instrumentSet->setInstruments) {
             foreach ($instrumentSet->setInstruments as $si) {
-                $expected = $si->pivot->quantity;
+                $expected = (int) $si->quantity;
                 $returned = $returnedMap['si_'.$si->id] ?? 0;
                 $used = max(0, $expected - $returned);
 
@@ -307,8 +310,8 @@ class ReconciliationFinalizeService
         }
 
         // Process Product Instruments
-        if ($instrumentSet && $instrumentSet->items) {
-            foreach ($instrumentSet->items as $productItem) {
+        if ($instrumentSet && $instrumentSet->instrumentSetItems) {
+            foreach ($instrumentSet->instrumentSetItems as $productItem) {
                 $expected = $productItem->quantity;
                 $returned = $returnedMap['p_'.$productItem->product_id] ?? 0;
                 $used = max(0, $expected - $returned);
@@ -331,7 +334,7 @@ class ReconciliationFinalizeService
     {
         if ($instrumentSet && $instrumentSet->setInstruments) {
             foreach ($instrumentSet->setInstruments as $si) {
-                $expected = $si->pivot->quantity;
+                $expected = (int) $si->quantity;
                 $reconItem->setInstrumentResults()->create([
                     'set_instrument_id' => $si->id,
                     'product_id'        => null,
@@ -345,8 +348,8 @@ class ReconciliationFinalizeService
             }
         }
 
-        if ($instrumentSet && $instrumentSet->items) {
-            foreach ($instrumentSet->items as $productItem) {
+        if ($instrumentSet && $instrumentSet->instrumentSetItems) {
+            foreach ($instrumentSet->instrumentSetItems as $productItem) {
                 $expected = $productItem->quantity;
                 $reconItem->setInstrumentResults()->create([
                     'set_instrument_id' => null,
@@ -360,5 +363,40 @@ class ReconciliationFinalizeService
                 ]);
             }
         }
+    }
+
+    private function markReturnedSetInstrumentInstances(Lot $lot, ReturnSessionItem $returnItem): void
+    {
+        $returnedMap = [];
+        foreach ($returnItem->setInstrumentItems as $item) {
+            if ($item->set_instrument_id) {
+                $returnedMap[(int) $item->set_instrument_id] = (int) $item->returned_quantity;
+            }
+        }
+
+        $instances = $lot->setInstrumentInstances()
+            ->orderBy('set_instrument_id')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('set_instrument_id');
+
+        foreach ($instances as $setInstrumentId => $group) {
+            $returnedCount = max(0, (int) ($returnedMap[(int) $setInstrumentId] ?? 0));
+            $index = 0;
+
+            foreach ($group as $instance) {
+                $instance->fill([
+                    'status' => $index < $returnedCount ? 'returned' : 'used',
+                ])->save();
+                $index++;
+            }
+        }
+    }
+
+    private function markAllSetInstrumentInstancesUsed(Lot $lot): void
+    {
+        $lot->setInstrumentInstances()->update([
+            'status' => 'used',
+        ]);
     }
 }

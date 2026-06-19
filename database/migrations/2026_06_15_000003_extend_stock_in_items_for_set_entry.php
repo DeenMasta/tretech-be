@@ -24,7 +24,10 @@ return new class extends Migration {
         });
 
         Schema::table('stock_in_items', function (Blueprint $table) {
-            if (DB::getDriverName() !== 'sqlite') {
+            if (DB::getDriverName() === 'sqlite') {
+                $table->unsignedBigInteger('product_id')->nullable()->change();
+                $table->string('supplier_batch_code')->nullable()->change();
+            } else {
                 $table->unsignedBigInteger('product_id')->nullable()->change();
                 $table->string('supplier_batch_code')->nullable()->change();
             }
