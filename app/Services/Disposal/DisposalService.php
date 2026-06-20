@@ -63,18 +63,31 @@ class DisposalService
 
     private function generateDisposalNo(): string
     {
-        $datePart = now()->format('Ymd');
+        $yearPart = now()->format('y');
+        $prefix = "TDS{$yearPart}-";
+
+        $lastDisposal = Disposal::query()
+            ->where('disposal_no', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastDisposal) {
+            $lastSequence = (int) substr($lastDisposal->disposal_no, strlen($prefix));
+            $nextSequence = max(1, $lastSequence + 1);
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $sequence = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $no = "DIS-{$datePart}-{$sequence}";
+            $sequenceStr = str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+            $no = "{$prefix}{$sequenceStr}";
 
             if (!Disposal::query()->where('disposal_no', $no)->exists()) {
                 return $no;
             }
+            
+            $nextSequence++;
         }
 
-        // Fallback: microsecond suffix ensures uniqueness
-        return 'DIS-' . now()->format('YmdHis') . '-' . substr((string) microtime(true), -4);
+        throw new BusinessLogicException('Unable to generate a unique disposal number. Please retry.');
     }
 }

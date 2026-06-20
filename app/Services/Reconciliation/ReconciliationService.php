@@ -92,15 +92,29 @@ class ReconciliationService
 
     private function generateReconciliationNo(): string
     {
-        $datePart = now()->format('Ymd');
+        $yearPart = now()->format('y');
+        $prefix = "TRC{$yearPart}-";
+
+        $lastRecon = Reconciliation::query()
+            ->where('reconciliation_no', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastRecon) {
+            $lastSequence = (int) substr($lastRecon->reconciliation_no, strlen($prefix));
+            $nextSequence = max(1, $lastSequence + 1);
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $sequence = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $no = "RCN-{$datePart}-{$sequence}";
+            $sequenceStr = str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+            $no = "{$prefix}{$sequenceStr}";
 
             if (!Reconciliation::query()->where('reconciliation_no', $no)->exists()) {
                 return $no;
             }
+            
+            $nextSequence++;
         }
 
         throw new BusinessLogicException('Unable to generate a unique reconciliation number. Please retry.');

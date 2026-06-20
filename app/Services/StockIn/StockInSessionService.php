@@ -72,14 +72,28 @@ class StockInSessionService
     private function generateSessionNo(): string
     {
         $datePart = now()->format('Ymd');
+        $prefix = "TSI-{$datePart}-";
+
+        $lastSession = StockIn::query()
+            ->where('session_no', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastSession) {
+            $lastSequence = (int) substr($lastSession->session_no, strlen($prefix));
+            $nextSequence = max(1, $lastSequence + 1);
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $sequence = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $sessionNo = "SI-{$datePart}-{$sequence}";
+            $sequenceStr = str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+            $sessionNo = "{$prefix}{$sequenceStr}";
 
             if (!StockIn::query()->where('session_no', $sessionNo)->exists()) {
                 return $sessionNo;
             }
+            
+            $nextSequence++;
         }
 
         throw new BusinessLogicException('Unable to generate a unique stock-in session number.');

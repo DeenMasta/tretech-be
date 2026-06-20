@@ -73,15 +73,29 @@ class ConsignmentService
 
     private function generateConsignmentNo(): string
     {
-        $datePart = now()->format('Ymd');
+        $yearPart = now()->format('y');
+        $prefix = "TCN{$yearPart}-";
+
+        $lastConsignment = Consignment::query()
+            ->where('consignment_no', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastConsignment) {
+            $lastSequence = (int) substr($lastConsignment->consignment_no, strlen($prefix));
+            $nextSequence = max(1, $lastSequence + 1);
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $sequence = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $no = "CN-{$datePart}-{$sequence}";
+            $sequenceStr = str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+            $no = "{$prefix}{$sequenceStr}";
 
             if (!Consignment::query()->where('consignment_no', $no)->exists()) {
                 return $no;
             }
+            
+            $nextSequence++;
         }
 
         throw new BusinessLogicException('Unable to generate a unique consignment number. Please retry.');

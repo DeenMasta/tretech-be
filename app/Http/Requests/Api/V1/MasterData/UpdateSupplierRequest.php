@@ -18,6 +18,7 @@ class UpdateSupplierRequest extends FormRequest
     {
         return [
             'supplier_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'pic_name' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string'],

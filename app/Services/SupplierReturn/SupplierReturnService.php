@@ -65,17 +65,31 @@ class SupplierReturnService
 
     private function generateSupplierReturnNo(): string
     {
-        $datePart = now()->format('Ymd');
+        $yearPart = now()->format('y');
+        $prefix = "TSR{$yearPart}-";
+
+        $lastSupplierReturn = SupplierReturn::query()
+            ->where('supplier_return_no', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastSupplierReturn) {
+            $lastSequence = (int) substr($lastSupplierReturn->supplier_return_no, strlen($prefix));
+            $nextSequence = max(1, $lastSequence + 1);
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $sequence = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $no = "SR-{$datePart}-{$sequence}";
+            $sequenceStr = str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+            $no = "{$prefix}{$sequenceStr}";
 
             if (!SupplierReturn::query()->where('supplier_return_no', $no)->exists()) {
                 return $no;
             }
+            
+            $nextSequence++;
         }
 
-        return 'SR-' . now()->format('YmdHis') . '-' . substr((string) microtime(true), -4);
+        throw new BusinessLogicException('Unable to generate a unique supplier return number. Please retry.');
     }
 }

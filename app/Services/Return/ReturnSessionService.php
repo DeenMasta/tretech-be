@@ -134,15 +134,29 @@ class ReturnSessionService
 
     private function generateSessionNo(): string
     {
-        $datePart = now()->format('Ymd');
+        $yearPart = now()->format('y');
+        $prefix = "TCNR{$yearPart}-";
+
+        $lastSession = ReturnSession::query()
+            ->where('return_session_no', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $nextSequence = 1;
+        if ($lastSession) {
+            $lastSequence = (int) substr($lastSession->return_session_no, strlen($prefix));
+            $nextSequence = max(1, $lastSequence + 1);
+        }
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
-            $sequence = str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-            $no = "RS-{$datePart}-{$sequence}";
+            $sequenceStr = str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+            $no = "{$prefix}{$sequenceStr}";
 
             if (!ReturnSession::query()->where('return_session_no', $no)->exists()) {
                 return $no;
             }
+            
+            $nextSequence++;
         }
 
         throw new BusinessLogicException('Unable to generate a unique return session number. Please retry.');
