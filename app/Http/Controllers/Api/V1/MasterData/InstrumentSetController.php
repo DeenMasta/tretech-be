@@ -23,7 +23,8 @@ class InstrumentSetController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
-        $paginator = $this->instrumentSetService->paginate($request->only(['search', 'is_active']), $perPage);
+        $includeAvailability = $request->boolean('include_availability', false);
+        $paginator = $this->instrumentSetService->paginate($request->only(['search', 'is_active']), $perPage, $includeAvailability);
 
         return $this->paginatedResponse(
             items: InstrumentSetResource::collection($paginator->items())->resolve(),
@@ -55,11 +56,10 @@ class InstrumentSetController extends Controller
 
     public function show(InstrumentSet $instrumentSet): JsonResponse
     {
-        $instrumentSet->loadCount(['instrumentSetItems', 'setInstruments']);
+        $instrumentSet->loadCount(['instrumentSetItems']);
         $instrumentSet->load([
             'instrumentSetItems' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
             'instrumentSetItems.product:id,ref_num,product_name,is_active',
-            'setInstruments' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
         ]);
 
         return $this->successResponse(new InstrumentSetResource($instrumentSet), 'Instrument set fetched successfully');

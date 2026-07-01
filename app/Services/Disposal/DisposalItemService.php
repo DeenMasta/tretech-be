@@ -39,12 +39,21 @@ class DisposalItemService
             );
         }
 
+        $qty = $data['quantity'] ?? 1;
+
+        if (!$lot->hasAvailableStock($qty)) {
+            throw new BusinessLogicException(
+                "Lot {$lot->lot_number} does not have enough stock available (requested: {$qty}, available: {$lot->quantity_available})."
+            );
+        }
+
         return DisposalItem::query()->create([
-            'disposal_id'      => $disposal->id,
-            'lot_id'           => $lot->id,
+            'disposal_id'       => $disposal->id,
+            'lot_id'            => $lot->id,
             'disposal_category' => $data['disposal_category'],
-            'reason_text'       => $data['reason_text'],
+            'reason_text'       => $data['reason_text'] ?? null,
             'remarks'           => $data['remarks'] ?? null,
+            'quantity'          => $qty,
         ]);
     }
 

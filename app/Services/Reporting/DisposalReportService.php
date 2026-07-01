@@ -89,7 +89,7 @@ class DisposalReportService
                 'Disposal No'      => $item->disposal?->disposal_no,
                 'Disposed At'      => $item->disposal?->disposed_at?->format('Y-m-d'),
                 'Lot Number'       => $item->lot?->lot_number,
-                'Batch Code'       => $item->lot?->supplier_batch_code,
+                'Batch Code'       => $item->lot?->manufacturing_date,
                 'Product Ref'      => $item->lot?->product?->ref_num,
                 'Product Name'     => $item->lot?->product?->product_name,
                 'Supplier'         => $item->lot?->supplier?->supplier_name,

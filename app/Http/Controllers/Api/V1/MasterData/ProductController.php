@@ -55,6 +55,10 @@ class ProductController extends Controller
 
     public function show(Product $product): JsonResponse
     {
+        $product->loadSum(['lots as total_quantity_available' => function ($query) {
+            $query->where('status', 'available');
+        }], 'quantity_available');
+
         return $this->successResponse(new ProductResource($product), 'Product fetched successfully');
     }
 

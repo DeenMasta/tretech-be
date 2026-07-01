@@ -23,7 +23,7 @@ class QrLabelResource extends JsonResource
                 return [
                     'id'                  => $lot->id,
                     'lot_number'          => $lot->lot_number,
-                    'supplier_batch_code' => $lot->supplier_batch_code,
+                    'manufacturing_date' => $lot->manufacturing_date,
                     'expiry_date'         => $lot->expiry_date?->format('Y-m-d'),
                     'status'              => $lot->status,
                 ];

@@ -20,13 +20,14 @@ class UpdateStockInItemRequest extends FormRequest
         return [
             'product_id' => ['sometimes', 'integer', 'exists:products,id'],
             'scanned_lot_number' => ['nullable', 'string', 'max:255'],
-            'supplier_batch_code' => ['sometimes', 'string', 'max:255'],
+            'manufacturing_date' => ['nullable', 'date'],
             'expiry_date' => ['nullable', 'date'],
             'lot_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'expiry_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'missing_lot_flag' => ['sometimes', 'boolean'],
             'source_barcode' => ['nullable', 'string'],
             'entry_override_reason' => ['nullable', 'string'],
+            'quantity' => ['sometimes', 'integer', 'min:1'],
             'remarks' => ['nullable', 'string'],
         ];
     }

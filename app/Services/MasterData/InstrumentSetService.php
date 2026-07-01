@@ -10,13 +10,14 @@ class InstrumentSetService
     /**
      * @param array<string, mixed> $filters
      */
-    public function paginate(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function paginate(array $filters = [], int $perPage = 15, bool $includeAvailability = false): LengthAwarePaginator
     {
         $search = (string) ($filters['search'] ?? '');
         $isActive = $filters['is_active'] ?? null;
 
-        return InstrumentSet::query()
-            ->withCount(['instrumentSetItems', 'setInstruments'])
+        $paginator = InstrumentSet::query()
+            ->withCount(['instrumentSetItems'])
+            ->when($includeAvailability, fn ($q) => $q->with('instrumentSetItems:id,instrument_set_id,product_id,quantity'))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('set_code', 'like', "%{$search}%")
@@ -27,6 +28,42 @@ class InstrumentSetService
             ->when($isActive !== null, fn ($query) => $query->where('is_active', (bool) $isActive))
             ->orderByDesc('id')
             ->paginate($perPage);
+
+        if ($includeAvailability && $paginator->isNotEmpty()) {
+            $productIds = $paginator->getCollection()->pluck('instrumentSetItems.*.product_id')->flatten()->unique()->filter();
+            
+            $availableStocks = [];
+            if ($productIds->isNotEmpty()) {
+                $availableStocks = \App\Models\Lot::query()
+                    ->whereIn('product_id', $productIds)
+                    ->where('status', 'available')
+                    ->where('quantity_available', '>', 0)
+                    ->selectRaw('product_id, SUM(quantity_available) as total')
+                    ->groupBy('product_id')
+                    ->pluck('total', 'product_id');
+            }
+
+            $paginator->getCollection()->transform(function ($set) use ($availableStocks) {
+                if ($set->instrumentSetItems->isEmpty()) {
+                    $set->available_sets_count = 0;
+                    return $set;
+                }
+                
+                $minSets = null;
+                foreach ($set->instrumentSetItems as $item) {
+                    if ($item->quantity <= 0) continue;
+                    $avail = $availableStocks[$item->product_id] ?? 0;
+                    $possible = (int) floor($avail / $item->quantity);
+                    if ($minSets === null || $possible < $minSets) {
+                        $minSets = $possible;
+                    }
+                }
+                $set->available_sets_count = $minSets ?? 0;
+                return $set;
+            });
+        }
+
+        return $paginator;
     }
 
     /**

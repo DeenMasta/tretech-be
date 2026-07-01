@@ -70,9 +70,8 @@ class StockInSessionController extends Controller
             'picUser:id,full_name',
             'confirmedByUser:id,full_name',
             'stockInItems.product:id,ref_num,product_name',
-            'stockInItems.instrumentSet:id,set_code,set_name',
+            'stockInItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
             'stockInItems.lot:id,lot_number,status',
-            'stockInItems.lot.setInstrumentInstances.setInstrument:id,code,name',
         ])->loadCount('stockInItems');
 
         return $this->successResponse(new StockInSessionResource($stockIn), 'Stock-in session fetched successfully');
@@ -106,9 +105,8 @@ class StockInSessionController extends Controller
             'supplier:id,supplier_name',
             'picUser:id,full_name',
             'stockInItems.product:id,ref_num,product_name',
-            'stockInItems.instrumentSet:id,set_code,set_name',
+            'stockInItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
             'stockInItems.lot:id,lot_number,status',
-            'stockInItems.lot.setInstrumentInstances.setInstrument:id,code,name',
         ])->loadCount('stockInItems');
 
         return $this->successResponse(new StockInSessionResource($stockIn), 'Stock-in review fetched successfully');
@@ -147,9 +145,8 @@ class StockInSessionController extends Controller
             'picUser:id,full_name',
             'confirmedByUser:id,full_name',
             'stockInItems.product:id,ref_num,product_name',
-            'stockInItems.instrumentSet:id,set_code,set_name',
+            'stockInItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
             'stockInItems.lot:id,lot_number,status',
-            'stockInItems.lot.setInstrumentInstances.setInstrument:id,code,name',
         ]);
 
         $pdf = Pdf::loadView('exports.stock-in-session', [

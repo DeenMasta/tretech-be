@@ -301,7 +301,7 @@ Route-level authorization uses middleware:
 
 ### 9.3 Stock-in
 - Session create: `supplier_id`, `do_number`, `stock_in_at`, `pic_user_id`, `remarks`
-- Item create: `product_id`, `supplier_batch_code`, with lot/expiry capture fields
+- Item create: `product_id`, `manufacturing_date`, with lot/expiry capture fields
 - Admin correction: at least one corrected field + mandatory `admin_reason`
 
 ### 9.4 Consignment and return

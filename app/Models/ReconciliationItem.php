@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['reconciliation_id', 'lot_id', 'instrument_set_id', 'product_id', 'result', 'remarks'])]
+#[Fillable(['reconciliation_id', 'lot_id', 'instrument_set_id', 'product_id', 'result', 'remarks', 'quantity', 'used_quantity', 'returned_quantity'])]
 class ReconciliationItem extends Model
 {
     use HasFactory;

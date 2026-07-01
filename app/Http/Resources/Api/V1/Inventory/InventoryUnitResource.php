@@ -21,7 +21,19 @@ class InventoryUnitResource extends JsonResource
             'lot_number'              => $this->lot_number,
 
             'is_system_generated_lot' => (bool) $this->is_system_generated_lot,
-            'supplier_batch_code'     => $this->supplier_batch_code,
+            'manufacturing_date'     => $this->manufacturing_date,
+            'quantity'                => $this->quantity ?? 1,
+            'quantity_available'      => $this->quantity_available ?? 1,
+            'quantity_consigned'      => $this->quantity_consigned ?? 0,
+            'product_qty_in_set'      => $this->whenLoaded('instrumentSet', function () {
+                if ($this->instrumentSet && $this->instrumentSet->relationLoaded('instrumentSetItems')) {
+                    $item = $this->instrumentSet->instrumentSetItems->first();
+                    if ($item) {
+                        return $item->quantity * ($this->quantity_available ?? 1);
+                    }
+                }
+                return null;
+            }),
             'expiry_date'             => $this->expiry_date?->format('Y-m-d'),
             'status'                  => $this->status,
             'current_location_type'   => $this->current_location_type,

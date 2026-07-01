@@ -27,7 +27,7 @@ class QrLabelController extends Controller
     public function show(Request $request, Lot $lot): JsonResponse
     {
         $label = $this->qrPayloadService->createLabelForLot($lot, $request->user());
-        $label->load('lot:id,lot_number,supplier_batch_code,expiry_date,status');
+        $label->load('lot:id,lot_number,manufacturing_date,expiry_date,status');
 
         return $this->successResponse(new QrLabelResource($label), 'QR label fetched successfully');
     }

@@ -24,7 +24,6 @@ class ScanReturnItemRequest extends FormRequest
             'source_qr_payload' => ['nullable', 'string'],
             'remarks'          => ['nullable', 'string'],
             'instrument_results'                     => ['nullable', 'array'],
-            'instrument_results.*.set_instrument_id' => ['nullable', 'integer', 'exists:set_instruments,id'],
             'instrument_results.*.product_id'        => ['nullable', 'integer', 'exists:products,id'],
             'instrument_results.*.returned_quantity' => ['required', 'integer', 'min:0'],
         ];

@@ -184,7 +184,7 @@ class StockInFinalizeServiceTest extends ServiceTestCase
             'stock_in_id'        => $session->id,
             'product_id'         => $product->id,
             'scanned_lot_number' => $lotNumber,
-            'supplier_batch_code'=> $batch,
+            'manufacturing_date'=> $batch,
             'expiry_date'        => $expiry,
             'lot_entry_mode'     => $lotNumber ? 'scan' : 'manual',
             'expiry_entry_mode'  => $expiry ? 'scan' : 'none',

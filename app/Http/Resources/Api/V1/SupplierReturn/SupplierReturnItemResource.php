@@ -20,7 +20,7 @@ class SupplierReturnItemResource extends JsonResource
                 return [
                     'id'                  => $this->lot?->id,
                     'lot_number'          => $this->lot?->lot_number,
-                    'supplier_batch_code' => $this->lot?->supplier_batch_code,
+                    'manufacturing_date' => $this->lot?->manufacturing_date,
                     'expiry_date'         => $this->lot?->expiry_date?->format('Y-m-d'),
                     'status'              => $this->lot?->status,
                     'product'             => $this->lot?->relationLoaded('product') ? [

@@ -26,7 +26,6 @@ class StockInItemService
                 'product:id,ref_num,product_name',
                 'instrumentSet:id,set_code,set_name',
                 'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
-                'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
                 'lot:id,lot_number,status',
             ])
             ->orderByDesc('id')
@@ -72,7 +71,7 @@ class StockInItemService
             'product_id' => $data['product_id'],
             'instrument_set_id' => null,
             'scanned_lot_number' => $lotNumber,
-            'supplier_batch_code' => $data['supplier_batch_code'],
+            'manufacturing_date' => $data['manufacturing_date'] ?? null,
             'expiry_date' => $data['expiry_date'] ?? null,
             'lot_entry_mode' => $data['lot_entry_mode'] ?? 'scan',
             'expiry_entry_mode' => $data['expiry_entry_mode'] ?? 'scan',
@@ -80,11 +79,11 @@ class StockInItemService
             'source_barcode' => $data['source_barcode'] ?? null,
             'entry_override_reason' => $data['entry_override_reason'] ?? null,
             'remarks' => $data['remarks'] ?? null,
+            'quantity' => $data['quantity'] ?? 1,
         ])->load([
             'product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
             'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
-            'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
             'lot:id,lot_number,status',
         ]);
     }
@@ -115,7 +114,7 @@ class StockInItemService
             'product_id' => null,
             'instrument_set_id' => $instrumentSetId,
             'scanned_lot_number' => null,
-            'supplier_batch_code' => null,
+            'manufacturing_date' => null,
             'expiry_date' => null,
             'lot_entry_mode' => 'scan',
             'expiry_entry_mode' => 'scan',
@@ -123,11 +122,11 @@ class StockInItemService
             'source_barcode' => $data['source_barcode'] ?? null,
             'entry_override_reason' => null,
             'remarks' => $data['remarks'] ?? null,
+            'quantity' => $data['quantity'] ?? 1,
         ])->load([
             'product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
             'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
-            'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
             'lot:id,lot_number,status',
         ]);
     }
@@ -144,7 +143,6 @@ class StockInItemService
             'product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
             'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
-            'instrumentSet.setInstruments:id,instrument_set_id,name,quantity',
             'lot:id,lot_number,status',
         ];
 
@@ -180,6 +178,9 @@ class StockInItemService
         $payload = [...$data];
         if (array_key_exists('scanned_lot_number', $payload)) {
             $payload['scanned_lot_number'] = $nextLotNumber;
+        }
+        if (array_key_exists('quantity', $data)) {
+            $payload['quantity'] = $data['quantity'];
         }
 
         $stockInItem->fill($payload)->save();
@@ -217,13 +218,7 @@ class StockInItemService
             ->exists();
 
         if ($inSessionExists) {
-            throw new BusinessLogicException("Lot number {$lotNumber} already exists in this stock-in session.");
-        }
-
-        $inDatabaseExists = Lot::query()->where('lot_number', $lotNumber)->exists();
-
-        if ($inDatabaseExists) {
-            throw new BusinessLogicException("Lot number {$lotNumber} already exists in inventory.");
+            throw new BusinessLogicException("Lot number {$lotNumber} is already scanned in this stock-in session.");
         }
     }
 

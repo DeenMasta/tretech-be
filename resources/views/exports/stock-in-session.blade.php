@@ -54,7 +54,7 @@
                 <td>{{ $item->product?->product_name ?? '-' }}</td>
                 <td>{{ $item->scanned_lot_number ?? '-' }}</td>
                 <td>{{ $item->lot?->lot_number ?? '-' }}</td>
-                <td>{{ $item->supplier_batch_code ?? '-' }}</td>
+                <td>{{ $item->manufacturing_date ?? '-' }}</td>
                 <td>{{ $item->expiry_date?->format('d M Y') ?? '-' }}</td>
                 <td>{{ $item->missing_lot_flag ? 'Yes' : 'No' }}</td>
                 <td>{{ $item->remarks ?? '-' }}</td>

@@ -55,6 +55,7 @@ class ReconciliationFinalizeService
             }
 
             $consignedKeys = [];
+            $usedItemCount = 0;
             foreach ($consignedItems as $ci) {
                 if ($ci->lot_id) {
                     $consignedKeys[] = 'lot_' . $ci->lot_id;
@@ -92,149 +93,169 @@ class ReconciliationFinalizeService
             }
 
             // ----------------------------------------------------------------
-            // 3. Compute used = consigned − returned
+            // 3. Process Consigned Items (Handle used & returned quantities)
             // ----------------------------------------------------------------
-            $returnedSet = array_flip($returnedKeys);
-            $usedKeys  = array_values(
-                array_filter($consignedKeys, fn ($key) => !isset($returnedSet[$key]))
-            );
+            $returnSessionItemsByKey = collect();
+            $returnSessionItems = ReturnSessionItem::query()
+                ->with('setInstrumentItems')
+                ->where('return_session_id', $locked->return_session_id)
+                ->get();
 
-            // ----------------------------------------------------------------
-            // 4. Remove any previous reconciliation items (re-finalization after reopen)
-            // ----------------------------------------------------------------
+            foreach ($returnSessionItems as $rsi) {
+                if ($rsi->lot_id) {
+                    $returnSessionItemsByKey->put('lot_' . $rsi->lot_id, $rsi);
+                } elseif ($rsi->instrument_set_id) {
+                    $returnSessionItemsByKey->put('set_' . $rsi->instrument_set_id, $rsi);
+                } elseif ($rsi->product_id) {
+                    $returnSessionItemsByKey->put('prod_' . $rsi->product_id, $rsi);
+                }
+            }
+
             ReconciliationItem::query()
                 ->where('reconciliation_id', $locked->id)
                 ->delete();
 
-            // ----------------------------------------------------------------
-            // 5. Process RETURNED items
-            // ----------------------------------------------------------------
-            foreach ($returnedKeys as $key) {
-                $returnItem = $returnSessionItemsByKey->get($key);
-
-                if (str_starts_with($key, 'lot_')) {
-                    $lotId = (int) substr($key, 4);
-                    $lot = Lot::query()->lockForUpdate()->findOrFail($lotId);
-
-                    LotMovement::query()->create([
-                        'lot_id'               => $lot->id,
-                        'movement_type'        => 'returned',
-                        'reference_type'       => Reconciliation::class,
-                        'reference_id'         => $locked->id,
-                        'from_status'          => $lot->status,
-                        'to_status'            => 'holding',
-                        'from_location_type'   => $lot->current_location_type,
-                        'from_location_id'     => $lot->current_location_id,
-                        'to_location_type'     => 'warehouse',
-                        'to_location_id'       => null,
-                        'performed_at'         => now(),
-                        'performed_by_user_id' => $actor->id,
-                        'remarks'              => "Returned via reconciliation {$locked->reconciliation_no}",
-                    ]);
-
-                    \App\Models\LotHolding::query()->create([
-                        'lot_id'              => $lot->id,
-                        'holding_reason'      => 'Pending inspection after return',
-                        'assigned_at'         => now(),
-                        'assigned_by_user_id' => $actor->id,
-                    ]);
-
-                    $lot->fill([
-                        'status'               => 'holding',
-                        'current_location_type' => 'warehouse',
-                        'current_location_id'   => null,
-                    ])->save();
-
-                    $reconItem = ReconciliationItem::query()->create([
-                        'reconciliation_id' => $locked->id,
-                        'lot_id'            => $lot->id,
-                        'result'            => 'returned',
-                        'remarks'           => null,
-                    ]);
-
-                    if ($lot->isSetInstance() && $returnItem) {
-                        $instrumentSet = $lot->instrumentSet()->with(['instrumentSetItems.product', 'setInstruments'])->first();
-                        $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
-                        $this->markReturnedSetInstrumentInstances($lot, $returnItem);
-                    }
-                } elseif (str_starts_with($key, 'set_')) {
-                    $setId = (int) substr($key, 4);
-                    $reconItem = ReconciliationItem::query()->create([
-                        'reconciliation_id' => $locked->id,
-                        'instrument_set_id' => $setId,
-                        'result'            => 'returned',
-                        'remarks'           => null,
-                    ]);
-                    
-                    $instrumentSet = \App\Models\InstrumentSet::with(['instrumentSetItems.product', 'setInstruments'])->find($setId);
-                    $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
-                } elseif (str_starts_with($key, 'prod_')) {
-                    $productId = (int) substr($key, 5);
-                    ReconciliationItem::query()->create([
-                        'reconciliation_id' => $locked->id,
-                        'product_id'        => $productId,
-                        'result'            => 'returned',
-                        'remarks'           => null,
-                    ]);
+            foreach ($consignedItems as $ci) {
+                $key = null;
+                if ($ci->lot_id) {
+                    $key = 'lot_' . $ci->lot_id;
+                } elseif ($ci->instrument_set_id) {
+                    $key = 'set_' . $ci->instrument_set_id;
+                } elseif ($ci->product_id) {
+                    $key = 'prod_' . $ci->product_id;
                 }
-            }
 
-            // ----------------------------------------------------------------
-            // 6. Process USED items
-            // ----------------------------------------------------------------
-            foreach ($usedKeys as $key) {
-                if (str_starts_with($key, 'lot_')) {
-                    $lotId = (int) substr($key, 4);
-                    $lot = Lot::query()->lockForUpdate()->findOrFail($lotId);
+                if (!$key) continue;
 
-                    LotMovement::query()->create([
-                        'lot_id'               => $lot->id,
-                        'movement_type'        => 'used',
-                        'reference_type'       => Reconciliation::class,
-                        'reference_id'         => $locked->id,
-                        'from_status'          => $lot->status,
-                        'to_status'            => 'used',
-                        'from_location_type'   => $lot->current_location_type,
-                        'from_location_id'     => $lot->current_location_id,
-                        'to_location_type'     => $lot->current_location_type,
-                        'to_location_id'       => $lot->current_location_id,
-                        'performed_at'         => now(),
-                        'performed_by_user_id' => $actor->id,
-                        'remarks'              => "Marked used via reconciliation {$locked->reconciliation_no}",
-                    ]);
+                $returnItem = $returnSessionItemsByKey->get($key);
+                $consignedQty = $ci->quantity ?? 1;
+                $returnedQty = $returnItem ? ($returnItem->quantity ?? 1) : 0;
+                $usedQty = max(0, $consignedQty - $returnedQty);
 
-                    $lot->fill(['status' => 'used'])->save();
+                $result = 'returned';
+                if ($usedQty > 0 && $returnedQty > 0) {
+                    $result = 'partial';
+                } elseif ($usedQty > 0 && $returnedQty == 0) {
+                    $result = 'used';
+                }
+                if ($usedQty > 0) {
+                    $usedItemCount++;
+                }
+
+                if ($ci->lot_id) {
+                    $lot = Lot::query()->lockForUpdate()->findOrFail($ci->lot_id);
+
+                    if ($returnedQty > 0) {
+                        LotMovement::query()->create([
+                            'lot_id'               => $lot->id,
+                            'movement_type'        => 'returned',
+                            'reference_type'       => Reconciliation::class,
+                            'reference_id'         => $locked->id,
+                            'from_status'          => $lot->status,
+                            'to_status'            => 'holding',
+                            'from_location_type'   => $lot->current_location_type,
+                            'from_location_id'     => $lot->current_location_id,
+                            'to_location_type'     => 'warehouse',
+                            'to_location_id'       => null,
+                            'performed_at'         => now(),
+                            'performed_by_user_id' => $actor->id,
+                            'remarks'              => "Returned via reconciliation {$locked->reconciliation_no}",
+                            'quantity'             => $returnedQty,
+                        ]);
+
+                        \App\Models\LotHolding::query()->create([
+                            'lot_id'              => $lot->id,
+                            'holding_reason'      => 'Pending inspection after return',
+                            'assigned_at'         => now(),
+                            'assigned_by_user_id' => $actor->id,
+                        ]);
+
+                        $lot->quantity_available += $returnedQty;
+                        $lot->quantity_consigned -= $returnedQty;
+
+                        if ($lot->quantity_available > 0 && $lot->status === 'depleted') {
+                            $lot->status = 'available';
+                        }
+                    }
+
+                    if ($usedQty > 0) {
+                        $lot->quantity_consigned -= $usedQty;
+                        
+                        LotMovement::query()->create([
+                            'lot_id'               => $lot->id,
+                            'movement_type'        => 'used',
+                            'reference_type'       => Reconciliation::class,
+                            'reference_id'         => $locked->id,
+                            'from_status'          => $lot->status,
+                            'to_status'            => 'used',
+                            'from_location_type'   => $lot->current_location_type,
+                            'from_location_id'     => $lot->current_location_id,
+                            'to_location_type'     => $lot->current_location_type, // Or some consumed state
+                            'to_location_id'       => $lot->current_location_id,
+                            'performed_at'         => now(),
+                            'performed_by_user_id' => $actor->id,
+                            'remarks'              => "Marked used via reconciliation {$locked->reconciliation_no}",
+                            'quantity'             => $usedQty,
+                        ]);
+                    }
+
+                    if ($returnedQty > 0) {
+                        $lot->fill([
+                            'status' => 'holding',
+                            'current_location_type' => 'warehouse',
+                            'current_location_id'   => null,
+                        ]);
+                    }
+                    if ($usedQty > 0 && $returnedQty === 0) {
+                        $lot->fill(['status' => 'used']);
+                    }
+                    $lot->save();
 
                     $reconItem = ReconciliationItem::query()->create([
                         'reconciliation_id' => $locked->id,
                         'lot_id'            => $lot->id,
-                        'result'            => 'used',
+                        'result'            => $result,
                         'remarks'           => null,
+                        'quantity'          => $consignedQty,
+                        'returned_quantity' => $returnedQty,
+                        'used_quantity'     => $usedQty,
                     ]);
 
                     if ($lot->isSetInstance()) {
-                        $instrumentSet = $lot->instrumentSet()->with(['instrumentSetItems.product', 'setInstruments'])->first();
-                        $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
-                        $this->markAllSetInstrumentInstancesUsed($lot);
+                        $instrumentSet = $lot->instrumentSet()->with(['instrumentSetItems.product'])->first();
+                        if ($returnedQty > 0 && $returnItem) {
+                            $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
+                        } elseif ($usedQty > 0) {
+                            $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
+                        }
                     }
-                } elseif (str_starts_with($key, 'set_')) {
-                    $setId = (int) substr($key, 4);
+
+                } elseif ($ci->instrument_set_id) {
                     $reconItem = ReconciliationItem::query()->create([
                         'reconciliation_id' => $locked->id,
-                        'instrument_set_id' => $setId,
-                        'result'            => 'used',
+                        'instrument_set_id' => $ci->instrument_set_id,
+                        'result'            => $result,
                         'remarks'           => null,
+                        'quantity'          => $consignedQty,
+                        'returned_quantity' => $returnedQty,
+                        'used_quantity'     => $usedQty,
                     ]);
                     
-                    $instrumentSet = \App\Models\InstrumentSet::with(['instrumentSetItems.product', 'setInstruments'])->find($setId);
-                    $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
-                } elseif (str_starts_with($key, 'prod_')) {
-                    $productId = (int) substr($key, 5);
+                    $instrumentSet = \App\Models\InstrumentSet::with(['instrumentSetItems.product'])->find($ci->instrument_set_id);
+                    if ($returnedQty > 0 && $returnItem) {
+                        $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
+                    } else {
+                        $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
+                    }
+                } elseif ($ci->product_id) {
                     ReconciliationItem::query()->create([
                         'reconciliation_id' => $locked->id,
-                        'product_id'        => $productId,
-                        'result'            => 'used',
+                        'product_id'        => $ci->product_id,
+                        'result'            => $result,
                         'remarks'           => null,
+                        'quantity'          => $consignedQty,
+                        'returned_quantity' => $returnedQty,
+                        'used_quantity'     => $usedQty,
                     ]);
                 }
             }
@@ -256,7 +277,7 @@ class ReconciliationFinalizeService
                 description:   sprintf(
                     'Reconciliation %s finalized — %d used, %d returned.',
                     $locked->reconciliation_no,
-                    count($usedKeys),
+                    $usedItemCount,
                     count($returnedKeys)
                 ),
                 after: [
@@ -264,7 +285,7 @@ class ReconciliationFinalizeService
                     'completed_at'   => now()->toIso8601String(),
                     'total_consigned' => count($consignedKeys),
                     'total_returned' => count($returnedKeys),
-                    'total_used'     => count($usedKeys),
+                    'total_used'     => $usedItemCount,
                 ],
             );
 
@@ -274,7 +295,6 @@ class ReconciliationFinalizeService
                 'picUser:id,full_name',
                 'completedByUser:id,full_name',
                 'reconciliationItems.lot:id,lot_number,status',
-                'reconciliationItems.lot.setInstrumentInstances.setInstrument:id,code,name',
             ]);
 
             return $refreshed;
@@ -285,39 +305,18 @@ class ReconciliationFinalizeService
     {
         $returnedMap = [];
         foreach ($returnItem->setInstrumentItems as $sii) {
-            $key = $sii->set_instrument_id ? 'si_'.$sii->set_instrument_id : 'p_'.$sii->product_id;
-            $returnedMap[$key] = $sii->returned_quantity;
-        }
-
-        // Process Non-Product Instruments
-        if ($instrumentSet && $instrumentSet->setInstruments) {
-            foreach ($instrumentSet->setInstruments as $si) {
-                $expected = (int) $si->quantity;
-                $returned = $returnedMap['si_'.$si->id] ?? 0;
-                $used = max(0, $expected - $returned);
-
-                $reconItem->setInstrumentResults()->create([
-                    'set_instrument_id' => $si->id,
-                    'product_id'        => null,
-                    'expected_quantity' => $expected,
-                    'returned_quantity' => $returned,
-                    'used_quantity'     => $used,
-                    'missing_quantity'  => 0,
-                    'damaged_quantity'  => 0,
-                    'result'            => $used > 0 ? 'partial' : 'returned',
-                ]);
+            if ($sii->product_id) {
+                $returnedMap[(int) $sii->product_id] = (int) $sii->returned_quantity;
             }
         }
 
-        // Process Product Instruments
         if ($instrumentSet && $instrumentSet->instrumentSetItems) {
             foreach ($instrumentSet->instrumentSetItems as $productItem) {
                 $expected = $productItem->quantity;
-                $returned = $returnedMap['p_'.$productItem->product_id] ?? 0;
+                $returned = $returnedMap[(int) $productItem->product_id] ?? 0;
                 $used = max(0, $expected - $returned);
 
                 $reconItem->setInstrumentResults()->create([
-                    'set_instrument_id' => null,
                     'product_id'        => $productItem->product_id,
                     'expected_quantity' => $expected,
                     'returned_quantity' => $returned,
@@ -332,27 +331,10 @@ class ReconciliationFinalizeService
 
     private function processUsedSetInstrumentResults($reconItem, $instrumentSet): void
     {
-        if ($instrumentSet && $instrumentSet->setInstruments) {
-            foreach ($instrumentSet->setInstruments as $si) {
-                $expected = (int) $si->quantity;
-                $reconItem->setInstrumentResults()->create([
-                    'set_instrument_id' => $si->id,
-                    'product_id'        => null,
-                    'expected_quantity' => $expected,
-                    'returned_quantity' => 0,
-                    'used_quantity'     => $expected,
-                    'missing_quantity'  => 0,
-                    'damaged_quantity'  => 0,
-                    'result'            => 'used',
-                ]);
-            }
-        }
-
         if ($instrumentSet && $instrumentSet->instrumentSetItems) {
             foreach ($instrumentSet->instrumentSetItems as $productItem) {
                 $expected = $productItem->quantity;
                 $reconItem->setInstrumentResults()->create([
-                    'set_instrument_id' => null,
                     'product_id'        => $productItem->product_id,
                     'expected_quantity' => $expected,
                     'returned_quantity' => 0,
@@ -363,40 +345,5 @@ class ReconciliationFinalizeService
                 ]);
             }
         }
-    }
-
-    private function markReturnedSetInstrumentInstances(Lot $lot, ReturnSessionItem $returnItem): void
-    {
-        $returnedMap = [];
-        foreach ($returnItem->setInstrumentItems as $item) {
-            if ($item->set_instrument_id) {
-                $returnedMap[(int) $item->set_instrument_id] = (int) $item->returned_quantity;
-            }
-        }
-
-        $instances = $lot->setInstrumentInstances()
-            ->orderBy('set_instrument_id')
-            ->orderBy('id')
-            ->get()
-            ->groupBy('set_instrument_id');
-
-        foreach ($instances as $setInstrumentId => $group) {
-            $returnedCount = max(0, (int) ($returnedMap[(int) $setInstrumentId] ?? 0));
-            $index = 0;
-
-            foreach ($group as $instance) {
-                $instance->fill([
-                    'status' => $index < $returnedCount ? 'returned' : 'used',
-                ])->save();
-                $index++;
-            }
-        }
-    }
-
-    private function markAllSetInstrumentInstancesUsed(Lot $lot): void
-    {
-        $lot->setInstrumentInstances()->update([
-            'status' => 'used',
-        ]);
     }
 }

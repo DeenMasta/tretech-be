@@ -70,7 +70,6 @@ class ReconciliationController extends Controller
             'completedByUser:id,full_name',
             'reopenedByUser:id,full_name',
             'reconciliationItems.lot.product:id,ref_num,product_name',
-            'reconciliationItems.lot.setInstrumentInstances.setInstrument:id,code,name',
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ])->loadCount('reconciliationItems');
 
@@ -115,7 +114,6 @@ class ReconciliationController extends Controller
             'completedByUser:id,full_name',
             'reopenedByUser:id,full_name',
             'reconciliationItems.lot.product:id,ref_num,product_name',
-            'reconciliationItems.lot.setInstrumentInstances.setInstrument:id,code,name',
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ]);
 

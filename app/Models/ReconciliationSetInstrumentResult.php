@@ -10,11 +10,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Per-instrument reconciliation outcome for a set-instance lot.
  *
- * Either `set_instrument_id` or `product_id` is populated, never both.
+ * Stores per-product reconciliation outcome for set components.
  */
 #[Fillable([
     'reconciliation_item_id',
-    'set_instrument_id',
     'product_id',
     'expected_quantity',
     'returned_quantity',
@@ -42,11 +41,6 @@ class ReconciliationSetInstrumentResult extends Model
     public function reconciliationItem(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\ReconciliationItem');
-    }
-
-    public function setInstrument(): BelongsTo
-    {
-        return $this->belongsTo('App\\Models\\SetInstrument');
     }
 
     public function product(): BelongsTo

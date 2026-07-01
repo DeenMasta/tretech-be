@@ -23,7 +23,7 @@ class ExpiryDashboardService
             ->select([
                 'lots.id',
                 'lots.lot_number',
-                'lots.supplier_batch_code',
+                'lots.manufacturing_date',
                 'lots.expiry_date',
                 'lots.status',
                 'lots.supplier_id',
@@ -108,7 +108,7 @@ class ExpiryDashboardService
         return $lots->map(function (Lot $lot) {
             return [
                 'Lot Number'   => $lot->lot_number,
-                'Batch Code'   => $lot->supplier_batch_code,
+                'Batch Code'   => $lot->manufacturing_date,
                 'Product Ref'  => $lot->product?->ref_num,
                 'Product Name' => $lot->product?->product_name,
                 'Supplier'     => $lot->supplier?->supplier_name,

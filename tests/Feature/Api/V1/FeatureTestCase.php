@@ -95,7 +95,7 @@ abstract class FeatureTestCase extends TestCase
             'product_id'            => $product->id,
             'supplier_id'           => $supplier->id,
             'lot_number'            => $lotNumber ?? 'LOT-' . str()->upper(str()->random(6)),
-            'supplier_batch_code'   => 'BATCH-' . str()->upper(str()->random(5)),
+            'manufacturing_date'   => '2026-01-01',
             'expiry_date'           => '2027-06-30',
             'status'                => $status,
             'current_location_type' => 'warehouse',

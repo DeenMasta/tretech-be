@@ -47,7 +47,7 @@ class HoldingAreaService
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($q2) use ($search) {
                     $q2->where('lot_number', 'like', "%{$search}%")
-                       ->orWhere('supplier_batch_code', 'like', "%{$search}%");
+                       ->orWhere('manufacturing_date', 'like', "%{$search}%");
                 });
             })
             ->when($supplierId !== null, fn ($q) => $q->where('supplier_id', (int) $supplierId))

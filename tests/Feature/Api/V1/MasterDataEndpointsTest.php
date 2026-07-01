@@ -276,36 +276,6 @@ class MasterDataEndpointsTest extends TestCase
         $this->assertSame(1, $instrumentSet->instrument_set_items_count);
     }
 
-    public function test_set_instrument_create_auto_generates_code_when_blank(): void
-    {
-        $user = $this->makeUserWithPermissions(['instrument_sets.manage']);
-        Sanctum::actingAs($user);
-
-        $set = InstrumentSet::query()->create([
-            'set_code' => 'GS-SET',
-            'set_name' => 'General Surgery Set',
-            'description' => 'Test set',
-            'is_active' => true,
-        ]);
-
-        $response = $this->postJson("/api/v1/master-data/instrument-sets/{$set->id}/instruments", [
-            'name' => 'Mayo Scissor',
-            'quantity' => 2,
-            'remarks' => 'Auto generated code expected',
-            'is_active' => true,
-        ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.code', 'SI-GS-SET-001');
-
-        $this->assertDatabaseHas('set_instruments', [
-            'instrument_set_id' => $set->id,
-            'name' => 'Mayo Scissor',
-            'code' => 'SI-GS-SET-001',
-        ]);
-    }
-
     /**
      * @param array<int, string> $permissionCodes
      */

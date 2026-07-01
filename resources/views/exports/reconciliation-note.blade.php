@@ -257,7 +257,7 @@
                                 <div style="margin-top: 4px; font-size: 7.5px; border-top: 1px dashed #ccc; padding-top: 4px;">
                                     @foreach($item->setInstrumentResults as $res)
                                         <div>
-                                            {{ $res->product?->product_name ?? $res->setInstrument?->name ?? 'Unknown' }}
+                                            {{ $res->product?->product_name ?? 'Unknown' }}
                                             (E:{{ $res->expected_quantity }} U:{{ $res->used_quantity }} R:{{ $res->returned_quantity }})
                                         </div>
                                     @endforeach

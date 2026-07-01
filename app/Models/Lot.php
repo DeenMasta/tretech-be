@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['product_id', 'instrument_set_id', 'supplier_id', 'lot_number', 'is_system_generated_lot', 'supplier_batch_code', 'expiry_date', 'status', 'current_location_type', 'current_location_id', 'remarks', 'received_at'])]
+#[Fillable(['product_id', 'instrument_set_id', 'supplier_id', 'lot_number', 'is_system_generated_lot', 'manufacturing_date', 'expiry_date', 'status', 'current_location_type', 'current_location_id', 'remarks', 'received_at', 'quantity', 'quantity_available', 'quantity_consigned'])]
 class Lot extends Model
 {
     use HasFactory;
@@ -20,7 +20,20 @@ class Lot extends Model
             'expiry_date' => 'date',
             'received_at' => 'datetime',
             'is_system_generated_lot' => 'boolean',
+            'quantity' => 'integer',
+            'quantity_available' => 'integer',
+            'quantity_consigned' => 'integer',
         ];
+    }
+
+    public function hasAvailableStock(int $qty = 1): bool
+    {
+        return $this->quantity_available >= $qty;
+    }
+
+    public function isFullyDepleted(): bool
+    {
+        return $this->quantity_available === 0;
     }
 
     /**
@@ -95,10 +108,5 @@ class Lot extends Model
     public function lotHolding(): HasOne
     {
         return $this->hasOne('App\\Models\\LotHolding');
-    }
-
-    public function setInstrumentInstances(): HasMany
-    {
-        return $this->hasMany('App\\Models\\SetInstrumentInstance');
     }
 }

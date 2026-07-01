@@ -59,27 +59,32 @@ class DisposalCompleteService
                     );
                 }
 
+                $fromStatus = $lot->status;
+
+                $lot->quantity_available -= $item->quantity;
+                
+                if ($lot->isFullyDepleted()) {
+                    $lot->status = 'disposed';
+                }
+                
+                $lot->save();
+
                 LotMovement::query()->create([
                     'lot_id'               => $lot->id,
                     'movement_type'        => 'disposed',
                     'reference_type'       => Disposal::class,
                     'reference_id'         => $locked->id,
-                    'from_status'          => $lot->status,
-                    'to_status'            => 'disposed',
+                    'from_status'          => $fromStatus,
+                    'to_status'            => $lot->status,
                     'from_location_type'   => $lot->current_location_type,
                     'from_location_id'     => $lot->current_location_id,
-                    'to_location_type'     => null,
-                    'to_location_id'       => null,
+                    'to_location_type'     => $lot->current_location_type,
+                    'to_location_id'       => $lot->current_location_id,
                     'performed_at'         => now(),
                     'performed_by_user_id' => $actor->id,
-                    'remarks'              => "Disposed via {$locked->disposal_no}: {$item->disposal_category} — {$item->reason_text}",
+                    'remarks'              => "Disposed via disposal record {$locked->disposal_no}: {$item->disposal_category} — {$item->reason_text}",
+                    'quantity'             => $item->quantity,
                 ]);
-
-                $lot->fill([
-                    'status'               => 'disposed',
-                    'current_location_type' => null,
-                    'current_location_id'   => null,
-                ])->save();
             }
 
             $locked->fill([

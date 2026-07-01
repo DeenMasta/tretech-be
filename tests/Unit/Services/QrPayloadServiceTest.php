@@ -165,7 +165,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $lot = new Lot([
             'product_id'          => 1, // Fake ID
             'lot_number'          => $lotNumber,
-            'supplier_batch_code' => $batch,
+            'manufacturing_date' => $batch,
             'expiry_date'         => $expiry,
         ]);
 

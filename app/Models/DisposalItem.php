@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['disposal_id', 'lot_id', 'disposal_category', 'reason_text', 'remarks'])]
+#[Fillable(['disposal_id', 'lot_id', 'disposal_category', 'reason_text', 'remarks', 'quantity'])]
 class DisposalItem extends Model
 {
     use HasFactory;

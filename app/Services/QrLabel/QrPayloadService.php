@@ -11,13 +11,13 @@ class QrPayloadService
 {
     /**
      * Canonical payload format:
-     *   V=1;REF={RefNum};LOT={LotNumber};BATCH={SupplierBatchCode|-};EXP={YYYY-MM-DD|-}
+     *   V=1;REF={RefNum};LOT={LotNumber};BATCH={ManufacturingDate|-};EXP={YYYY-MM-DD|-}
      *
      * Rules
      *  - V (version) is always "1"
      *  - REF  = product.ref_num  (mandatory)
      *  - LOT  = lot.lot_number   (mandatory)
-     *  - BATCH = lot.supplier_batch_code or "-" when absent
+     *  - BATCH = lot.manufacturing_date or "-" when absent
      *  - EXP   = expiry_date formatted Y-m-d or "-" when absent/not required
      */
     public function generatePayload(Lot $lot): string
@@ -38,8 +38,8 @@ class QrPayloadService
             throw new BusinessLogicException('Cannot generate QR payload: lot is missing ref_num/set_code or lot_number.');
         }
 
-        $batch = ($lot->supplier_batch_code !== null && $lot->supplier_batch_code !== '')
-            ? $lot->supplier_batch_code
+        $batch = ($lot->manufacturing_date !== null && $lot->manufacturing_date !== '')
+            ? $lot->manufacturing_date
             : '-';
 
         $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';

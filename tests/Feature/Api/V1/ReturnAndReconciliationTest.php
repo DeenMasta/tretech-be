@@ -9,10 +9,9 @@ use App\Models\Lot;
 use App\Models\Reconciliation;
 use App\Models\ReturnSession;
 use App\Models\ReturnSessionItem;
-use App\Models\SetInstrument;
-use App\Models\SetInstrumentInstance;
 use App\Models\StockIn;
 use App\Models\StockInItem;
+use App\Models\InstrumentSetItem;
 use Laravel\Sanctum\Sanctum;
 
 class ReturnAndReconciliationTest extends FeatureTestCase
@@ -331,11 +330,12 @@ class ReturnAndReconciliationTest extends FeatureTestCase
         $this->assertDatabaseHas('lots', ['id' => $lotReturned->id, 'status' => 'holding']);
     }
 
-    public function test_reconciliation_finalize_updates_set_instrument_instance_statuses(): void
+    public function test_reconciliation_finalize_records_product_component_results_for_set_lot(): void
     {
         $user = $this->makeUserWithPermissions(['returns.finalize']);
         $client = $this->createClient();
         $supplier = $this->createSupplier();
+        $product = $this->createProduct();
         Sanctum::actingAs($user);
 
         $set = InstrumentSet::query()->create([
@@ -345,14 +345,12 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'is_active' => true,
         ]);
 
-        $setInstrument = SetInstrument::query()->create([
+        InstrumentSetItem::query()->create([
             'instrument_set_id' => $set->id,
-            'code' => 'SI-SET-RET-01-001',
-            'name' => 'Forceps',
+            'product_id' => $product->id,
             'quantity' => 2,
             'sort_order' => 1,
             'remarks' => null,
-            'is_active' => true,
         ]);
 
         $lot = Lot::query()->create([
@@ -361,7 +359,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'supplier_id' => $supplier->id,
             'lot_number' => 'SET-RET-LOT-001',
             'is_system_generated_lot' => true,
-            'supplier_batch_code' => '',
+            'manufacturing_date' => '',
             'status' => 'supplied',
             'current_location_type' => 'client',
             'current_location_id' => $client->id,
@@ -377,7 +375,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'status' => 'finalized',
         ]);
 
-        $stockInItem = StockInItem::query()->create([
+        StockInItem::query()->create([
             'stock_in_id' => $stockIn->id,
             'entry_kind' => StockInItem::ENTRY_KIND_SET,
             'instrument_set_id' => $set->id,
@@ -385,28 +383,6 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'lot_entry_mode' => 'scan',
             'expiry_entry_mode' => 'manual',
             'missing_lot_flag' => false,
-        ]);
-
-        SetInstrumentInstance::query()->create([
-            'lot_id' => $lot->id,
-            'instrument_set_id' => $set->id,
-            'set_instrument_id' => $setInstrument->id,
-            'stock_in_id' => $stockIn->id,
-            'stock_in_item_id' => $stockInItem->id,
-            'instance_number' => 'INS-20250201-1-1-001',
-            'status' => 'supplied',
-            'remarks' => null,
-        ]);
-
-        SetInstrumentInstance::query()->create([
-            'lot_id' => $lot->id,
-            'instrument_set_id' => $set->id,
-            'set_instrument_id' => $setInstrument->id,
-            'stock_in_id' => $stockIn->id,
-            'stock_in_item_id' => $stockInItem->id,
-            'instance_number' => 'INS-20250201-1-1-002',
-            'status' => 'supplied',
-            'remarks' => null,
         ]);
 
         $consignment = Consignment::query()->create([
@@ -441,8 +417,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
         ]);
 
         $returnItem->setInstrumentItems()->create([
-            'set_instrument_id' => $setInstrument->id,
-            'product_id' => null,
+            'product_id' => $product->id,
             'returned_quantity' => 1,
             'remarks' => null,
         ]);
@@ -458,15 +433,16 @@ class ReturnAndReconciliationTest extends FeatureTestCase
         $response = $this->postJson("/api/v1/reconciliations/{$reconciliation->id}/finalize");
 
         $response->assertOk()->assertJsonPath('data.status', 'finalized');
-
-        $this->assertSame(
-            ['returned', 'used'],
-            SetInstrumentInstance::query()
-                ->where('lot_id', $lot->id)
-                ->orderBy('id')
-                ->pluck('status')
-                ->all()
-        );
+        $this->assertDatabaseHas('reconciliation_set_instrument_results', [
+            'reconciliation_item_id' => Reconciliation::query()->findOrFail($reconciliation->id)
+                ->reconciliationItems()
+                ->firstOrFail()
+                ->id,
+            'product_id' => $product->id,
+            'expected_quantity' => 2,
+            'returned_quantity' => 1,
+            'used_quantity' => 1,
+        ]);
     }
 
     public function test_cannot_finalize_reconciliation_with_no_consigned_lots(): void

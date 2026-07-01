@@ -17,7 +17,7 @@ class CorrectStockInItemRequest extends FormRequest
             // At least one of the three correctable fields must be present
             // (enforced in service layer — all three are optional individually)
             'lot_number'          => ['sometimes', 'string', 'max:255'],
-            'supplier_batch_code' => ['sometimes', 'string', 'max:255'],
+            'manufacturing_date' => ['sometimes', 'nullable', 'date'],
             'expiry_date'         => ['sometimes', 'nullable', 'date'],
 
             // Mandatory reason for admin correction (audit trail requirement)

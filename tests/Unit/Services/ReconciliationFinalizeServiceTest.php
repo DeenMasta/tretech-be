@@ -172,7 +172,7 @@ class ReconciliationFinalizeServiceTest extends ServiceTestCase
                 'product_id'            => $this->product->id,
                 'supplier_id'           => $this->supplier->id,
                 'lot_number'            => 'LOT-R-' . str()->upper(str()->random(6)),
-                'supplier_batch_code'   => 'BATCH-TEST',
+                'manufacturing_date'   => '2026-01-01',
                 'status'                => 'supplied',
                 'current_location_type' => 'client',
                 'current_location_id'   => $this->client->id,

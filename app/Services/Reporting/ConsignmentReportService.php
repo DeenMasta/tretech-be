@@ -80,7 +80,7 @@ class ConsignmentReportService
                     'Client'          => $consignment->client?->client_name,
                     'Consignment Date' => $consignment->consignment_at?->format('Y-m-d'),
                     'Lot Number'      => $lot?->lot_number,
-                    'Batch Code'      => $lot?->supplier_batch_code,
+                    'Batch Code'      => $lot?->manufacturing_date,
                     'Product Ref'     => $product?->ref_num,
                     'Product Name'    => $product?->product_name,
                     'UOM'             => $product?->uom,

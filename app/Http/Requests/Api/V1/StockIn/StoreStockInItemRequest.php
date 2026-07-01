@@ -57,11 +57,9 @@ class StoreStockInItemRequest extends FormRequest
                     return true;
                 }),
             ],
-            'supplier_batch_code' => [
-                Rule::requiredIf(fn () => !$isSet),
+            'manufacturing_date' => [
                 'nullable',
-                'string',
-                'max:255',
+                'date',
             ],
             'expiry_date' => ['nullable', 'date'],
             'lot_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
@@ -81,6 +79,7 @@ class StoreStockInItemRequest extends FormRequest
                         || $this->input('expiry_entry_mode') === 'manual';
                 }),
             ],
+            'quantity' => ['sometimes', 'integer', 'min:1'],
             'remarks' => ['nullable', 'string'],
 
             // Set-mode field. Required only when entry_kind = set.

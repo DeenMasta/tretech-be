@@ -149,7 +149,7 @@ class DisposalCompleteServiceTest extends ServiceTestCase
             'product_id'            => $this->product->id,
             'supplier_id'           => $this->supplier->id,
             'lot_number'            => $lotNumber ?? 'LOT-' . str()->upper(str()->random(6)),
-            'supplier_batch_code'   => 'BATCH-TEST',
+            'manufacturing_date'   => '2026-01-01',
             'status'                => 'available',
             'current_location_type' => 'warehouse',
             'received_at'           => now(),

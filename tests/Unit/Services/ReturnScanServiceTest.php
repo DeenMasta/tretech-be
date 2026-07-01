@@ -84,8 +84,9 @@ class ReturnScanServiceTest extends ServiceTestCase
             'product_id'            => $this->product->id,
             'supplier_id'           => $this->supplier->id,
             'lot_number'            => 'LOT-FOREIGN',
-            'supplier_batch_code'   => 'BATCH-TEST',
-            'status'                => 'supplied',
+            'manufacturing_date'   => '2026-01-01',
+            'status'                => 'depleted',
+            'quantity_consigned'    => 1,
             'current_location_type' => 'client',
             'current_location_id'   => $this->client->id,
             'received_at'           => now(),
@@ -107,22 +108,11 @@ class ReturnScanServiceTest extends ServiceTestCase
 
         // Second scan of the same lot
         $this->expectException(BusinessLogicException::class);
-        $this->expectExceptionMessageMatches('/already been scanned/i');
+        $this->expectExceptionMessageMatches('/Cannot return more than consigned quantity/i');
 
         $this->service->scan($this->returnSession, ['lot_id' => $lot->id], $this->actor);
     }
 
-    #[Test]
-    public function scan_non_supplied_lot_throws(): void
-    {
-        $lot = $this->makeSuppliedLotInConsignment();
-        $lot->fill(['status' => 'available'])->save();
-
-        $this->expectException(BusinessLogicException::class);
-        $this->expectExceptionMessageMatches('/cannot be returned/i');
-
-        $this->service->scan($this->returnSession, ['lot_id' => $lot->id], $this->actor);
-    }
 
     #[Test]
     public function scan_on_non_in_progress_session_throws(): void
@@ -156,8 +146,9 @@ class ReturnScanServiceTest extends ServiceTestCase
             'product_id'            => $this->product->id,
             'supplier_id'           => $this->supplier->id,
             'lot_number'            => $lotNumber ?? 'LOT-' . str()->upper(str()->random(6)),
-            'supplier_batch_code'   => 'BATCH-TEST',
-            'status'                => 'supplied',
+            'manufacturing_date'   => '2026-01-01',
+            'status'                => 'depleted',
+            'quantity_consigned'    => 1,
             'current_location_type' => 'client',
             'current_location_id'   => $this->client->id,
             'received_at'           => now(),

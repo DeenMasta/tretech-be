@@ -137,6 +137,25 @@ class InventoryController extends Controller
     }
 
     /**
+     * GET /inventory-units/lookup/sets-by-product/{productId}
+     *
+     * Look up all sets in inventory containing a specific product.
+     */
+    public function lookupSetsByProduct(Request $request, int $productId): JsonResponse
+    {
+        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
+        $paginator = $this->inventoryService->paginateSetsContainingProduct($productId, $perPage);
+
+        return $this->paginatedResponse(
+            items: InventoryUnitResource::collection($paginator->items())->resolve(),
+            total: $paginator->total(),
+            perPage: $paginator->perPage(),
+            currentPage: $paginator->currentPage(),
+            message: 'Inventory sets fetched by product successfully'
+        );
+    }
+
+    /**
      * GET /inventory-units/{lot}
      *
      * Full detail for a single lot: product, supplier, QR label, holding, movement count.

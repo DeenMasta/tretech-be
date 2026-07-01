@@ -31,7 +31,7 @@ This SRS covers the complete system scope for Version 1.0.
 ### 1.3 Project Scope
 TRETECH shall:
 - Track every unit (implant/instrument) as an individual record.
-- Support Stock-In by session with mandatory Supplier Batch Code.
+- Support Stock-In by session with mandatory Manufacturing Date.
 - Print internal QR labels after Stock-In confirmation.
 - Support editable consignment notes (Admin only post-confirmation).
 - Support Return Sessions with returned-only scanning.
@@ -97,8 +97,8 @@ The system shall:
 ### 3.2 Stock-In Session
 The system shall:
 - Allow creation of a Stock-In Session capturing Supplier, DO Number, Date/Time, and PIC.
-- Require mandatory Supplier Batch Code per unit.
-- Allow multiple Supplier Batch Codes within a single session.
+- Require mandatory Manufacturing Date per unit.
+- Allow multiple Manufacturing Dates within a single session.
 - Support scanning of Lot Number and Expiry Date.
 - Allow manual Lot/Expiry entry when scan fails (audit-logged).
 - Enforce global uniqueness of Lot Number.
@@ -109,7 +109,7 @@ The system shall:
 
 ### 3.3 Internal Labelling & QR Printing
 **QR Payload (v1 Canonical Format)**  
-`V=1;REF={RefNum};LOT={LotNumber};BATCH={SupplierBatchCode};EXP={YYYY-MM-DD|-}`
+`V=1;REF={RefNum};LOT={LotNumber};BATCH={ManufacturingDate};EXP={YYYY-MM-DD|-}`
 
 **Rules:**
 - REF, LOT, and BATCH are mandatory.
@@ -257,7 +257,7 @@ The system shall:
 |---|---|
 | Unit | Single trackable item record |
 | Lot Number | Globally unique unit identifier |
-| Supplier Batch Code | Supplier batch identifier |
+| Manufacturing Date | Supplier batch identifier |
 | Stock-In Session | Intake transaction grouping |
 | Consignment Note | Stock-Out record |
 | Return Session | Returned-only workflow |

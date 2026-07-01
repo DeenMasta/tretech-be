@@ -5,8 +5,6 @@ namespace Tests\Feature\Api\V1;
 use App\Models\InstrumentSet;
 use App\Models\Lot;
 use App\Models\LotHolding;
-use App\Models\SetInstrument;
-use App\Models\SetInstrumentInstance;
 use App\Models\StockIn;
 use App\Models\StockInItem;
 use Laravel\Sanctum\Sanctum;
@@ -114,7 +112,7 @@ class StockInTest extends FeatureTestCase
         $response = $this->postJson("/api/v1/stock-in-sessions/{$session->id}/items", [
             'product_id'         => $product->id,
             'scanned_lot_number' => 'LOTABC001',
-            'supplier_batch_code' => 'BATCH001',
+            'manufacturing_date' => '2026-01-01',
             'expiry_date'        => '2027-01-01',
         ]);
 
@@ -146,7 +144,7 @@ class StockInTest extends FeatureTestCase
         // missing_lot_flag=true without entry_override_reason should be 422
         $this->postJson("/api/v1/stock-in-sessions/{$session->id}/items", [
             'product_id'          => $product->id,
-            'supplier_batch_code' => 'BATCH002',
+            'manufacturing_date' => '2026-01-01',
             'expiry_date'         => '2027-01-01',
             'missing_lot_flag'    => true,
         ])->assertStatus(422);
@@ -171,7 +169,7 @@ class StockInTest extends FeatureTestCase
 
         $response = $this->postJson("/api/v1/stock-in-sessions/{$session->id}/items", [
             'product_id'          => $product->id,
-            'supplier_batch_code' => 'BATCH-NOLOT-001',
+            'manufacturing_date' => '2026-01-01',
             'expiry_date'         => '2027-01-01',
             'missing_lot_flag'    => false,
         ]);
@@ -210,7 +208,7 @@ class StockInTest extends FeatureTestCase
             'stock_in_id'         => $session->id,
             'product_id'          => $product->id,
             'scanned_lot_number'  => 'LOT-NORMAL-001',
-            'supplier_batch_code' => 'BATCH-N001',
+            'manufacturing_date' => '2026-01-01',
             'expiry_date'         => '2027-01-01',
             'lot_entry_mode'      => 'scan',
             'missing_lot_flag'    => false,
@@ -250,7 +248,7 @@ class StockInTest extends FeatureTestCase
         StockInItem::query()->create([
             'stock_in_id'           => $session->id,
             'product_id'            => $product->id,
-            'supplier_batch_code'   => 'BATCH-H001',
+            'manufacturing_date'   => '2026-01-01',
             'expiry_date'           => '2027-01-01',
             'lot_entry_mode'        => 'manual',
             'missing_lot_flag'      => true,
@@ -292,7 +290,7 @@ class StockInTest extends FeatureTestCase
         StockInItem::query()->create([
             'stock_in_id'           => $session->id,
             'product_id'            => $product->id,
-            'supplier_batch_code'   => 'BATCH-NOLOT-FINALIZE-001',
+            'manufacturing_date'   => '2026-01-01',
             'expiry_date'           => '2027-01-01',
             'lot_entry_mode'        => 'scan',
             'missing_lot_flag'      => false,
@@ -314,7 +312,7 @@ class StockInTest extends FeatureTestCase
         $this->assertDatabaseMissing('lot_holdings', ['lot_id' => $lot->id]);
     }
 
-    public function test_finalize_set_entry_creates_tracked_instrument_instances(): void
+    public function test_finalize_set_entry_creates_set_instance_lot(): void
     {
         $user = $this->makeUserWithPermissions(['stock_in.confirm']);
         $supplier = $this->createSupplier();
@@ -327,23 +325,17 @@ class StockInTest extends FeatureTestCase
             'is_active' => true,
         ]);
 
-        $instrumentA = SetInstrument::query()->create([
-            'instrument_set_id' => $set->id,
-            'code' => 'SI-SET-GEN-01-001',
-            'name' => 'Test 1',
-            'quantity' => 1,
-            'sort_order' => 1,
-            'remarks' => null,
+        $instrumentA = \App\Models\Product::query()->create([
+            'product_name' => 'Scalpel Handle',
+            'ref_num' => 'REF-001',
             'is_active' => true,
         ]);
 
-        $instrumentB = SetInstrument::query()->create([
+        \App\Models\InstrumentSetItem::query()->create([
             'instrument_set_id' => $set->id,
-            'code' => 'SI-SET-GEN-01-002',
-            'name' => 'Test 2',
-            'quantity' => 2,
-            'sort_order' => 2,
-            'remarks' => null,
+            'product_id' => $instrumentA->id,
+            'quantity' => 1,
+            'sort_order' => 1,
             'is_active' => true,
         ]);
 
@@ -375,18 +367,8 @@ class StockInTest extends FeatureTestCase
             ->first();
 
         $this->assertNotNull($lot);
-        $this->assertStringStartsWith('SET-SET-GEN-01-', $lot->lot_number);
-
-        $instances = SetInstrumentInstance::query()
-            ->where('lot_id', $lot->id)
-            ->orderBy('set_instrument_id')
-            ->orderBy('id')
-            ->get();
-
-        $this->assertCount(3, $instances);
-        $this->assertSame([$instrumentA->id, $instrumentB->id, $instrumentB->id], $instances->pluck('set_instrument_id')->all());
-        $this->assertTrue($instances->every(fn ($instance) => $instance->status === 'available'));
-        $this->assertStringStartsWith('INS-' . now()->startOfDay()->format('Ymd') . '-', $instances->first()->instance_number);
+        $this->assertStringStartsWith('SETCOMP-SET-GEN-01-', $lot->lot_number);
+        $this->assertSame('available', $lot->status);
     }
 
     // -------------------------------------------------------------------------
@@ -456,7 +438,7 @@ class StockInTest extends FeatureTestCase
             'stock_in_id'         => $session->id,
             'product_id'          => $product->id,
             'scanned_lot_number'  => 'LOT-REVIEW-001',
-            'supplier_batch_code' => 'BATCH-R001',
+            'manufacturing_date' => '2026-01-01',
             'expiry_date'         => '2027-01-01',
             'missing_lot_flag'    => false,
         ]);

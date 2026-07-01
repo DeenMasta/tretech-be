@@ -98,7 +98,7 @@ class StockInItemController extends Controller
     }
 
     /**
-     * Admin-only correction of immutable fields (lot_number, supplier_batch_code, expiry_date)
+     * Admin-only correction of immutable fields (lot_number, manufacturing_date, expiry_date)
      * on a finalized stock-in session item. Requires mandatory admin_reason.
      */
     public function correct(CorrectStockInItemRequest $request, StockIn $stockIn, StockInItem $stockInItem): JsonResponse

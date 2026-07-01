@@ -1061,7 +1061,7 @@ GET {{base_url}}/inventory-ledger?lot_id=1&movement_type=INBOUND&from_date=2026-
 **QR Payload Format Reference:**
 
 ```
-V=1;REF={RefNumber};LOT={LotNumber};BATCH={SupplierBatchCode};EXP={YYYY-MM-DD (or - if no expiry)}
+V=1;REF={RefNumber};LOT={LotNumber};BATCH={ManufacturingDate};EXP={YYYY-MM-DD (or - if no expiry)}
 ```
 
 **Usage:** Call after finalization to ensure every lot has a corresponding QR label. Used by mobile apps for barcode generation and printing.

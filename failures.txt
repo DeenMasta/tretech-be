@@ -1,0 +1,33 @@
+   FAIL  Tests\Unit\Services\ConsignmentConfirmServiceTest
+  ⨯ confirm changes lots to supplied and creates movements                                                       0.57s  
+  ⨯ confirm handles multiple lots                                                                                0.08s  
+   FAIL  Tests\Unit\Services\ReturnScanServiceTest
+  ⨯ scan already scanned lot throws                                                                              0.07s  
+  ⨯ scan non supplied lot throws                                                                                 0.06s  
+   FAIL  Tests\Feature\Api\V1\ConsignmentTest
+  ⨯ cannot add holding lot to consignment                                                                        0.06s  
+  ⨯ confirm consignment changes lots to supplied                                                                 0.07s  
+   FAIL  Tests\Feature\Api\V1\StockInTest
+  ⨯ finalize set entry creates set instance lot                                                                  0.07s  
+   FAILED  Tests\Unit\Services\ConsignmentConfirmServiceTest > confirm changes lots to supplied and creates movement…   
+  Failed asserting that two strings are identical.
+  at tests\Unit\Services\ConsignmentConfirmServiceTest.php:66
+  1   tests\Unit\Services\ConsignmentConfirmServiceTest.php:66
+   FAILED  Tests\Unit\Services\ConsignmentConfirmServiceTest > confirm handles multiple lots                            
+  Failed asserting that two strings are identical.
+  at tests\Unit\Services\ConsignmentConfirmServiceTest.php:101
+  1   tests\Unit\Services\ConsignmentConfirmServiceTest.php:101
+   FAILED  Tests\Unit\Services\ReturnScanServiceTest > scan already scanned lot throws                                  
+  Failed asserting that exception message 'Cannot return more than consigned quantity for lot LOT-DM6XAI.' matches '/already been scanned/i'.
+   FAILED  Tests\Unit\Services\ReturnScanServiceTest > scan non supplied lot throws                                     
+  Failed asserting that exception of type "App\Exceptions\BusinessLogicException" is thrown.
+   FAILED  Tests\Feature\Api\V1\ConsignmentTest > cannot add holding lot to consignment                                 
+Failed asserting that 201 is identical to 400.
+  at tests\Feature\Api\V1\ConsignmentTest.php:165
+   FAILED  Tests\Feature\Api\V1\ConsignmentTest > confirm consignment changes lots to supplied                          
+  Failed asserting that a row in the table [lots] matches the attributes {
+  at tests\Feature\Api\V1\ConsignmentTest.php:203
+   FAILED  Tests\Feature\Api\V1\StockInTest > finalize set entry creates set instance lot                               
+Failed asserting that 400 is identical to 200.
+App\Exceptions\BusinessLogicException: Instrument set 'General Surgery Starter Set' has no component products defined. Please add products to the set before stocking in. in D:\Projects\TRETECH\tretech-backend\app\Services\StockIn\StockInFinalizeService.php:204
+  at tests\Feature\Api\V1\StockInTest.php:348

@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Api\V1\StockIn;
 
-use App\Http\Resources\Api\V1\MasterData\SetInstrumentInstanceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,14 +22,14 @@ class LotResource extends JsonResource
             'lot_number' => $this->lot_number,
 
             'is_system_generated_lot' => (bool) $this->is_system_generated_lot,
-            'supplier_batch_code' => $this->supplier_batch_code,
+            'manufacturing_date' => $this->manufacturing_date,
+            'quantity' => $this->quantity ?? 1,
+            'quantity_available' => $this->quantity_available ?? 1,
+            'quantity_consigned' => $this->quantity_consigned ?? 0,
             'expiry_date' => $this->expiry_date?->format('Y-m-d'),
             'status' => $this->status,
             'current_location_type' => $this->current_location_type,
             'current_location_id' => $this->current_location_id,
-            'set_instrument_instances' => $this->relationLoaded('setInstrumentInstances')
-                ? SetInstrumentInstanceResource::collection($this->setInstrumentInstances)->resolve()
-                : [],
             'received_at' => $this->received_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

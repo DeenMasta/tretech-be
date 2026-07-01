@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'return_session_item_id',
-    'set_instrument_id',
     'product_id',
     'returned_quantity',
     'remarks',
@@ -28,11 +27,6 @@ class ReturnSessionSetInstrumentItem extends Model
     public function returnSessionItem(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\ReturnSessionItem');
-    }
-
-    public function setInstrument(): BelongsTo
-    {
-        return $this->belongsTo('App\\Models\\SetInstrument');
     }
 
     public function product(): BelongsTo

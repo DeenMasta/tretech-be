@@ -45,6 +45,9 @@ class StoreConsignmentItemRequest extends FormRequest
                 'exists:instrument_sets,id',
             ],
 
+            'proposed_quantity' => ['sometimes', 'integer', 'min:1'],
+            'quantity' => ['sometimes', 'integer', 'min:1'],
+
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -63,14 +63,14 @@ class ConsignmentConfirmServiceTest extends ServiceTestCase
 
         $this->assertSame('confirmed', $result->status);
         $lot->refresh();
-        $this->assertSame('supplied', $lot->status);
+        $this->assertSame('depleted', $lot->status);
         $this->assertSame('client', $lot->current_location_type);
 
         $this->assertDatabaseHas('lot_movements', [
             'lot_id'        => $lot->id,
             'movement_type' => 'consigned',
             'from_status'   => 'available',
-            'to_status'     => 'supplied',
+            'to_status'     => 'depleted',
         ]);
     }
 
@@ -98,8 +98,8 @@ class ConsignmentConfirmServiceTest extends ServiceTestCase
 
         $this->service->confirm($consignment, $this->actor);
 
-        $this->assertSame('supplied', $lot1->refresh()->status);
-        $this->assertSame('supplied', $lot2->refresh()->status);
+        $this->assertSame('depleted', $lot1->refresh()->status);
+        $this->assertSame('depleted', $lot2->refresh()->status);
         $this->assertSame(2, LotMovement::query()->where('movement_type', 'consigned')->count());
     }
 
@@ -161,7 +161,7 @@ class ConsignmentConfirmServiceTest extends ServiceTestCase
             'product_id'            => $this->product->id,
             'supplier_id'           => $this->supplier->id,
             'lot_number'            => $lotNumber ?? 'LOT-' . str()->upper(str()->random(6)),
-            'supplier_batch_code'   => 'BATCH-TEST',
+            'manufacturing_date'   => '2026-01-01',
             'expiry_date'           => '2027-12-31',
             'status'                => 'available',
             'current_location_type' => 'warehouse',

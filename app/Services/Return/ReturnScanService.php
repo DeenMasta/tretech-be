@@ -36,18 +36,14 @@ class ReturnScanService
         if ($isLot) {
             $lot = $this->resolveLot($data);
 
-            if ($lot->status !== 'supplied') {
-                throw new BusinessLogicException(
-                    "Lot {$lot->lot_number} cannot be returned (current status: {$lot->status})."
-                );
-            }
+            $qty = $data['quantity'] ?? 1;
 
-            $belongsToConsignment = ConsignmentItem::query()
+            $consignedItem = ConsignmentItem::query()
                 ->where('consignment_id', $session->consignment_id)
                 ->where('lot_id', $lot->id)
-                ->exists();
+                ->first();
 
-            if (!$belongsToConsignment) {
+            if (!$consignedItem) {
                 throw new BusinessLogicException(
                     "Lot {$lot->lot_number} was not part of the consignment linked to this return session."
                 );
@@ -56,24 +52,33 @@ class ReturnScanService
             $alreadyScanned = ReturnSessionItem::query()
                 ->where('return_session_id', $session->id)
                 ->where('lot_id', $lot->id)
-                ->exists();
+                ->first();
 
-            if ($alreadyScanned) {
-                throw new BusinessLogicException("Lot {$lot->lot_number} has already been scanned in this return session.");
+            $totalReturned = ($alreadyScanned->quantity ?? 0) + $qty;
+
+            if ($totalReturned > $consignedItem->quantity) {
+                throw new BusinessLogicException("Cannot return more than consigned quantity for lot {$lot->lot_number}.");
             }
 
             if ($lot->isSetInstance() && empty($data['instrument_results'])) {
                 throw new BusinessLogicException('Instrument results must be provided when scanning a set instance.');
             }
 
-            $item = ReturnSessionItem::query()->create([
-                'return_session_id'    => $session->id,
-                'lot_id'               => $lot->id,
-                'returned_at'          => now(),
-                'returned_by_user_id'  => $actor->id,
-                'source_qr_payload'    => $data['source_qr_payload'] ?? null,
-                'remarks'              => $data['remarks'] ?? null,
-            ]);
+            if ($alreadyScanned) {
+                $alreadyScanned->quantity = $totalReturned;
+                $alreadyScanned->save();
+                $item = $alreadyScanned;
+            } else {
+                $item = ReturnSessionItem::query()->create([
+                    'return_session_id'    => $session->id,
+                    'lot_id'               => $lot->id,
+                    'returned_at'          => now(),
+                    'returned_by_user_id'  => $actor->id,
+                    'source_qr_payload'    => $data['source_qr_payload'] ?? null,
+                    'remarks'              => $data['remarks'] ?? null,
+                    'quantity'             => $qty,
+                ]);
+            }
 
             $description = "Scanned lot {$lot->lot_number} into return session {$session->return_session_no}";
             $isSet = $lot->isSetInstance();
@@ -111,6 +116,7 @@ class ReturnScanService
                 'returned_by_user_id'  => $actor->id,
                 'source_qr_payload'    => $data['source_qr_payload'] ?? null,
                 'remarks'              => $data['remarks'] ?? null,
+                'quantity'             => 1,
             ]);
 
             $description = "Scanned generic set into return session {$session->return_session_no}";
@@ -145,6 +151,7 @@ class ReturnScanService
                 'returned_by_user_id'  => $actor->id,
                 'source_qr_payload'    => $data['source_qr_payload'] ?? null,
                 'remarks'              => $data['remarks'] ?? null,
+                'quantity'             => 1,
             ]);
 
             $description = "Scanned generic product into return session {$session->return_session_no}";
@@ -165,7 +172,6 @@ class ReturnScanService
         if ($isSet && !empty($data['instrument_results'])) {
             foreach ($data['instrument_results'] as $result) {
                 $item->setInstrumentItems()->create([
-                    'set_instrument_id' => $result['set_instrument_id'] ?? null,
                     'product_id'        => $result['product_id'] ?? null,
                     'returned_quantity' => $result['returned_quantity'],
                     'remarks'           => null,
@@ -175,7 +181,7 @@ class ReturnScanService
 
         return $item->load([
             'lot.product:id,ref_num,product_name',
-            'lot.setInstrumentInstances.setInstrument:id,code,name',
+            'setInstrumentItems.product:id,ref_num,product_name',
             'instrumentSet',
             'product:id,ref_num,product_name',
         ]);

@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'stock_in_id',
@@ -15,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'instrument_set_id',
     'lot_id',
     'scanned_lot_number',
-    'supplier_batch_code',
+    'manufacturing_date',
     'expiry_date',
     'lot_entry_mode',
     'expiry_entry_mode',
@@ -23,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'source_barcode',
     'entry_override_reason',
     'remarks',
+    'quantity',
 ])]
 class StockInItem extends Model
 {
@@ -57,11 +57,6 @@ class StockInItem extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo('App\\Models\\Lot');
-    }
-
-    public function setInstrumentInstances(): HasMany
-    {
-        return $this->hasMany('App\\Models\\SetInstrumentInstance');
     }
 
     public function isSetEntry(): bool

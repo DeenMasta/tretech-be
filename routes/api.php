@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\V1\MasterData\ClientController;
 use App\Http\Controllers\Api\V1\MasterData\InstrumentSetController;
 use App\Http\Controllers\Api\V1\MasterData\InstrumentSetItemController;
 use App\Http\Controllers\Api\V1\MasterData\ProductController;
-use App\Http\Controllers\Api\V1\MasterData\SetInstrumentController;
 use App\Http\Controllers\Api\V1\MasterData\SupplierController;
 use App\Http\Controllers\Api\V1\MasterData\UserController;
 use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
@@ -118,11 +117,6 @@ Route::prefix('v1')->group(function () {
         Route::patch('instrument-sets/{instrumentSet}/items/{instrumentSetItem}', [InstrumentSetItemController::class, 'update'])->middleware('permission:instrument_sets.manage');
         Route::delete('instrument-sets/{instrumentSet}/items/{instrumentSetItem}', [InstrumentSetItemController::class, 'destroy'])->middleware('permission:instrument_sets.manage');
 
-        // Non-product instruments registered directly under a set.
-        Route::get('instrument-sets/{instrumentSet}/instruments', [SetInstrumentController::class, 'index'])->middleware('permission:instrument_sets.view,instrument_sets.manage');
-        Route::post('instrument-sets/{instrumentSet}/instruments', [SetInstrumentController::class, 'store'])->middleware('permission:instrument_sets.manage');
-        Route::patch('instrument-sets/{instrumentSet}/instruments/{setInstrument}', [SetInstrumentController::class, 'update'])->middleware('permission:instrument_sets.manage');
-        Route::delete('instrument-sets/{instrumentSet}/instruments/{setInstrument}', [SetInstrumentController::class, 'destroy'])->middleware('permission:instrument_sets.manage');
     });
 
     Route::prefix('stock-in-sessions')->middleware('auth:sanctum')->group(function () {
@@ -165,7 +159,12 @@ Route::prefix('v1')->group(function () {
 
         // Product ref-num lookup
         Route::get('inventory-units/lookup/by-ref/{refNum}', [InventoryController::class, 'lookupByRef'])
-            ->middleware('permission:stock_in.view');
+            ->middleware('permission:stock_in.view')
+            ->name('inventory-units.lookup-by-ref');
+
+        Route::get('inventory-units/lookup/sets-by-product/{productId}', [InventoryController::class, 'lookupSetsByProduct'])
+            ->middleware('permission:stock_in.view')
+            ->name('inventory-units.lookup-sets-by-product');
 
         // Paginated list
         Route::get('inventory-units', [InventoryController::class, 'index'])

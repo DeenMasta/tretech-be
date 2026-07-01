@@ -22,7 +22,7 @@ class InventoryService
      *   instrument_set_id   — integer
      *   expiry_from         — YYYY-MM-DD  (inclusive)
      *   expiry_to           — YYYY-MM-DD  (inclusive)
-     *   search              — matches lot_number, supplier_batch_code, product ref_num or name
+     *   search              — matches lot_number, manufacturing_date, product ref_num or name
      *
      * @param array<string, mixed> $filters
      */
@@ -45,7 +45,7 @@ class InventoryService
                 $term = $filters['search'];
                 $q->where(function ($sub) use ($term) {
                     $sub->where('lot_number', 'like', "%{$term}%")
-                        ->orWhere('supplier_batch_code', 'like', "%{$term}%")
+                        ->orWhere('manufacturing_date', 'like', "%{$term}%")
                         ->orWhereHas('product', fn ($pq) =>
                             $pq->where('ref_num', 'like', "%{$term}%")
                                ->orWhere('product_name', 'like', "%{$term}%")
@@ -189,6 +189,24 @@ class InventoryService
             ->when(!empty($filters['movement_type']), fn ($q) => $q->where('movement_type', $filters['movement_type']))
             ->when(!empty($filters['from_date']), fn ($q) => $q->whereDate('performed_at', '>=', $filters['from_date']))
             ->when(!empty($filters['to_date']), fn ($q) => $q->whereDate('performed_at', '<=', $filters['to_date']))
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+    /**
+     * Find lots for a specific product that were received as part of an InstrumentSet.
+     * These lots are tagged with instrument_set_id to indicate their origin.
+     *
+     * @return LengthAwarePaginator
+     */
+    public function paginateSetsContainingProduct(int $productId, int $perPage = 15): LengthAwarePaginator
+    {
+        return Lot::query()
+            ->with([
+                'instrumentSet:id,set_code,set_name',
+            ])
+            ->where('product_id', $productId)
+            ->whereNotNull('instrument_set_id')
+            ->whereIn('status', ['available', 'holding'])
             ->orderByDesc('id')
             ->paginate($perPage);
     }

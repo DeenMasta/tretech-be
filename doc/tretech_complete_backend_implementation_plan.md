@@ -277,7 +277,7 @@ Week 4 (Integration + Hardening) ◄─────────┘
 #### Day 5 (Wed 9 Apr) — QR Labels & Print Jobs
 
 **Build order:**
-1. Create `QrPayloadService` — generate canonical format: `V=1;REF={RefNum};LOT={LotNumber};BATCH={SupplierBatchCode};EXP={YYYY-MM-DD|-}`
+1. Create `QrPayloadService` — generate canonical format: `V=1;REF={RefNum};LOT={LotNumber};BATCH={ManufacturingDate};EXP={YYYY-MM-DD|-}`
 2. Create `QrPayloadService::validate()` — check mandatory fields, format
 3. Create `QrLabelController` — preview-payload, get-payload
 4. Create `PrintJobService` — create, markPrinted, markFailed

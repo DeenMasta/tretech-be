@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['lot_id', 'movement_type', 'reference_type', 'reference_id', 'from_status', 'to_status', 'from_location_type', 'from_location_id', 'to_location_type', 'to_location_id', 'performed_at', 'performed_by_user_id', 'remarks'])]
+#[Fillable(['lot_id', 'movement_type', 'reference_type', 'reference_id', 'from_status', 'to_status', 'from_location_type', 'from_location_id', 'to_location_type', 'to_location_id', 'performed_at', 'performed_by_user_id', 'remarks', 'quantity'])]
 class LotMovement extends Model
 {
     use HasFactory;

@@ -286,7 +286,7 @@ Implement the first critical warehouse workflow: receiving stock at unit level.
 - product_id
 - ref_num_snapshot
 - lot_number
-- supplier_batch_code
+- manufacturing_date
 - expiry_date
 - barcode_raw
 - capture_method (`scan`, `manual`)
@@ -294,7 +294,7 @@ Implement the first critical warehouse workflow: receiving stock at unit level.
 - remarks
 
 ### Core rules
-- supplier batch code is mandatory per unit
+- manufacturing date is mandatory per unit
 - lot number is globally unique
 - no duplicate unit capture within the same session
 - manual lot or expiry entry must be audit-logged
@@ -338,7 +338,7 @@ On finalize, backend must:
 Support the internal labeling flow required immediately after stock-in confirmation.
 
 ### QR canonical format
-`V=1;REF={RefNum};LOT={LotNumber};BATCH={SupplierBatchCode};EXP={YYYY-MM-DD|-}`
+`V=1;REF={RefNum};LOT={LotNumber};BATCH={ManufacturingDate};EXP={YYYY-MM-DD|-}`
 
 ### Scope
 - QR payload generator
@@ -492,7 +492,7 @@ Do not add future statuses prematurely unless Sprint 1 actually uses them.
 - `inventory_units.lot_number` unique
 - `stock_in_session_items` must reference valid session and product
 - `stock_in_sessions.supplier_id` required
-- `supplier_batch_code` required per item
+- `manufacturing_date` required per item
 - foreign keys indexed
 - frequent search fields indexed: `lot_number`, `ref_num`, `status`, `expiry_date`, `stock_in_at`
 
@@ -759,7 +759,7 @@ Finalize inventory, QR, print job, audit, and stabilization.
 
 ## 13.3 Stock-In session
 - session cannot be finalized without at least one valid unit line
-- item without supplier batch code is rejected
+- item without manufacturing date is rejected
 - duplicate lot number is rejected
 - manual entry is audit-logged
 - finalized session cannot be edited by normal staff

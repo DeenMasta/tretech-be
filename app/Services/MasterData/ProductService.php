@@ -19,6 +19,9 @@ class ProductService
             ->withCount(['lots as available_lots_count' => function ($query) {
                 $query->where('status', 'available');
             }])
+            ->withSum(['lots as total_quantity_available' => function ($query) {
+                $query->where('status', 'available');
+            }], 'quantity_available')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('ref_num', 'like', "%{$search}%")

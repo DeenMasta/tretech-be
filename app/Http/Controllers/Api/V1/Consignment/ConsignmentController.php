@@ -137,7 +137,6 @@ class ConsignmentController extends Controller
             'consignmentItems.lot:id,lot_number,product_id',
             'consignmentItems.instrumentSet:id,set_code,set_name',
             'consignmentItems.instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
-            'consignmentItems.instrumentSet.setInstruments:id,instrument_set_id,name,quantity,code',
         ]);
 
         $pdf = Pdf::loadView('exports.consignment-note', [

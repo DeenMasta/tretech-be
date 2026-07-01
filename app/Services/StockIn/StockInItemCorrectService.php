@@ -23,7 +23,7 @@ class StockInItemCorrectService
      *
      * Correctable fields (all optional — only supplied fields are changed):
      *   - lot_number        (propagated to the linked Lot record; must remain globally unique)
-     *   - supplier_batch_code (propagated to the linked Lot record)
+     *   - manufacturing_date (propagated to the linked Lot record)
      *   - expiry_date       (propagated to the linked Lot record)
      *   - admin_reason      (required — recorded in audit log)
      *
@@ -78,9 +78,9 @@ class StockInItemCorrectService
                 }
             }
 
-            if (array_key_exists('supplier_batch_code', $data)) {
-                $itemChanges['supplier_batch_code'] = $data['supplier_batch_code'];
-                $lotChanges['supplier_batch_code']  = $data['supplier_batch_code'];
+            if (array_key_exists('manufacturing_date', $data)) {
+                $itemChanges['manufacturing_date'] = $data['manufacturing_date'];
+                $lotChanges['manufacturing_date']  = $data['manufacturing_date'];
             }
 
             if (array_key_exists('expiry_date', $data)) {
@@ -90,7 +90,7 @@ class StockInItemCorrectService
 
             if (empty($lotChanges)) {
                 throw new BusinessLogicException(
-                    'No correctable fields supplied. Provide at least one of: lot_number, supplier_batch_code, expiry_date.'
+                    'No correctable fields supplied. Provide at least one of: lot_number, manufacturing_date, expiry_date.'
                 );
             }
 
@@ -125,7 +125,7 @@ class StockInItemCorrectService
                 ],
             );
 
-            return $item->refresh()->load(['product:id,ref_num,product_name', 'lot:id,lot_number,status,expiry_date,supplier_batch_code']);
+            return $item->refresh()->load(['product:id,ref_num,product_name', 'lot:id,lot_number,status,expiry_date,manufacturing_date']);
         });
     }
 }

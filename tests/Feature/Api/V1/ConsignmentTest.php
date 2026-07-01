@@ -200,7 +200,7 @@ class ConsignmentTest extends FeatureTestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.status', 'confirmed');
 
-        $this->assertDatabaseHas('lots', ['id' => $lot->id, 'status' => 'supplied']);
+        $this->assertDatabaseHas('lots', ['id' => $lot->id, 'status' => 'depleted']);
     }
 
     public function test_cannot_confirm_empty_consignment(): void

@@ -268,24 +268,9 @@
                             <td class="center">{{ $setNo++ }}</td>
                             <td>{{ $subItem->product?->ref_num ?? '-' }}</td>
                             <td>{{ $subItem->product?->product_name ?? '-' }}</td>
-                            <td class="center">{{ $subItem->quantity }}</td>
+                            <td class="center">{{ $subItem->quantity * ($setItem->proposed_quantity ?? 1) }}</td>
                             <td>-</td>
-                            <td class="center">&nbsp;</td>
-                            <td class="center">&nbsp;</td>
-                            <td>{{ $setItem->remarks ?? '' }}</td>
-                        </tr>
-                    @endforeach
-                @endif
-                
-                @if($setItem->instrumentSet && $setItem->instrumentSet->relationLoaded('setInstruments'))
-                    @foreach($setItem->instrumentSet->setInstruments as $subItem)
-                        <tr>
-                            <td class="center">{{ $setNo++ }}</td>
-                            <td>{{ $subItem->code ?? '-' }}</td>
-                            <td>{{ $subItem->name ?? '-' }}</td>
-                            <td class="center">{{ $subItem->quantity }}</td>
-                            <td>-</td>
-                            <td class="center">&nbsp;</td>
+                            <td class="center">{{ $subItem->quantity * ($setItem->quantity ?? 1) }}</td>
                             <td class="center">&nbsp;</td>
                             <td>{{ $setItem->remarks ?? '' }}</td>
                         </tr>
@@ -313,9 +298,9 @@
                         <td class="center">{{ $implantNo++ }}</td>
                         <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
                         <td>{{ $item->lot?->product?->product_name ?? '-' }}</td>
-                        <td class="center">1</td>
-                        <td>{{ $item->lot?->lot_number ?? '-' }}</td>
-                        <td class="center">&nbsp;</td>
+                        <td class="center">{{ $item->proposed_quantity ?? 1 }}</td>
+                        <td>{{ $item->lot?->lot_number ?? ' ' }}</td>
+                        <td class="center">{{ $item->quantity ?? 1 }}</td>
                         <td class="center">&nbsp;</td>
                         <td>{{ $item->remarks ?? '' }}</td>
                     </tr>

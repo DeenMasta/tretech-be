@@ -31,43 +31,36 @@ class ConsignmentItemResource extends JsonResource
                     ] : null,
                 ];
             }),
-            'instrument_set'        => $this->whenLoaded('instrumentSet', function () {
-                $items = collect();
-
-                if ($this->instrumentSet->relationLoaded('instrumentSetItems')) {
-                    foreach ($this->instrumentSet->instrumentSetItems as $item) {
-                        $items->push([
-                            'id' => $item->id,
-                            'name' => $item->product?->product_name ?? 'Unknown Product',
-                            'code' => $item->product?->ref_num,
-                            'quantity' => $item->quantity,
-                            'type' => 'product',
-                        ]);
-                    }
+            // Instrument set (when consignment item is a set entry)
+            'instrument_set' => $this->whenLoaded('instrumentSet', function () {
+                if (!$this->instrumentSet) {
+                    return null;
                 }
 
-                if ($this->instrumentSet->relationLoaded('setInstruments')) {
-                    foreach ($this->instrumentSet->setInstruments as $inst) {
-                        $items->push([
-                            'id' => $inst->id,
-                            'name' => $inst->name,
-                            'code' => $inst->code,
-                            'quantity' => $inst->quantity,
-                            'type' => 'instrument',
-                        ]);
+                $items = [];
+                if ($this->instrumentSet->relationLoaded('instrumentSetItems')) {
+                    foreach ($this->instrumentSet->instrumentSetItems as $inst) {
+                        $items[] = [
+                            'id'           => $inst->id,
+                            'product_name' => $inst->product?->product_name ?? 'Unknown',
+                            'quantity'     => $inst->quantity,
+                        ];
                     }
                 }
 
                 return [
-                    'id'       => $this->instrumentSet?->id,
-                    'set_code' => $this->instrumentSet?->set_code,
-                    'set_name' => $this->instrumentSet?->set_name,
-                    'items'    => $items->toArray(),
+                    'id'               => $this->instrumentSet->id,
+                    'set_code'         => $this->instrumentSet->set_code,
+                    'set_name'         => $this->instrumentSet->set_name,
+                    'is_active'        => (bool) $this->instrumentSet->is_active,
+                    'components'       => $items,
                 ];
             }),
             'issued_at'             => $this->issued_at?->toIso8601String(),
             'issued_by_user_id'     => $this->issued_by_user_id,
             'remarks'               => $this->remarks,
+            'proposed_quantity'     => $this->proposed_quantity,
+            'quantity'              => $this->quantity,
             'created_at'            => $this->created_at?->toIso8601String(),
         ];
     }

@@ -571,7 +571,7 @@ Response item fields (from `StockInItemResource`):
 
 - `id`, `stock_in_id`, `product_id`, `product?{id,ref_num,product_name}`,
   `lot_id`, `lot?{id,lot_number,status}`,
-  `scanned_lot_number`, `supplier_batch_code`, `expiry_date`,
+  `scanned_lot_number`, `manufacturing_date`, `expiry_date`,
   `lot_entry_mode` (`scan|manual`), `expiry_entry_mode` (`scan|manual`),
   `missing_lot_flag` (bool), `source_barcode`, `entry_override_reason`, `remarks`,
   `created_at`, `updated_at`
@@ -584,7 +584,7 @@ Body (from `StoreStockInItemRequest`):
 
 - `product_id`: required int exists products.id
 - `scanned_lot_number`: nullable string max 255, **required_without** `missing_lot_flag`
-- `supplier_batch_code`: required string max 255
+- `manufacturing_date`: required string max 255
 - `expiry_date`: nullable date
 - `lot_entry_mode`: sometimes in `scan|manual`
 - `expiry_entry_mode`: sometimes in `scan|manual`
@@ -618,7 +618,7 @@ Response: `StockInItemResource`
 Body (from `CorrectStockInItemRequest`):
 
 - `lot_number`: sometimes string max 255
-- `supplier_batch_code`: sometimes string max 255
+- `manufacturing_date`: sometimes string max 255
 - `expiry_date`: sometimes nullable date
 - `admin_reason`: **required** string min 5 max 1000
 
@@ -643,13 +643,13 @@ Query params (documented in controller):
 - `instrument_set_id`: int
 - `expiry_from`: `YYYY-MM-DD` (inclusive)
 - `expiry_to`: `YYYY-MM-DD` (inclusive)
-- `search`: matches lot_number, supplier_batch_code, product ref_num or name
+- `search`: matches lot_number, manufacturing_date, product ref_num or name
 - `per_page`: default 15, max 100
 - `cursor`: if provided, backend returns **cursor pagination** instead of page pagination
 
 Response item fields (from `InventoryUnitResource`):
 
-- `id`, `lot_number`, `original_lot_number`, `is_system_generated_lot`, `supplier_batch_code`,
+- `id`, `lot_number`, `original_lot_number`, `is_system_generated_lot`, `manufacturing_date`,
   `expiry_date` (Y-m-d|null), `status`, `current_location_type`, `current_location_id`,
   `remarks`, `received_at`, `created_at`, `updated_at`
 - `product?{id,ref_num,product_name,product_type,uom}`
@@ -742,7 +742,7 @@ Idempotent: creates persisted `qr_labels` row if missing.
 Response fields (from `QrLabelResource`):
 
 - `id`, `lot_id`, `qr_payload`, `generated_at`, `generated_by_user_id`, `created_at`
-- `lot?{id,lot_number,supplier_batch_code,expiry_date,status}` when relation loaded
+- `lot?{id,lot_number,manufacturing_date,expiry_date,status}` when relation loaded
 
 ### GET `/qr-labels/{lot}/preview`
 
@@ -752,7 +752,7 @@ No persistence. Response `data`:
 
 Canonical payload format (from `QrPayloadService`):
 
-- `V=1;REF={RefNum};LOT={LotNumber};BATCH={SupplierBatchCode|-};EXP={YYYY-MM-DD|-}`
+- `V=1;REF={RefNum};LOT={LotNumber};BATCH={ManufacturingDate|-};EXP={YYYY-MM-DD|-}`
 
 ---
 
@@ -1156,7 +1156,7 @@ Response: `DisposalResource`
 `DisposalItemResource` fields:
 
 - `id`, `disposal_id`, `lot_id`,
-  `lot?{id,lot_number,supplier_batch_code,expiry_date,status,product?,supplier?}`,
+  `lot?{id,lot_number,manufacturing_date,expiry_date,status,product?,supplier?}`,
   `disposal_category` (`expired|damaged|lost|other`),
   `reason_text`, `remarks`, `created_at`
 
@@ -1255,7 +1255,7 @@ Response: `SupplierReturnResource`
 `SupplierReturnItemResource` fields:
 
 - `id`, `supplier_return_id`, `lot_id`,
-  `lot?{id,lot_number,supplier_batch_code,expiry_date,status,product?,supplier?}`,
+  `lot?{id,lot_number,manufacturing_date,expiry_date,status,product?,supplier?}`,
   `return_reason`, `remarks`, `created_at`
 
 #### POST `/supplier-returns/{supplierReturn}/items`
@@ -1298,7 +1298,7 @@ Holding area is specifically for lots with `status = "holding"` created by stock
 
 - **Permission**: `holding_area.view`
 - Query:
-  - `search` (lot_number or supplier_batch_code substring)
+  - `search` (lot_number or manufacturing_date substring)
   - `supplier_id`
   - `product_id`
   - `from_date` (received_at >=)
@@ -1310,7 +1310,7 @@ Response: paginated `HoldingAreaResource[]`
 `HoldingAreaResource` fields:
 
 - `id`, `lot_number`, `original_lot_number`, `is_system_generated_lot`,
-  `supplier_batch_code`, `expiry_date`, `status`, `received_at`, `remarks`,
+  `manufacturing_date`, `expiry_date`, `status`, `received_at`, `remarks`,
   `product?{id,ref_num,product_name}`, `supplier?{id,supplier_name}`,
   `lot_holding?{ id, holding_reason, assigned_at, assigned_by_user?, released_at, released_by_user_id, corrected_lot_number, resolution_reason, remarks }`,
   `created_at`, `updated_at`
