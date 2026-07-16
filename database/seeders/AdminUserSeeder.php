@@ -19,9 +19,9 @@ class AdminUserSeeder extends Seeder
             return;
         }
 
-        $adminEmail = (string) config('app.admin.email', 'admin@tretech.com');
+        $adminEmail = (string) config('app.admin.email', 'admin@gmail.com');
         $adminName = (string) config('app.admin.name', 'TRETECH Admin');
-        $adminPassword = (string) config('app.admin.password', 'Admin123!');
+        $adminPassword = (string) config('app.admin.password', 'password');
 
         User::query()->updateOrCreate(
             ['email' => $adminEmail],

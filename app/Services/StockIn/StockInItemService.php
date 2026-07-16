@@ -62,7 +62,7 @@ class StockInItemService
         }
 
         if ($lotNumber !== null) {
-            $this->guardLotUniqueness($stockIn, $lotNumber);
+            $this->guardLotUniqueness($stockIn, (int) $data['product_id'], $lotNumber);
         }
 
         return StockInItem::query()->create([
@@ -172,7 +172,7 @@ class StockInItemService
         }
 
         if ($nextLotNumber !== null) {
-            $this->guardLotUniqueness($stockIn, $nextLotNumber, $stockInItem->id);
+            $this->guardLotUniqueness($stockIn, $nextProductId, $nextLotNumber, $stockInItem->id);
         }
 
         $payload = [...$data];
@@ -209,16 +209,17 @@ class StockInItemService
         return $lot === '' ? null : $lot;
     }
 
-    private function guardLotUniqueness(StockIn $stockIn, string $lotNumber, ?int $ignoreItemId = null): void
+    private function guardLotUniqueness(StockIn $stockIn, int $productId, string $lotNumber, ?int $ignoreItemId = null): void
     {
         $inSessionExists = StockInItem::query()
             ->where('stock_in_id', $stockIn->id)
+            ->where('product_id', $productId)
             ->where('scanned_lot_number', $lotNumber)
             ->when($ignoreItemId !== null, fn ($query) => $query->where('id', '!=', $ignoreItemId))
             ->exists();
 
         if ($inSessionExists) {
-            throw new BusinessLogicException("Lot number {$lotNumber} is already scanned in this stock-in session.");
+            throw new BusinessLogicException("Lot number {$lotNumber} is already scanned for this product in this stock-in session.");
         }
     }
 

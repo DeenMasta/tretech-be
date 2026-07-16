@@ -34,6 +34,7 @@ class StockInItem extends Model
     protected function casts(): array
     {
         return [
+            'manufacturing_date' => 'date',
             'expiry_date' => 'date',
             'missing_lot_flag' => 'boolean',
         ];

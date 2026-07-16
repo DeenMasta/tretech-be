@@ -17,6 +17,7 @@ class Lot extends Model
     protected function casts(): array
     {
         return [
+            'manufacturing_date' => 'date',
             'expiry_date' => 'date',
             'received_at' => 'datetime',
             'is_system_generated_lot' => 'boolean',
