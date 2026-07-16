@@ -56,6 +56,15 @@ class StoreStockInItemRequest extends FormRequest
                     }
                     return true;
                 }),
+                function ($attribute, $value, $fail) use ($isSet) {
+                    if ($isSet) return;
+                    if (!empty($value) && $productId = $this->input('product_id')) {
+                        $product = \App\Models\Product::find($productId);
+                        if ($product && !$product->requires_lot) {
+                            $fail('Lot number cannot be provided for products that do not require it.');
+                        }
+                    }
+                },
             ],
             'manufacturing_date' => [
                 'nullable',
@@ -64,7 +73,19 @@ class StoreStockInItemRequest extends FormRequest
             'expiry_date' => ['nullable', 'date'],
             'lot_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'expiry_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
-            'missing_lot_flag' => ['sometimes', 'boolean'],
+            'missing_lot_flag' => [
+                'sometimes',
+                'boolean',
+                function ($attribute, $value, $fail) use ($isSet) {
+                    if ($isSet) return;
+                    if ($value && $productId = $this->input('product_id')) {
+                        $product = \App\Models\Product::find($productId);
+                        if ($product && !$product->requires_lot) {
+                            $fail('Missing lot flag cannot be true for products that do not require a lot number.');
+                        }
+                    }
+                },
+            ],
             'source_barcode' => ['nullable', 'string'],
             'entry_override_reason' => [
                 'nullable',

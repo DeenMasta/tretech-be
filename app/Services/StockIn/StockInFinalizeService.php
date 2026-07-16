@@ -36,7 +36,7 @@ class StockInFinalizeService
         return DB::transaction(function () use ($stockIn, $actor) {
             $session = StockIn::query()
                 ->lockForUpdate()
-                ->with(['stockInItems'])
+                ->with(['stockInItems.product'])
                 ->findOrFail($stockIn->id);
 
             if ($session->status !== 'draft') {
@@ -313,14 +313,16 @@ class StockInFinalizeService
 
     private function generateHoldingLotNumber(StockIn $stockIn, StockInItem $item): string
     {
-        $base = sprintf('HOLD-%s-%d-%d', now()->format('YmdHis'), $stockIn->id, $item->id);
+        $product = $item->product ?? Product::find($item->product_id);
+        
+        $prodName = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$product->product_name));
+        $prodNamePart = str_pad(substr($prodName, 0, 4), 4, 'X');
+        
+        $datePart = now()->format('ymd');
+        $base = sprintf('HOLD-%s-%s', $prodNamePart, $datePart);
 
-        if (!Lot::query()->where('lot_number', $base)->exists()) {
-            return $base;
-        }
-
-        for ($attempt = 0; $attempt < 20; $attempt++) {
-            $candidate = $base . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        for ($attempt = 1; $attempt < 999; $attempt++) {
+            $candidate = $base . '-' . str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
             if (!Lot::query()->where('lot_number', $candidate)->exists()) {
                 return $candidate;
             }
@@ -331,14 +333,19 @@ class StockInFinalizeService
 
     private function generateAutoLotNumber(StockIn $stockIn, StockInItem $item): string
     {
-        $base = sprintf('AUTO-%s-%d-%d', now()->format('YmdHis'), $stockIn->id, $item->id);
+        $product = $item->product ?? Product::find($item->product_id);
+        
+        $prodCode = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$product->ref_num));
+        $prodCodePart = str_pad(substr($prodCode, 0, 3), 3, 'X');
+        
+        $prodName = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$product->product_name));
+        $prodNamePart = str_pad(substr($prodName, 0, 4), 4, 'X');
+        
+        $datePart = now()->format('ymd');
+        $base = sprintf('%s-%s-%s', $prodCodePart, $prodNamePart, $datePart);
 
-        if (!Lot::query()->where('lot_number', $base)->exists()) {
-            return $base;
-        }
-
-        for ($attempt = 0; $attempt < 20; $attempt++) {
-            $candidate = $base . '-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        for ($attempt = 1; $attempt < 999; $attempt++) {
+            $candidate = $base . '-' . str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
             if (!Lot::query()->where('lot_number', $candidate)->exists()) {
                 return $candidate;
             }
