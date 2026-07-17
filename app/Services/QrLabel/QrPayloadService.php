@@ -139,13 +139,13 @@ class QrPayloadService
             'DIRECTION 1',
             'CLS',
             "QRCODE 8,8,H,3,A,0,M2,S2,\"{$qrPayload}\"",
-            'TEXT 145,8,"0",0,1,1,"TREMED Surgical Solution"',
-            'TEXT 145,24,"0",0,1,1,"No 6-1, Block A,"',
-            'TEXT 145,40,"0",0,1,1,"Zenith Corporate Park,"',
-            'TEXT 145,56,"0",0,1,1,"Jalan SS 7/26, 47301"',
-            'TEXT 145,72,"0",0,1,1,"Petaling Jaya, Selangor"',
-            'TEXT 145,88,"0",0,1,1,"Tel: 0126338787"',
-            'TEXT 145,104,"0",0,1,1,"finance@tremedsurgical.com"',
+            'TEXT 140,8,"0",0,1,1,"TREMED Surgical Solution"',
+            'TEXT 140,24,"0",0,1,1,"No 6-1, Block A,"',
+            'TEXT 140,40,"0",0,1,1,"Zenith Corporate Park,"',
+            'TEXT 140,56,"0",0,1,1,"Jalan SS 7/26, 47301"',
+            'TEXT 140,72,"0",0,1,1,"Petaling Jaya, Selangor"',
+            'TEXT 140,88,"0",0,1,1,"Tel: 0126338787"',
+            'TEXT 140,104,"0",0,1,1,"finance@tremedsurgical.com"',
         ];
 
         if ($lot->product_id !== null) {
