@@ -118,6 +118,7 @@ class QrPayloadService
 
     /**
      * Build a TSPL command string for a 50x30 mm Bluetooth sticker printer.
+     * The layout keeps the company details and compresses the QR/text blocks.
      */
     public function buildTsplPayload(string $qrPayload, Lot $lot): string
     {
@@ -137,27 +138,33 @@ class QrPayloadService
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 12,12,H,4,A,0,M2,S3,\"{$qrPayload}\"",
+            "QRCODE 8,8,H,4,A,0,M2,S2,\"{$qrPayload}\"",
+            'TEXT 110,8,"0",0,1,1,"TREMED Surgical Solution Sdn Bhd"',
+            'TEXT 110,24,"0",0,1,1,"No 6-1, Block A, Zenith Corporate"',
+            'TEXT 110,40,"0",0,1,1,"Park, Jalan SS 7/26, Kelana Jaya"',
+            'TEXT 110,56,"0",0,1,1,"47301 Petaling Jaya, Selangor"',
+            'TEXT 110,72,"0",0,1,1,"Tel: 0126338787"',
+            'TEXT 110,88,"0",0,1,1,"Email: finance@tremedsurgical.com"',
         ];
 
         if ($lot->product_id !== null) {
             $ref = $lot->product?->ref_num ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 140,12,"0",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 24) . '"',
-                'TEXT 140,38,"0",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 20) . '"',
-                'TEXT 140,64,"0",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 20) . '"',
-                'TEXT 140,90,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 20) . '"',
+                'TEXT 8,118,"0",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
+                'TEXT 8,134,"0",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
+                'TEXT 8,150,"0",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,166,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
             $setName = $lot->instrumentSet?->set_name ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 140,12,"0",0,1,1,"' . $this->sanitizeTsplText($setName, 24) . '"',
-                'TEXT 140,38,"0",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 20) . '"',
-                'TEXT 140,64,"0",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 20) . '"',
-                'TEXT 140,90,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 20) . '"',
+                'TEXT 8,118,"0",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
+                'TEXT 8,134,"0",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
+                'TEXT 8,150,"0",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,166,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         }
 
