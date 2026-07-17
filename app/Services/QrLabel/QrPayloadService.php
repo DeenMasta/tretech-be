@@ -162,10 +162,9 @@ class QrPayloadService
             $setName = $lot->instrumentSet?->set_name ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,118,"0",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
-                'TEXT 8,134,"0",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
-                'TEXT 8,150,"0",0,1,2,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
-                'TEXT 8,178,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
+                'TEXT 8,145,"0",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
+                'TEXT 8,168,"0",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
+                'TEXT 8,208,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         }
 
