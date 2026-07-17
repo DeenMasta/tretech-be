@@ -11,13 +11,13 @@ class QrPayloadService
 {
     /**
      * Canonical payload format:
-     *   V=1;REF={RefNum};LOT={LotNumber};BATCH={ManufacturingDate|-};EXP={YYYY-MM-DD|-}
+     *   V=1;REF={RefNum};LOT={LotNumber};MFG={YYYY-MM-DD|-};EXP={YYYY-MM-DD|-}
      *
      * Rules
      *  - V (version) is always "1"
      *  - REF  = product.ref_num  (mandatory)
      *  - LOT  = lot.lot_number   (mandatory)
-     *  - BATCH = lot.manufacturing_date or "-" when absent
+     *  - MFG   = lot.manufacturing_date formatted Y-m-d or "-" when absent
      *  - EXP   = expiry_date formatted Y-m-d or "-" when absent/not required
      */
     public function generatePayload(Lot $lot): string
@@ -38,13 +38,13 @@ class QrPayloadService
             throw new BusinessLogicException('Cannot generate QR payload: lot is missing ref_num/set_code or lot_number.');
         }
 
-        $batch = ($lot->manufacturing_date !== null && $lot->manufacturing_date !== '')
-            ? $lot->manufacturing_date
+        $manufacturingDate = $lot->manufacturing_date
+            ? $lot->manufacturing_date->format('Y-m-d')
             : '-';
 
         $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';
 
-        return sprintf('V=1;REF=%s;LOT=%s;BATCH=%s;EXP=%s', $ref, $lotNo, $batch, $exp);
+        return sprintf('V=1;REF=%s;LOT=%s;MFG=%s;EXP=%s', $ref, $lotNo, $manufacturingDate, $exp);
     }
 
     /**
@@ -52,7 +52,7 @@ class QrPayloadService
      *
      * Returns an associative array of the parsed segments on success.
      *
-     * @return array{version:string,ref:string,lot:string,batch:string,exp:string}
+     * @return array{version:string,ref:string,lot:string,mfg:string,exp:string}
      *
      * @throws BusinessLogicException if the payload is invalid
      */
@@ -67,7 +67,11 @@ class QrPayloadService
             $segments[strtoupper(trim($key))] = trim($value);
         }
 
-        foreach (['V', 'REF', 'LOT', 'BATCH', 'EXP'] as $required) {
+        if (isset($segments['BATCH']) && ! isset($segments['MFG'])) {
+            $segments['MFG'] = $segments['BATCH'];
+        }
+
+        foreach (['V', 'REF', 'LOT', 'MFG', 'EXP'] as $required) {
             if (!isset($segments[$required]) || $segments[$required] === '') {
                 throw new BusinessLogicException("QR payload is missing required field: {$required}.");
             }
@@ -81,7 +85,7 @@ class QrPayloadService
             'version' => $segments['V'],
             'ref' => $segments['REF'],
             'lot' => $segments['LOT'],
-            'batch' => $segments['BATCH'],
+            'mfg' => $segments['MFG'],
             'exp' => $segments['EXP'],
         ];
     }
