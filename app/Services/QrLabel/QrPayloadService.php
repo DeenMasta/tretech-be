@@ -139,22 +139,22 @@ class QrPayloadService
             'DIRECTION 1',
             'CLS',
             "QRCODE 8,8,H,3,A,0,M2,S2,\"{$qrPayload}\"",
-            'TEXT 150,8,"0",0,1,1,"TREMED Surgical Solution"',
-            'TEXT 150,24,"0",0,1,1,"No 6-1, Block A,"',
-            'TEXT 150,40,"0",0,1,1,"Zenith Corporate Park,"',
-            'TEXT 150,56,"0",0,1,1,"Jalan SS 7/26, 47301"',
-            'TEXT 150,72,"0",0,1,1,"Petaling Jaya, Selangor"',
-            'TEXT 150,88,"0",0,1,1,"Tel: 0126338787"',
-            'TEXT 150,104,"0",0,1,1,"Email: finance@tremedsurgical.com"',
+            'TEXT 145,8,"0",0,1,1,"TREMED Surgical Solution"',
+            'TEXT 145,24,"0",0,1,1,"No 6-1, Block A,"',
+            'TEXT 145,40,"0",0,1,1,"Zenith Corporate Park,"',
+            'TEXT 145,56,"0",0,1,1,"Jalan SS 7/26, 47301"',
+            'TEXT 145,72,"0",0,1,1,"Petaling Jaya, Selangor"',
+            'TEXT 145,88,"0",0,1,1,"Tel: 0126338787"',
+            'TEXT 145,104,"0",0,1,1,"finance@tremedsurgical.com"',
         ];
 
         if ($lot->product_id !== null) {
             $ref = $lot->product?->ref_num ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,145,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
-                'TEXT 8,168,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
-                'TEXT 8,188,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
+                'TEXT 8,163,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
+                'TEXT 8,183,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
                 'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         } elseif ($lot->instrument_set_id !== null) {
@@ -162,9 +162,9 @@ class QrPayloadService
             $setName = $lot->instrumentSet?->set_name ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,145,"2",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
-                'TEXT 8,168,"2",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
-                'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
+                'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
+                'TEXT 8,163,"2",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
+                'TEXT 8,183,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         }
 
