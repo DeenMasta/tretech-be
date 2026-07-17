@@ -139,7 +139,7 @@ class QrPayloadService
             'DIRECTION 1',
             'CLS',
             "QRCODE 8,8,H,3,A,0,M2,S2,\"{$qrPayload}\"",
-            'TEXT 150,8,"0",0,1,1,"1234567890123456789"',
+            'TEXT 150,8,"0",0,1,1,"1234567890123456789012345678901234567890"',
             'TEXT 150,24,"0",0,1,1,"Solution Sdn Bhd"',
             'TEXT 150,40,"0",0,1,1,"No 6-1, Block A, Zenith"',
             'TEXT 150,56,"0",0,1,1,"Corporate Park, Jalan SS 7/26, Kelana Jaya"',
