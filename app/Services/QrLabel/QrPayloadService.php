@@ -142,7 +142,7 @@ class QrPayloadService
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 8,8,H,2,A,0,M2,S1,\"{$qrPayload}\"",
+            "QRCODE 8,8,H,3,A,0,M2,S1,\"{$qrPayload}\"",
             'TEXT 140,8,"0",0,1,1,"TREMED Surgical Solution"',
             'TEXT 140,24,"0",0,1,1,"No 6-1, Block A,"',
             'TEXT 140,40,"0",0,1,1,"Zenith Corporate Park,"',
