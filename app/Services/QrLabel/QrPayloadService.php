@@ -125,7 +125,7 @@ class QrPayloadService
         $lot->loadMissing(['product:id,ref_num,product_name', 'instrumentSet:id,set_code,set_name']);
 
         $lotNo = $lot->lot_number;
-        $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m') : '-';
+        $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';
 
         try {
             $qrPayload = $this->generatePayload($lot);
@@ -138,7 +138,7 @@ class QrPayloadService
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 8,8,H,2,A,0,M2,S2,\"{$qrPayload}\"",
+            "QRCODE 8,8,H,3,A,0,M2,S2,\"{$qrPayload}\"",
             'TEXT 110,8,"0",0,1,1,"TREMED Surgical Solution Sdn Bhd"',
             'TEXT 110,24,"0",0,1,1,"No 6-1, Block A, Zenith Corporate"',
             'TEXT 110,40,"0",0,1,1,"Park, Jalan SS 7/26, Kelana Jaya"',
