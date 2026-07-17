@@ -152,19 +152,19 @@ class QrPayloadService
             $ref = $lot->product?->ref_num ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,145,"1",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
-                'TEXT 8,168,"1",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
-                'TEXT 8,188,"1",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
-                'TEXT 8,208,"1",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
+                'TEXT 8,145,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
+                'TEXT 8,168,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
+                'TEXT 8,188,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
             $setName = $lot->instrumentSet?->set_name ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,145,"0",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
-                'TEXT 8,168,"0",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
-                'TEXT 8,208,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
+                'TEXT 8,145,"2",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
+                'TEXT 8,168,"2",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
+                'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         }
 
