@@ -97,7 +97,7 @@ class StockInFinalizeService
                 'stockInItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
                 'stockInItems.lot:id,lot_number,status',
             ]),
-                'lots' => $createdLots,
+                'lots' => $createdLots->load('product:id,ref_num,product_name'),
             ];
         });
     }

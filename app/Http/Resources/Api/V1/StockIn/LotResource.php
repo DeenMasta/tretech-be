@@ -17,6 +17,17 @@ class LotResource extends JsonResource
         return [
             'id' => $this->id,
             'product_id' => $this->product_id,
+            'product' => $this->whenLoaded('product', function () {
+                if (!$this->product) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->product->id,
+                    'ref_num' => $this->product->ref_num,
+                    'product_name' => $this->product->product_name,
+                ];
+            }),
             'instrument_set_id' => $this->instrument_set_id,
             'supplier_id' => $this->supplier_id,
             'lot_number' => $this->lot_number,

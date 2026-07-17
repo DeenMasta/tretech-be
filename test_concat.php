@@ -1,0 +1,1 @@
+<?php require __DIR__."/vendor/autoload.php"; $app = require_once __DIR__."/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); use Illuminate\Database\Eloquent\Collection; use App\Models\Lot; $c = new Collection(); $c2 = new Collection([new Lot()]); $c3 = $c->concat($c2); echo get_class($c3);
