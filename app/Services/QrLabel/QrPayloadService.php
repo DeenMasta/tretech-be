@@ -125,7 +125,7 @@ class QrPayloadService
         $lot->loadMissing(['product:id,ref_num,product_name', 'instrumentSet:id,set_code,set_name']);
 
         $lotNo = $lot->lot_number;
-        $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';
+        $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m') : '-';
 
         try {
             $qrPayload = $this->generatePayload($lot);
@@ -151,9 +151,9 @@ class QrPayloadService
             $ref = $lot->product?->ref_num ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,146,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
-                'TEXT 8,162,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
-                'TEXT 8,182,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,150,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
+                'TEXT 8,170,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
+                'TEXT 8,190,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
                 'TEXT 8,210,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         } elseif ($lot->instrument_set_id !== null) {
