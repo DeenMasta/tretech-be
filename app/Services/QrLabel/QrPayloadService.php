@@ -138,7 +138,7 @@ class QrPayloadService
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 8,8,H,2,A,0,M1,S2,\"{$qrPayload}\"",
+            "QRCODE 8,8,H,2,A,0,M2,S2,\"{$qrPayload}\"",
             'TEXT 110,8,"0",0,1,1,"TREMED Surgical Solution Sdn Bhd"',
             'TEXT 110,24,"0",0,1,1,"No 6-1, Block A, Zenith Corporate"',
             'TEXT 110,40,"0",0,1,1,"Park, Jalan SS 7/26, Kelana Jaya"',
@@ -151,10 +151,10 @@ class QrPayloadService
             $ref = $lot->product?->ref_num ?? '-';
 
             $lines = array_merge($lines, [
-                'TEXT 8,130,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
-                'TEXT 8,146,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
-                'TEXT 8,166,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
-                'TEXT 8,194,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
+                'TEXT 8,146,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
+                'TEXT 8,162,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
+                'TEXT 8,182,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,210,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
