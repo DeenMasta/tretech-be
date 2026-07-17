@@ -145,7 +145,7 @@ class QrPayloadService
             'TEXT 150,56,"0",0,1,1,"Jalan SS 7/26, 47301"',
             'TEXT 150,72,"0",0,1,1,"Petaling Jaya, Selangor"',
             'TEXT 150,88,"0",0,1,1,"Tel: 0126338787"',
-            'TEXT 150,94,"0",0,1,1,"Email: finance@tremedsurgical.com"',
+            'TEXT 150,104,"0",0,1,1,"Email: finance@tremedsurgical.com"',
         ];
 
         if ($lot->product_id !== null) {
