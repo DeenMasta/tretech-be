@@ -139,12 +139,14 @@ class QrPayloadService
             // If regeneration fails, fall back to the stored value.
         }
 
+        $qrErrorCorrection = $this->qrErrorCorrectionForPayload($qrPayload);
+
         $lines = [
             'SIZE 50 mm, 30 mm',
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 8,8,H,3,A,0,M2,S1,\"{$qrPayload}\"",
+            "QRCODE 8,8,{$qrErrorCorrection},3,A,0,M2,S1,\"{$qrPayload}\"",
             'TEXT 140,15,"0",0,1,1,"TREMED Surgical Solution"',
             'TEXT 140,31,"0",0,1,1,"No 6-1, Block A,"',
             'TEXT 140,47,"0",0,1,1,"Zenith Corporate Park,"',
@@ -185,6 +187,20 @@ class QrPayloadService
         $lines[] = 'PRINT 1,1';
 
         return implode("\r\n", $lines);
+    }
+
+    /**
+     * Keep byte-mode payloads within the same Version 6 (41-module) QR footprint.
+     * Lower error correction only when the payload no longer fits at a higher level.
+     */
+    private function qrErrorCorrectionForPayload(string $payload): string
+    {
+        return match (true) {
+            strlen($payload) <= 58 => 'H',
+            strlen($payload) <= 74 => 'Q',
+            strlen($payload) <= 106 => 'M',
+            default => 'L',
+        };
     }
 
     /**

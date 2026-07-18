@@ -227,6 +227,35 @@ class QrPayloadServiceTest extends \Tests\TestCase
     }
 
     #[Test]
+    public function build_tspl_payload_keeps_long_lot_qr_at_the_standard_physical_size(): void
+    {
+        $product = $this->makeProduct('80011D', 'Stockinette With Coban');
+        $lot = $this->makeProductLot($product, '123456789012345679801234', '2026-07-16', '2026-11-29');
+
+        $tspl = $this->service->buildTsplPayload('', $lot);
+
+        $this->assertStringContainsString(
+            'QRCODE 8,8,Q,3,A,0,M2,S1,"V=1;REF=80011D;LOT=123456789012345679801234;MFG=2026-07-16;EXP=2026-11-29"',
+            $tspl
+        );
+        $this->assertStringNotContainsString('QRCODE 8,8,H,4', $tspl);
+    }
+
+    #[Test]
+    public function build_tspl_payload_keeps_short_qr_at_high_error_correction_and_size_three(): void
+    {
+        $product = $this->makeProduct('10K150', 'Pump tubing');
+        $lot = $this->makeProductLot($product, '1234', '2026-07-09', '2026-05-30');
+
+        $tspl = $this->service->buildTsplPayload('', $lot);
+
+        $this->assertStringContainsString(
+            'QRCODE 8,8,H,3,A,0,M2,S1,"V=1;REF=10K150;LOT=1234;MFG=2026-07-09;EXP=2026-05-30"',
+            $tspl
+        );
+    }
+
+    #[Test]
     public function build_tspl_payload_sanitizes_non_latin_symbols_for_printer_safe_output(): void
     {
         $product = $this->makeProduct('REF-TSPL-005', 'Hamstring Tendon Stripper, Φ7mm, Curved');
