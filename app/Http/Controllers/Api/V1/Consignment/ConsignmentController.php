@@ -142,6 +142,9 @@ class ConsignmentController extends Controller
         $pdf = Pdf::loadView('exports.consignment-note', [
             'consignment' => $consignment,
             'printedBy' => $request->user(),
+            'surgeon'   => $request->query('surgeon', ''),
+            'dateCase'  => $request->query('date_case', ''),
+            'case'      => $request->query('case', ''),
         ])->setPaper('a4', 'portrait');
 
         $fileName = sprintf('consignment_%s_%s.pdf', $consignment->consignment_no, now()->format('Ymd_His'));

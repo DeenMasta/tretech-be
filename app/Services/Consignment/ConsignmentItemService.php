@@ -19,7 +19,7 @@ class ConsignmentItemService
         return ConsignmentItem::query()
             ->where('consignment_id', $consignment->id)
             ->with([
-                'lot:id,product_id,lot_number,status,quantity_available',
+                'lot:id,product_id,lot_number,status,quantity_available,expiry_date',
                 'lot.product:id,ref_num,product_name',
                 'instrumentSet:id,set_code,set_name',
                 'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
@@ -92,7 +92,7 @@ class ConsignmentItemService
         }
 
         return $item->load([
-            'lot:id,product_id,lot_number,status,quantity_available',
+            'lot:id,product_id,lot_number,status,quantity_available,expiry_date',
             'lot.product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
             'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
@@ -170,7 +170,7 @@ class ConsignmentItemService
         ]);
 
         return $item->load([
-            'lot:id,product_id,lot_number,status,quantity_available',
+            'lot:id,product_id,lot_number,status,quantity_available,expiry_date',
             'lot.product:id,ref_num,product_name',
             'instrumentSet:id,set_code,set_name',
             'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',

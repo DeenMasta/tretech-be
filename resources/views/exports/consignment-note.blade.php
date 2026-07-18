@@ -177,17 +177,23 @@
                         <tr class="field-row">
                             <td class="field-label">Surgeon</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">{!! $surgeon ?: '&nbsp;' !!}</td>
                         </tr>
                         <tr class="field-row">
                             <td class="field-label">Set No.</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">
+                                @php
+                                    $sets = $consignment->consignmentItems->filter(fn($i) => $i->entry_kind === 'set');
+                                    $setNames = $sets->map(fn($i) => $i->instrumentSet?->set_name . ' ' . ($i->instrumentSet?->set_code ? '('.$i->instrumentSet->set_code.')' : ''))->filter()->join(', ');
+                                @endphp
+                                {!! $setNames ?: '&nbsp;' !!}
+                            </td>
                         </tr>
                         <tr class="field-row">
                             <td class="field-label">Case</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">{!! $case ?: '&nbsp;' !!}</td>
                         </tr>
                     </table>
                 </td>
@@ -203,7 +209,19 @@
                         <tr class="field-row">
                             <td class="field-label">Date Case</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">
+                                @php
+                                    $formattedDateCase = '';
+                                    if (!empty($dateCase)) {
+                                        try {
+                                            $formattedDateCase = \Carbon\Carbon::parse($dateCase)->format('d/m/Y');
+                                        } catch (\Exception $e) {
+                                            $formattedDateCase = $dateCase;
+                                        }
+                                    }
+                                @endphp
+                                {!! $formattedDateCase ?: '&nbsp;' !!}
+                            </td>
                         </tr>
                         <tr class="field-row">
                             <td class="field-label">Prepared by</td>
