@@ -98,7 +98,7 @@ class QrPayloadService
     {
         $existing = QrLabel::query()->where(['lot_id' => $lot->id])->first();
         if ($existing !== null) {
-            if (str_starts_with(trim($existing->qr_payload), '{')) {
+            if (str_starts_with(trim($existing->qr_payload), '{') || str_contains($existing->qr_payload, 'BATCH=')) {
                 try {
                     $existing->qr_payload = $this->generatePayload($lot);
                     $existing->save();
@@ -159,8 +159,15 @@ class QrPayloadService
                 'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
                 'TEXT 8,163,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
                 'TEXT 8,183,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
-                'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
+
+            if ($lot->manufacturing_date !== null) {
+                $mfg = $lot->manufacturing_date->format('Y-m-d');
+                $lines[] = 'TEXT 8,205,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
+                $lines[] = 'TEXT 8,225,"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 30) . '"';
+            } else {
+                $lines[] = 'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
+            }
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
             $setName = $lot->instrumentSet?->set_name ?? '-';
@@ -168,8 +175,15 @@ class QrPayloadService
             $lines = array_merge($lines, [
                 'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($setName, 36) . '"',
                 'TEXT 8,163,"2",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
-                'TEXT 8,183,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"',
             ]);
+
+            if ($lot->manufacturing_date !== null) {
+                $mfg = $lot->manufacturing_date->format('Y-m-d');
+                $lines[] = 'TEXT 8,185,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
+                $lines[] = 'TEXT 8,205,"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 30) . '"';
+            } else {
+                $lines[] = 'TEXT 8,183,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
+            }
         }
 
         $lines[] = 'PRINT 1,1';

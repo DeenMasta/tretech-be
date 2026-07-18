@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Exceptions\BusinessLogicException;
+use App\Models\InstrumentSet;
 use App\Models\Lot;
 use App\Models\Product;
 use App\Services\QrLabel\QrPayloadService;
@@ -23,54 +24,65 @@ class QrPayloadServiceTest extends \Tests\TestCase
     // -------------------------------------------------------------------------
 
     #[Test]
-    public function generate_payload_with_batch_and_expiry(): void
+    public function generate_payload_with_manufacturing_date_and_expiry(): void
     {
         $product = $this->makeProduct('REF-001');
-        $lot = $this->makeLot($product, 'LOT-ABC', 'BATCH-X', '2027-06-30');
+        $lot = $this->makeProductLot($product, 'LOT-ABC', '2026-06-15', '2027-06-30');
 
         $payload = $this->service->generatePayload($lot);
 
-        $this->assertSame('V=1;REF=REF-001;LOT=LOT-ABC;BATCH=BATCH-X;EXP=2027-06-30', $payload);
+        $this->assertSame('V=1;REF=REF-001;LOT=LOT-ABC;MFG=2026-06-15;EXP=2027-06-30', $payload);
     }
 
     #[Test]
-    public function generate_payload_without_batch_uses_dash(): void
+    public function generate_payload_without_manufacturing_date_uses_dash(): void
     {
         $product = $this->makeProduct('REF-002');
-        $lot = $this->makeLot($product, 'LOT-DEF', null, '2027-01-01');
+        $lot = $this->makeProductLot($product, 'LOT-DEF', null, '2027-01-01');
 
         $payload = $this->service->generatePayload($lot);
 
-        $this->assertSame('V=1;REF=REF-002;LOT=LOT-DEF;BATCH=-;EXP=2027-01-01', $payload);
+        $this->assertSame('V=1;REF=REF-002;LOT=LOT-DEF;MFG=-;EXP=2027-01-01', $payload);
     }
 
     #[Test]
     public function generate_payload_without_expiry_uses_dash(): void
     {
         $product = $this->makeProduct('REF-003');
-        $lot = $this->makeLot($product, 'LOT-GHI', 'BATCH-Y', null);
+        $lot = $this->makeProductLot($product, 'LOT-GHI', '2026-02-10', null);
 
         $payload = $this->service->generatePayload($lot);
 
-        $this->assertSame('V=1;REF=REF-003;LOT=LOT-GHI;BATCH=BATCH-Y;EXP=-', $payload);
+        $this->assertSame('V=1;REF=REF-003;LOT=LOT-GHI;MFG=2026-02-10;EXP=-', $payload);
     }
 
     #[Test]
-    public function generate_payload_without_batch_and_without_expiry(): void
+    public function generate_payload_without_manufacturing_date_and_without_expiry(): void
     {
         $product = $this->makeProduct('REF-004');
-        $lot = $this->makeLot($product, 'LOT-JKL', null, null);
+        $lot = $this->makeProductLot($product, 'LOT-JKL', null, null);
 
         $payload = $this->service->generatePayload($lot);
 
-        $this->assertSame('V=1;REF=REF-004;LOT=LOT-JKL;BATCH=-;EXP=-', $payload);
+        $this->assertSame('V=1;REF=REF-004;LOT=LOT-JKL;MFG=-;EXP=-', $payload);
+    }
+
+    #[Test]
+    public function generate_payload_uses_instrument_set_code_when_lot_belongs_to_set(): void
+    {
+        $instrumentSet = $this->makeInstrumentSet('SET-001');
+        $lot = $this->makeInstrumentSetLot($instrumentSet, 'LOT-SET-001', '2026-03-01', '2027-03-01');
+
+        $payload = $this->service->generatePayload($lot);
+
+        $this->assertSame('V=1;REF=SET-001;LOT=LOT-SET-001;MFG=2026-03-01;EXP=2027-03-01', $payload);
     }
 
     #[Test]
     public function generate_payload_throws_when_ref_num_is_empty(): void
     {
         $product = $this->makeProduct('');
-        $lot = $this->makeLot($product, 'LOT-001', null, null);
+        $lot = $this->makeProductLot($product, 'LOT-001', null, null);
 
         $this->expectException(BusinessLogicException::class);
         $this->expectExceptionMessageMatches('/ref_num|lot_number/i');
@@ -82,7 +94,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
     public function generate_payload_throws_when_lot_number_is_empty(): void
     {
         $product = $this->makeProduct('REF-005');
-        $lot = $this->makeLot($product, '', null, null);
+        $lot = $this->makeProductLot($product, '', null, null);
 
         $this->expectException(BusinessLogicException::class);
 
@@ -107,19 +119,27 @@ class QrPayloadServiceTest extends \Tests\TestCase
     #[Test]
     public function validate_payload_returns_parsed_segments_for_valid_input(): void
     {
-        $result = $this->service->validatePayload('V=1;REF=REF-X;LOT=LOT-Y;BATCH=-;EXP=2027-06-30');
+        $result = $this->service->validatePayload('V=1;REF=REF-X;LOT=LOT-Y;MFG=-;EXP=2027-06-30');
 
         $this->assertSame('1', $result['version']);
         $this->assertSame('REF-X', $result['ref']);
         $this->assertSame('LOT-Y', $result['lot']);
-        $this->assertSame('-', $result['batch']);
+        $this->assertSame('-', $result['mfg']);
         $this->assertSame('2027-06-30', $result['exp']);
+    }
+
+    #[Test]
+    public function validate_payload_accepts_legacy_batch_segment_as_mfg(): void
+    {
+        $result = $this->service->validatePayload('V=1;REF=REF-X;LOT=LOT-Y;BATCH=2026-01-10;EXP=2027-06-30');
+
+        $this->assertSame('2026-01-10', $result['mfg']);
     }
 
     #[Test]
     public function validate_payload_throws_for_missing_required_field(): void
     {
-        // Missing BATCH and EXP
+        // Missing MFG and EXP
         $this->expectException(BusinessLogicException::class);
         $this->service->validatePayload('V=1;REF=R;LOT=L');
     }
@@ -130,7 +150,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $this->expectException(BusinessLogicException::class);
         $this->expectExceptionMessageMatches('/version/i');
 
-        $this->service->validatePayload('V=2;REF=R;LOT=L;BATCH=-;EXP=-');
+        $this->service->validatePayload('V=2;REF=R;LOT=L;MFG=-;EXP=-');
     }
 
     #[Test]
@@ -138,7 +158,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
     {
         $this->expectException(BusinessLogicException::class);
 
-        $this->service->validatePayload('V=1;REF=R;INVALIDNOEQUALS;LOT=L;BATCH=-;EXP=-');
+        $this->service->validatePayload('V=1;REF=R;INVALIDNOEQUALS;LOT=L;MFG=-;EXP=-');
     }
 
     #[Test]
@@ -147,7 +167,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $this->expectException(BusinessLogicException::class);
 
         // LOT is present but empty
-        $this->service->validatePayload('V=1;REF=R;LOT=;BATCH=-;EXP=-');
+        $this->service->validatePayload('V=1;REF=R;LOT=;MFG=-;EXP=-');
     }
 
     // -------------------------------------------------------------------------
@@ -160,21 +180,51 @@ class QrPayloadServiceTest extends \Tests\TestCase
         return $product;
     }
 
-    private function makeLot(Product $product, string $lotNumber, ?string $batch, ?string $expiry): Lot
+    private function makeProductLot(Product $product, string $lotNumber, ?string $manufacturingDate, ?string $expiry): Lot
     {
         $lot = new Lot([
             'product_id'          => 1, // Fake ID
             'lot_number'          => $lotNumber,
-            'manufacturing_date' => $batch,
+            'manufacturing_date' => $manufacturingDate,
             'expiry_date'         => $expiry,
         ]);
 
-        // Manually cast expiry_date the same way Eloquent would
+        if ($manufacturingDate !== null) {
+            $lot->manufacturing_date = \Illuminate\Support\Carbon::parse($manufacturingDate);
+        }
+
         if ($expiry !== null) {
             $lot->expiry_date = \Illuminate\Support\Carbon::parse($expiry);
         }
 
         $lot->setRelation('product', $product);
+
+        return $lot;
+    }
+
+    private function makeInstrumentSet(string $setCode): InstrumentSet
+    {
+        return new InstrumentSet(['set_code' => $setCode]);
+    }
+
+    private function makeInstrumentSetLot(InstrumentSet $instrumentSet, string $lotNumber, ?string $manufacturingDate, ?string $expiry): Lot
+    {
+        $lot = new Lot([
+            'instrument_set_id'   => 1, // Fake ID
+            'lot_number'          => $lotNumber,
+            'manufacturing_date'  => $manufacturingDate,
+            'expiry_date'         => $expiry,
+        ]);
+
+        if ($manufacturingDate !== null) {
+            $lot->manufacturing_date = \Illuminate\Support\Carbon::parse($manufacturingDate);
+        }
+
+        if ($expiry !== null) {
+            $lot->expiry_date = \Illuminate\Support\Carbon::parse($expiry);
+        }
+
+        $lot->setRelation('instrumentSet', $instrumentSet);
 
         return $lot;
     }

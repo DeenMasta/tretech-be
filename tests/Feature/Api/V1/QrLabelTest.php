@@ -66,10 +66,10 @@ class QrLabelTest extends FeatureTestCase
         // Must start with V=1
         $this->assertStringStartsWith('V=1;', $payload);
 
-        // Must contain REF, LOT, BATCH, EXP segments
+        // Must contain REF, LOT, MFG, EXP segments
         $this->assertStringContainsString('REF=REF-CANON-001', $payload);
         $this->assertStringContainsString('LOT=LOT-CANON-001', $payload);
-        $this->assertMatchesRegularExpression('/BATCH=[^;]+/', $payload);
+        $this->assertMatchesRegularExpression('/MFG=[^;]+/', $payload);
         $this->assertMatchesRegularExpression('/EXP=\d{4}-\d{2}-\d{2}|-/', $payload);
     }
 
@@ -177,7 +177,7 @@ class QrLabelTest extends FeatureTestCase
         // Create a label first, then a job
         $label = QrLabel::query()->create([
             'lot_id'               => $lot->id,
-            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-PJ-SHOW;BATCH=-;EXP=-',
+            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-PJ-SHOW;MFG=-;EXP=-',
             'generated_at'         => now(),
             'generated_by_user_id' => $user->id,
         ]);
@@ -251,7 +251,7 @@ class QrLabelTest extends FeatureTestCase
 
         $label = QrLabel::query()->create([
             'lot_id'               => $lot->id,
-            'qr_payload'           => 'V=1;REF=REF-MK-PRINT;LOT=LOT-MK-PRINT;BATCH=-;EXP=-',
+            'qr_payload'           => 'V=1;REF=REF-MK-PRINT;LOT=LOT-MK-PRINT;MFG=-;EXP=-',
             'generated_at'         => now(),
             'generated_by_user_id' => $user->id,
         ]);
@@ -284,7 +284,7 @@ class QrLabelTest extends FeatureTestCase
 
         $label = QrLabel::query()->create([
             'lot_id'               => $lot->id,
-            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-DBLPRINT;BATCH=-;EXP=-',
+            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-DBLPRINT;MFG=-;EXP=-',
             'generated_at'         => now(),
             'generated_by_user_id' => $user->id,
         ]);
@@ -318,7 +318,7 @@ class QrLabelTest extends FeatureTestCase
 
         $label = QrLabel::query()->create([
             'lot_id'               => $lot->id,
-            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-FAIL-001;BATCH=-;EXP=-',
+            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-FAIL-001;MFG=-;EXP=-',
             'generated_at'         => now(),
             'generated_by_user_id' => $user->id,
         ]);
@@ -353,7 +353,7 @@ class QrLabelTest extends FeatureTestCase
 
         $label = QrLabel::query()->create([
             'lot_id'               => $lot->id,
-            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-FAIL-REQ;BATCH=-;EXP=-',
+            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-FAIL-REQ;MFG=-;EXP=-',
             'generated_at'         => now(),
             'generated_by_user_id' => $user->id,
         ]);
@@ -425,7 +425,7 @@ class QrLabelTest extends FeatureTestCase
 
         $label = QrLabel::query()->create([
             'lot_id'               => $lot->id,
-            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-DEV-FLT;BATCH=-;EXP=-',
+            'qr_payload'           => 'V=1;REF=TEST;LOT=LOT-DEV-FLT;MFG=-;EXP=-',
             'generated_at'         => now(),
             'generated_by_user_id' => $user->id,
         ]);
