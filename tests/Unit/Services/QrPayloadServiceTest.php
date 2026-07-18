@@ -192,8 +192,8 @@ class QrPayloadServiceTest extends \Tests\TestCase
 
         $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-002;LOT=LOT-TSPL-002;MFG=2026-07-18;EXP=2030-06-30', $lot);
 
-        $this->assertStringContainsString('TEXT 8,205,"0",0,1,1,"EXP: 2030-06-30"', $tspl);
-        $this->assertStringContainsString('TEXT 140,205,"0",0,1,1,"MFG: 2026-07-18"', $tspl);
+        $this->assertStringContainsString('TEXT 8,205,"1",0,1,1,"EXP: 2030-06-30"', $tspl);
+        $this->assertStringContainsString('TEXT 210,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
         $this->assertStringNotContainsString('TEXT 8,225', $tspl);
     }
 
@@ -209,6 +209,21 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $this->assertStringContainsString('TEXT 8,163,"2",0,1,1,"REF: REF-TSPL-003"', $tspl);
         $this->assertStringNotContainsString('EXP:', $tspl);
         $this->assertStringNotContainsString('MFG:', $tspl);
+    }
+
+    #[Test]
+    public function build_tspl_payload_uses_compact_detail_template_when_product_name_exceeds_23_characters(): void
+    {
+        $product = $this->makeProduct('REF-TSPL-004', 'Long Product Name Over 23');
+        $lot = $this->makeProductLot($product, 'LOT-TSPL-004', '2026-07-18', '2030-06-30');
+
+        $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-004;LOT=LOT-TSPL-004;MFG=2026-07-18;EXP=2030-06-30', $lot);
+
+        $this->assertStringContainsString('TEXT 8,140,"1",0,1,1,"Long Product Name Over 23"', $tspl);
+        $this->assertStringContainsString('TEXT 8,163,"1",0,1,1,"REF: REF-TSPL-004"', $tspl);
+        $this->assertStringContainsString('TEXT 8,183,"1",0,1,1,"LOT: LOT-TSPL-004"', $tspl);
+        $this->assertStringContainsString('TEXT 8,205,"1",0,1,1,"EXP: 2030-06-30"', $tspl);
+        $this->assertStringContainsString('TEXT 210,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
     }
 
     // -------------------------------------------------------------------------

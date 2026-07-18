@@ -159,14 +159,16 @@ class QrPayloadService
             if ($productTitle === null || trim($productTitle) === '') {
                 $productTitle = $ref;
             }
+            $usesCompactDetailsTemplate = mb_strlen($productTitle) > 23 || mb_strlen((string) $lotNo) > 23;
+            $detailFont = $usesCompactDetailsTemplate ? '1' : '2';
 
             $lines = array_merge($lines, [
-                'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($productTitle, 36) . '"',
-                'TEXT 8,163,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
-                'TEXT 8,183,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
+                'TEXT 8,140,"' . $detailFont . '",0,1,1,"' . $this->sanitizeTsplText($productTitle, 36) . '"',
+                'TEXT 8,163,"' . $detailFont . '",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
+                'TEXT 8,183,"' . $detailFont . '",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
             ]);
 
-            $this->appendDateLines($lines, 205, $exp, $mfg);
+            $this->appendDateLines($lines, 205, $exp, $mfg, $usesCompactDetailsTemplate ? '1' : null);
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
             $setName = $lot->instrumentSet?->set_name ?? '-';
@@ -189,17 +191,17 @@ class QrPayloadService
      *
      * @param array<int, string> $lines
      */
-    private function appendDateLines(array &$lines, int $y, ?string $exp, ?string $mfg): void
+    private function appendDateLines(array &$lines, int $y, ?string $exp, ?string $mfg, ?string $forcedFont = null): void
     {
         $paired = $exp !== null && $mfg !== null;
-        $font = $paired ? '1' : '2';
+        $font = $forcedFont ?? ($paired ? '1' : '2');
 
         if ($exp !== null) {
             $lines[] = 'TEXT 8,' . $y . ',"' . $font . '",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 14) . '"';
         }
 
         if ($mfg !== null) {
-            $lines[] = 'TEXT 190,' . $y . ',"' . $font . '",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
+            $lines[] = 'TEXT 210,' . $y . ',"' . $font . '",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
         }
     }
 
