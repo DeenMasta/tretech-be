@@ -139,14 +139,14 @@ class QrPayloadService
             // If regeneration fails, fall back to the stored value.
         }
 
-        $qrErrorCorrection = $this->qrErrorCorrectionForPayload($qrPayload);
+        $qrPrintSettings = $this->qrPrintSettings($qrPayload);
 
         $lines = [
             'SIZE 50 mm, 30 mm',
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 8,8,{$qrErrorCorrection},3,A,0,M2,S1,\"{$qrPayload}\"",
+            "QRCODE 8,8,{$qrPrintSettings['ecc']},3,A,0,M2,S1,\"{$qrPrintSettings['payload']}\"",
             'TEXT 140,15,"0",0,1,1,"TREMED Surgical Solution"',
             'TEXT 140,31,"0",0,1,1,"No 6-1, Block A,"',
             'TEXT 140,47,"0",0,1,1,"Zenith Corporate Park,"',
@@ -190,17 +190,58 @@ class QrPayloadService
     }
 
     /**
-     * Keep byte-mode payloads within the same Version 6 (41-module) QR footprint.
-     * Lower error correction only when the payload no longer fits at a higher level.
+     * Keep auto-encoded QR payloads in the Version 6 footprint when possible.
+     * TSPL otherwise selects the smallest QR version, making near-boundary labels
+     * visibly smaller or larger even when cell width stays at 3 dots.
+     *
+     * @return array{payload:string,ecc:string}
      */
-    private function qrErrorCorrectionForPayload(string $payload): string
+    private function qrPrintSettings(string $payload): array
     {
-        return match (true) {
-            strlen($payload) <= 58 => 'H',
-            strlen($payload) <= 74 => 'Q',
-            strlen($payload) <= 106 => 'M',
-            default => 'L',
-        };
+        $length = strlen($payload);
+
+        if ($length <= 58) {
+            return [
+                'payload' => $this->padQrPayload($payload, 45),
+                'ecc' => 'H',
+            ];
+        }
+
+        if ($length <= 74) {
+            return [
+                'payload' => $this->padQrPayload($payload, 61),
+                'ecc' => 'Q',
+            ];
+        }
+
+        if ($length <= 106) {
+            return [
+                'payload' => $this->padQrPayload($payload, 85),
+                'ecc' => 'M',
+            ];
+        }
+
+        return [
+            'payload' => $payload,
+            'ecc' => 'L',
+        ];
+    }
+
+    /**
+     * PAD is an optional QR segment. It preserves REF/LOT/MFG/EXP semantics
+     * while preventing the printer from falling into the next smaller version.
+     */
+    private function padQrPayload(string $payload, int $minimumLength): string
+    {
+        $paddingNeeded = $minimumLength - strlen($payload);
+        if ($paddingNeeded <= 0) {
+            return $payload;
+        }
+
+        // A valid optional segment is at least six bytes: ;PAD=0.
+        $paddingLength = max(1, $paddingNeeded - 5);
+
+        return $payload . ';PAD=' . str_repeat('0', $paddingLength);
     }
 
     /**

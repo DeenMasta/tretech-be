@@ -137,6 +137,15 @@ class QrPayloadServiceTest extends \Tests\TestCase
     }
 
     #[Test]
+    public function validate_payload_accepts_optional_padding_segment(): void
+    {
+        $result = $this->service->validatePayload('V=1;REF=REF-X;LOT=LOT-Y;MFG=-;EXP=2027-06-30;PAD=0');
+
+        $this->assertSame('REF-X', $result['ref']);
+        $this->assertSame('LOT-Y', $result['lot']);
+    }
+
+    #[Test]
     public function validate_payload_throws_for_missing_required_field(): void
     {
         // Missing MFG and EXP
@@ -193,7 +202,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-002;LOT=LOT-TSPL-002;MFG=2026-07-18;EXP=2030-06-30', $lot);
 
         $this->assertStringContainsString('TEXT 8,205,"1",0,1,1,"EXP: 2030-06-30"', $tspl);
-        $this->assertStringContainsString('TEXT 210,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
+        $this->assertStringContainsString('TEXT 230,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
         $this->assertStringNotContainsString('TEXT 8,225', $tspl);
     }
 
@@ -223,7 +232,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $this->assertStringContainsString('TEXT 8,163,"1",0,1,1,"REF: REF-TSPL-004"', $tspl);
         $this->assertStringContainsString('TEXT 8,183,"1",0,1,1,"LOT: LOT-TSPL-004"', $tspl);
         $this->assertStringContainsString('TEXT 8,205,"1",0,1,1,"EXP: 2030-06-30"', $tspl);
-        $this->assertStringContainsString('TEXT 210,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
+        $this->assertStringContainsString('TEXT 230,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
     }
 
     #[Test]
@@ -239,6 +248,20 @@ class QrPayloadServiceTest extends \Tests\TestCase
             $tspl
         );
         $this->assertStringNotContainsString('QRCODE 8,8,H,4', $tspl);
+    }
+
+    #[Test]
+    public function build_tspl_payload_pads_a_transition_payload_to_prevent_a_smaller_qr(): void
+    {
+        $product = $this->makeProduct('MC405C', 'Ablator Plasma');
+        $lot = $this->makeProductLot($product, 'A26022810C', '2026-06-18', '2029-01-31');
+
+        $tspl = $this->service->buildTsplPayload('', $lot);
+
+        $this->assertStringContainsString(
+            'QRCODE 8,8,Q,3,A,0,M2,S1,"V=1;REF=MC405C;LOT=A26022810C;MFG=2026-06-18;EXP=2029-01-31;PAD=0"',
+            $tspl
+        );
     }
 
     #[Test]
