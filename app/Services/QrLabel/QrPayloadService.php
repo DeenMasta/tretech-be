@@ -184,7 +184,7 @@ class QrPayloadService
             if ($lot->manufacturing_date !== null) {
                 $mfg = $lot->manufacturing_date->format('Y-m-d');
                 $lines[] = 'TEXT 8,185,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
-                $lines[] = 'TEXT 8,205,"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 30) . '"';
+                $lines[] = 'TEXT 140,185,"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 30) . '"';
             } else {
                 $lines[] = 'TEXT 8,183,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
             }
