@@ -129,7 +129,8 @@ class QrPayloadService
         $lot->loadMissing(['product:id,ref_num,product_name', 'instrumentSet:id,set_code,set_name']);
 
         $lotNo = $lot->lot_number;
-        $exp = $lot->expiry_date ? $lot->expiry_date->format('Y-m-d') : '-';
+        $exp = $lot->expiry_date?->format('Y-m-d');
+        $mfg = $lot->manufacturing_date?->format('Y-m-d');
 
         try {
             $qrPayload = $this->generatePayload($lot);
@@ -165,13 +166,7 @@ class QrPayloadService
                 'TEXT 8,183,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
             ]);
 
-            if ($lot->manufacturing_date !== null) {
-                $mfg = $lot->manufacturing_date->format('Y-m-d');
-                $lines[] = 'TEXT 8,205,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
-                $lines[] = 'TEXT 140,205,"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 30) . '"';
-            } else {
-                $lines[] = 'TEXT 8,208,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
-            }
+            $this->appendDateLines($lines, 205, $exp, $mfg);
         } elseif ($lot->instrument_set_id !== null) {
             $setCode = $lot->instrumentSet?->set_code ?? '-';
             $setName = $lot->instrumentSet?->set_name ?? '-';
@@ -181,18 +176,28 @@ class QrPayloadService
                 'TEXT 8,163,"2",0,1,1,"CODE: ' . $this->sanitizeTsplText($setCode, 30) . '"',
             ]);
 
-            if ($lot->manufacturing_date !== null) {
-                $mfg = $lot->manufacturing_date->format('Y-m-d');
-                $lines[] = 'TEXT 8,185,"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
-                $lines[] = 'TEXT 140,185,"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 30) . '"';
-            } else {
-                $lines[] = 'TEXT 8,183,"2",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 30) . '"';
-            }
+            $this->appendDateLines($lines, 185, $exp, $mfg);
         }
 
         $lines[] = 'PRINT 1,1';
 
         return implode("\r\n", $lines);
+    }
+
+    /**
+     * Add optional EXP/MFG label lines. Skip placeholders entirely.
+     *
+     * @param array<int, string> $lines
+     */
+    private function appendDateLines(array &$lines, int $y, ?string $exp, ?string $mfg): void
+    {
+        if ($exp !== null) {
+            $lines[] = 'TEXT 8,' . $y . ',"0",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 14) . '"';
+        }
+
+        if ($mfg !== null) {
+            $lines[] = 'TEXT 140,' . $y . ',"0",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
+        }
     }
 
     private function sanitizeTsplText(?string $value, int $maxLength = 24): string

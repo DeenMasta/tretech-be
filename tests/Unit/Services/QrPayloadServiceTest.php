@@ -180,6 +180,35 @@ class QrPayloadServiceTest extends \Tests\TestCase
 
         $this->assertStringContainsString('TEXT 8,140,"2",0,1,1,"REF-TSPL-001"', $tspl);
         $this->assertStringNotContainsString('TEXT 8,140,"2",0,1,1,"-"', $tspl);
+        $this->assertStringContainsString('TEXT 8,205,"0",0,1,1,"EXP: 2027-01-01"', $tspl);
+        $this->assertStringNotContainsString('MFG:', $tspl);
+    }
+
+    #[Test]
+    public function build_tspl_payload_places_mfg_on_same_row_as_exp(): void
+    {
+        $product = $this->makeProduct('REF-TSPL-002', 'Print Layout Product');
+        $lot = $this->makeProductLot($product, 'LOT-TSPL-002', '2026-07-18', '2030-06-30');
+
+        $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-002;LOT=LOT-TSPL-002;MFG=2026-07-18;EXP=2030-06-30', $lot);
+
+        $this->assertStringContainsString('TEXT 8,205,"0",0,1,1,"EXP: 2030-06-30"', $tspl);
+        $this->assertStringContainsString('TEXT 140,205,"0",0,1,1,"MFG: 2026-07-18"', $tspl);
+        $this->assertStringNotContainsString('TEXT 8,225', $tspl);
+    }
+
+    #[Test]
+    public function build_tspl_payload_omits_date_row_when_exp_and_mfg_are_missing(): void
+    {
+        $product = $this->makeProduct('REF-TSPL-003', 'No Date Product');
+        $lot = $this->makeProductLot($product, 'LOT-TSPL-003', null, null);
+
+        $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-003;LOT=LOT-TSPL-003;MFG=-;EXP=-', $lot);
+
+        $this->assertStringContainsString('TEXT 8,140,"2",0,1,1,"No Date Product"', $tspl);
+        $this->assertStringContainsString('TEXT 8,163,"2",0,1,1,"REF: REF-TSPL-003"', $tspl);
+        $this->assertStringNotContainsString('EXP:', $tspl);
+        $this->assertStringNotContainsString('MFG:', $tspl);
     }
 
     // -------------------------------------------------------------------------
