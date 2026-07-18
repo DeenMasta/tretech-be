@@ -180,7 +180,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
 
         $this->assertStringContainsString('TEXT 8,140,"2",0,1,1,"REF-TSPL-001"', $tspl);
         $this->assertStringNotContainsString('TEXT 8,140,"2",0,1,1,"-"', $tspl);
-        $this->assertStringContainsString('TEXT 8,205,"0",0,1,1,"EXP: 2027-01-01"', $tspl);
+        $this->assertStringContainsString('TEXT 8,205,"2",0,1,1,"EXP: 2027-01-01"', $tspl);
         $this->assertStringNotContainsString('MFG:', $tspl);
     }
 
