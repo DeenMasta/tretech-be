@@ -77,6 +77,7 @@ class AuditAction
     const RETURN_SESSION_ITEM_SCANNED = 'return_session.item_scanned';
     const RETURN_SESSION_ITEM_REMOVED = 'return_session.item_removed';
     const RETURN_SESSION_COMPLETED = 'return_session.completed';
+    const RETURN_SESSION_REOPENED = 'return_session.reopened';
 
     // -------------------------------------------------------------------------
     // Reconciliation

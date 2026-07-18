@@ -33,7 +33,7 @@ class ConsignmentController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
 
         $paginator = $this->consignmentService->paginate(
-            $request->only(['search', 'status', 'client_id', 'from_date', 'to_date']),
+            $request->only(['search', 'status', 'client_id', 'from_date', 'to_date', 'has_return_session']),
             $perPage
         );
 
@@ -137,14 +137,15 @@ class ConsignmentController extends Controller
             'consignmentItems.lot:id,lot_number,product_id',
             'consignmentItems.instrumentSet:id,set_code,set_name',
             'consignmentItems.instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
+            'returnSession.returnSessionItems.setInstrumentItems',
         ]);
 
         $pdf = Pdf::loadView('exports.consignment-note', [
             'consignment' => $consignment,
             'printedBy' => $request->user(),
-            'surgeon'   => $request->query('surgeon', ''),
-            'dateCase'  => $request->query('date_case', ''),
-            'case'      => $request->query('case', ''),
+            'surgeon'   => $consignment->surgeon_name ?? $request->query('surgeon', ''),
+            'dateCase'  => $consignment->case_date ? $consignment->case_date->format('Y-m-d') : $request->query('date_case', ''),
+            'case'      => $consignment->case_name ?? $request->query('case', ''),
         ])->setPaper('a4', 'portrait');
 
         $fileName = sprintf('consignment_%s_%s.pdf', $consignment->consignment_no, now()->format('Ymd_His'));

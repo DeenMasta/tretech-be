@@ -20,6 +20,9 @@ class StoreConsignmentRequest extends FormRequest
             'client_id'      => ['required', 'integer', 'exists:clients,id'],
             'consignment_at' => ['required', 'date'],
             'pic_user_id'    => ['required', 'integer', 'exists:users,id'],
+            'surgeon_name'   => ['nullable', 'string', 'max:255'],
+            'case_name'      => ['nullable', 'string', 'max:255'],
+            'case_date'      => ['nullable', 'date'],
             'remarks'        => ['nullable', 'string'],
         ];
     }

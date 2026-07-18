@@ -17,7 +17,6 @@ use App\Http\Controllers\Api\V1\MasterData\SupplierController;
 use App\Http\Controllers\Api\V1\MasterData\UserController;
 use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
 use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
-use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
 use App\Http\Controllers\Api\V1\Reporting\ReportController;
 use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
 use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
@@ -297,39 +296,16 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:returns.create');
         Route::get('/{returnSession}', [ReturnSessionController::class, 'show'])
             ->middleware('permission:returns.view');
+        Route::get('/{returnSession}/print', [ReturnSessionController::class, 'print'])
+            ->middleware('permission:returns.view');
         Route::post('/{returnSession}/scan', [ReturnSessionController::class, 'scan'])
             ->middleware('permission:returns.create');
         Route::delete('/{returnSession}/items/{returnSessionItem}', [ReturnSessionController::class, 'removeItem'])
             ->middleware('permission:returns.create');
         Route::post('/{returnSession}/complete', [ReturnSessionController::class, 'complete'])
             ->middleware('permission:returns.finalize');
-    });
-
-    // =========================================================================
-    // WEEK 2 — Reconciliation (Used Computation)
-    // =========================================================================
-
-    // -------------------------------------------------------------------------
-    // Reconciliations
-    // POST   /v1/reconciliations                                  — create (linked to completed return session)
-    // GET    /v1/reconciliations                                  — list with filters
-    // GET    /v1/reconciliations/{reconciliation}                 — detail with items
-    // POST   /v1/reconciliations/{reconciliation}/finalize        — finalize: compute used vs returned (atomic)
-    // POST   /v1/reconciliations/{reconciliation}/reopen          — admin reopen finalized reconciliation
-    // -------------------------------------------------------------------------
-    Route::prefix('reconciliations')->middleware('auth:sanctum')->group(function () {
-        Route::get('/', [ReconciliationController::class, 'index'])
-            ->middleware('permission:returns.view');
-        Route::post('/', [ReconciliationController::class, 'store'])
-            ->middleware('permission:returns.finalize');
-        Route::get('/{reconciliation}', [ReconciliationController::class, 'show'])
-            ->middleware('permission:returns.view');
-        Route::post('/{reconciliation}/finalize', [ReconciliationController::class, 'finalize'])
-            ->middleware('permission:returns.finalize');
-        Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
+        Route::post('/{returnSession}/reopen', [ReturnSessionController::class, 'reopen'])
             ->middleware('permission:returns.reopen_reconciliation');
-        Route::get('/{reconciliation}/print', [ReconciliationController::class, 'print'])
-            ->middleware('permission:returns.view');
     });
 
     // =========================================================================

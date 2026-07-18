@@ -185,7 +185,7 @@
                             <td class="field-value">
                                 @php
                                     $sets = $consignment->consignmentItems->filter(fn($i) => $i->entry_kind === 'set');
-                                    $setNames = $sets->map(fn($i) => $i->instrumentSet?->set_name . ' ' . ($i->instrumentSet?->set_code ? '('.$i->instrumentSet->set_code.')' : ''))->filter()->join(', ');
+                                    $setNames = $sets->map(fn($i) => $i->instrumentSet?->set_name)->filter()->join(', ');
                                 @endphp
                                 {!! $setNames ?: '&nbsp;' !!}
                             </td>
@@ -274,14 +274,26 @@
             @foreach($setItems as $setItem)
                 <tr>
                     <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
-                        {{ $setItem->instrumentSet?->set_name }} {{ $setItem->instrumentSet?->set_code ? '(' . $setItem->instrumentSet->set_code . ')' : '' }}
+                        {{ $setItem->instrumentSet?->set_name }}
                     </td>
                 </tr>
                 
-                @php $setNo = 1; @endphp
+                @php 
+                    $setNo = 1; 
+                    $rsi = $consignment->returnSession?->returnSessionItems->where('instrument_set_id', $setItem->instrument_set_id)->first();
+                @endphp
                 
                 @if($setItem->instrumentSet && $setItem->instrumentSet->relationLoaded('instrumentSetItems'))
                     @foreach($setItem->instrumentSet->instrumentSetItems as $subItem)
+                        @php
+                            $qtyIn = '';
+                            if ($rsi) {
+                                $rsSubItem = $rsi->setInstrumentItems->where('product_id', $subItem->product_id)->first();
+                                if ($rsSubItem) {
+                                    $qtyIn = $rsSubItem->returned_quantity;
+                                }
+                            }
+                        @endphp
                         <tr>
                             <td class="center">{{ $setNo++ }}</td>
                             <td>{{ $subItem->product?->ref_num ?? '-' }}</td>
@@ -289,7 +301,7 @@
                             <td class="center">{{ $subItem->quantity * ($setItem->proposed_quantity ?? 1) }}</td>
                             <td>-</td>
                             <td class="center">{{ $subItem->quantity * ($setItem->quantity ?? 1) }}</td>
-                            <td class="center">&nbsp;</td>
+                            <td class="center">{!! $qtyIn !!}</td>
                             <td>{{ $setItem->remarks ?? '' }}</td>
                         </tr>
                     @endforeach
@@ -312,6 +324,13 @@
                 </tr>
                 @php $implantNo = 1; @endphp
                 @foreach($lotItems as $item)
+                    @php
+                        $qtyIn = '';
+                        $rsi = $consignment->returnSession?->returnSessionItems->where('lot_id', $item->lot_id)->first();
+                        if ($rsi) {
+                            $qtyIn = $rsi->quantity;
+                        }
+                    @endphp
                     <tr>
                         <td class="center">{{ $implantNo++ }}</td>
                         <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
@@ -319,7 +338,7 @@
                         <td class="center">{{ $item->proposed_quantity ?? 1 }}</td>
                         <td>{{ $item->lot?->lot_number ?? ' ' }}</td>
                         <td class="center">{{ $item->quantity ?? 1 }}</td>
-                        <td class="center">&nbsp;</td>
+                        <td class="center">{!! $qtyIn !!}</td>
                         <td>{{ $item->remarks ?? '' }}</td>
                     </tr>
                 @endforeach

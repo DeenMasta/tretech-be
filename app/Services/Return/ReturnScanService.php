@@ -52,11 +52,13 @@ class ReturnScanService
             $alreadyScanned = ReturnSessionItem::query()
                 ->where('return_session_id', $session->id)
                 ->where('lot_id', $lot->id)
-                ->first();
+                ->exists();
 
-            $totalReturned = ($alreadyScanned->quantity ?? 0) + $qty;
+            if ($alreadyScanned) {
+                throw new BusinessLogicException("Lot {$lot->lot_number} has already been scanned in this return session.");
+            }
 
-            if ($totalReturned > $consignedItem->quantity) {
+            if ($qty > ($consignedItem->quantity ?? 1)) {
                 throw new BusinessLogicException("Cannot return more than consigned quantity for lot {$lot->lot_number}.");
             }
 
@@ -64,21 +66,15 @@ class ReturnScanService
                 throw new BusinessLogicException('Instrument results must be provided when scanning a set instance.');
             }
 
-            if ($alreadyScanned) {
-                $alreadyScanned->quantity = $totalReturned;
-                $alreadyScanned->save();
-                $item = $alreadyScanned;
-            } else {
-                $item = ReturnSessionItem::query()->create([
-                    'return_session_id'    => $session->id,
-                    'lot_id'               => $lot->id,
-                    'returned_at'          => now(),
-                    'returned_by_user_id'  => $actor->id,
-                    'source_qr_payload'    => $data['source_qr_payload'] ?? null,
-                    'remarks'              => $data['remarks'] ?? null,
-                    'quantity'             => $qty,
-                ]);
-            }
+            $item = ReturnSessionItem::query()->create([
+                'return_session_id'    => $session->id,
+                'lot_id'               => $lot->id,
+                'returned_at'          => now(),
+                'returned_by_user_id'  => $actor->id,
+                'source_qr_payload'    => $data['source_qr_payload'] ?? null,
+                'remarks'              => $data['remarks'] ?? null,
+                'quantity'             => $qty,
+            ]);
 
             $description = "Scanned lot {$lot->lot_number} into return session {$session->return_session_no}";
             $isSet = $lot->isSetInstance();
@@ -86,11 +82,13 @@ class ReturnScanService
         } else if ($isGenericSet) {
             $setId = (int) $data['instrument_set_id'];
 
+            $qty = (int) ($data['quantity'] ?? 1);
+
             $belongsToConsignment = ConsignmentItem::query()
                 ->where('consignment_id', $session->consignment_id)
                 ->where('instrument_set_id', $setId)
                 ->whereNull('lot_id')
-                ->exists();
+                ->first();
 
             if (!$belongsToConsignment) {
                 throw new BusinessLogicException("This instrument set was not part of the consignment linked to this return session.");
@@ -105,6 +103,10 @@ class ReturnScanService
                 throw new BusinessLogicException("This generic instrument set has already been scanned in this return session.");
             }
 
+            if ($qty > ($belongsToConsignment->quantity ?? 1)) {
+                throw new BusinessLogicException("Cannot return more than consigned quantity for this instrument set.");
+            }
+
             if (empty($data['instrument_results'])) {
                 throw new BusinessLogicException('Instrument results must be provided when scanning an instrument set.');
             }
@@ -116,7 +118,7 @@ class ReturnScanService
                 'returned_by_user_id'  => $actor->id,
                 'source_qr_payload'    => $data['source_qr_payload'] ?? null,
                 'remarks'              => $data['remarks'] ?? null,
-                'quantity'             => 1,
+                'quantity'             => $qty,
             ]);
 
             $description = "Scanned generic set into return session {$session->return_session_no}";
@@ -125,11 +127,13 @@ class ReturnScanService
         } else if ($isGenericProduct) {
             $productId = (int) $data['product_id'];
 
+            $qty = (int) ($data['quantity'] ?? 1);
+
             $belongsToConsignment = ConsignmentItem::query()
                 ->where('consignment_id', $session->consignment_id)
                 ->where('product_id', $productId)
                 ->whereNull('lot_id')
-                ->exists();
+                ->first();
 
             if (!$belongsToConsignment) {
                 throw new BusinessLogicException("This product was not part of the consignment linked to this return session.");
@@ -144,6 +148,10 @@ class ReturnScanService
                 throw new BusinessLogicException("This generic product has already been scanned in this return session.");
             }
 
+            if ($qty > ($belongsToConsignment->quantity ?? 1)) {
+                throw new BusinessLogicException("Cannot return more than consigned quantity for this generic product.");
+            }
+
             $item = ReturnSessionItem::query()->create([
                 'return_session_id'    => $session->id,
                 'product_id'           => $productId,
@@ -151,7 +159,7 @@ class ReturnScanService
                 'returned_by_user_id'  => $actor->id,
                 'source_qr_payload'    => $data['source_qr_payload'] ?? null,
                 'remarks'              => $data['remarks'] ?? null,
-                'quantity'             => 1,
+                'quantity'             => $qty,
             ]);
 
             $description = "Scanned generic product into return session {$session->return_session_no}";

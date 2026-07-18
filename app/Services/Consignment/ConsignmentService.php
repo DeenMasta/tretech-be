@@ -18,6 +18,7 @@ class ConsignmentService
         $clientId  = $filters['client_id'] ?? null;
         $fromDate  = $filters['from_date'] ?? null;
         $toDate    = $filters['to_date'] ?? null;
+        $hasReturnSession = $filters['has_return_session'] ?? null;
 
         return Consignment::query()
             ->with(['client:id,client_name', 'picUser:id,full_name'])
@@ -29,6 +30,14 @@ class ConsignmentService
             ->when($clientId !== null, fn ($q) => $q->where('client_id', (int) $clientId))
             ->when($fromDate !== null, fn ($q) => $q->whereDate('consignment_at', '>=', $fromDate))
             ->when($toDate !== null, fn ($q) => $q->whereDate('consignment_at', '<=', $toDate))
+            ->when($hasReturnSession !== null, function ($q) use ($hasReturnSession) {
+                $hasReturnSession = filter_var($hasReturnSession, FILTER_VALIDATE_BOOLEAN);
+                if ($hasReturnSession) {
+                    $q->has('returnSession');
+                } else {
+                    $q->doesntHave('returnSession');
+                }
+            })
             ->orderByDesc('id')
             ->paginate($perPage);
     }

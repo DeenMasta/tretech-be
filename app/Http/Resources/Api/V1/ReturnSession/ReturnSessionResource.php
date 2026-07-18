@@ -44,6 +44,9 @@ class ReturnSessionResource extends JsonResource
             'items'               => $this->whenLoaded('returnSessionItems', fn () =>
                 ReturnSessionItemResource::collection($this->returnSessionItems)
             ),
+            'reconciliation'      => $this->whenLoaded('reconciliation', fn () => 
+                $this->reconciliation ? new \App\Http\Resources\Api\V1\Reconciliation\ReconciliationResource($this->reconciliation) : null
+            ),
             'created_at'          => $this->created_at?->toIso8601String(),
             'updated_at'          => $this->updated_at?->toIso8601String(),
         ];

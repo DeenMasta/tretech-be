@@ -177,17 +177,28 @@
                         <tr class="field-row">
                             <td class="field-label">Surgeon</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">{!! $reconciliation->consignment?->surgeon_name ?: '&nbsp;' !!}</td>
+                        </tr>
+                        <tr class="field-row">
+                            <td class="field-label">Date Case</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $reconciliation->consignment?->case_date?->format('d/m/Y') ?? '' }}</td>
                         </tr>
                         <tr class="field-row">
                             <td class="field-label">Set No.</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">
+                                @php
+                                    $sets = $reconciliation->consignment?->consignmentItems->filter(fn($i) => $i->entry_kind === 'set');
+                                    $setNames = $sets ? $sets->map(fn($i) => $i->instrumentSet?->set_name)->filter()->join(', ') : '';
+                                @endphp
+                                {!! $setNames ?: '&nbsp;' !!}
+                            </td>
                         </tr>
                         <tr class="field-row">
                             <td class="field-label">Case</td>
                             <td class="field-colon">:</td>
-                            <td class="field-value">&nbsp;</td>
+                            <td class="field-value">{!! $reconciliation->consignment?->case_name ?: '&nbsp;' !!}</td>
                         </tr>
                     </table>
                 </td>
@@ -229,10 +240,11 @@
                 <th style="width:80px;">Product Code</th>
                 <th class="th-desc">
                     Description<br>
-                    <!-- <span class="th-sub">Set / Instrument list</span> -->
                 </th>
                 <th style="width:70px;">Lot No</th>
-                <th style="width:50px;">Result</th>
+                <th style="width:36px;">Qty<br>Out</th>
+                <th style="width:36px;">Qty<br>Used</th>
+                <th style="width:36px;">Qty<br>In</th>
                 <th style="width:70px;">Remarks</th>
             </tr>
         </thead>
@@ -243,7 +255,7 @@
 
             @if($items->isEmpty())
                 <tr class="empty-row">
-                    <td colspan="6">No items in this reconciliation.</td>
+                    <td colspan="8">No items in this reconciliation.</td>
                 </tr>
             @else
                 @php $no = 1; @endphp
@@ -252,20 +264,22 @@
                         <td class="center">{{ $no++ }}</td>
                         <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
                         <td>
-                            {{ $item->lot?->product?->product_name ?? '-' }}
+                            {{ $item->lot?->product?->product_name ?? ($item->instrumentSet?->set_name ?? '-') }}
                             @if($item->setInstrumentResults->isNotEmpty())
                                 <div style="margin-top: 4px; font-size: 7.5px; border-top: 1px dashed #ccc; padding-top: 4px;">
                                     @foreach($item->setInstrumentResults as $res)
                                         <div>
                                             {{ $res->product?->product_name ?? 'Unknown' }}
-                                            (E:{{ $res->expected_quantity }} U:{{ $res->used_quantity }} R:{{ $res->returned_quantity }})
+                                            (Out:{{ $res->expected_quantity }} Used:{{ $res->used_quantity }} In:{{ $res->returned_quantity }})
                                         </div>
                                     @endforeach
                                 </div>
                             @endif
                         </td>
                         <td>{{ $item->lot?->lot_number ?? '-' }}</td>
-                        <td class="center" style="text-transform: capitalize;">{{ $item->result }}</td>
+                        <td class="center">{{ $item->quantity ?? 1 }}</td>
+                        <td class="center">{{ $item->used_quantity ?? 0 }}</td>
+                        <td class="center">{{ $item->returned_quantity ?? 0 }}</td>
                         <td>{{ $item->remarks ?? '' }}</td>
                     </tr>
                 @endforeach

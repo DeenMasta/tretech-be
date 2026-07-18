@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['client_id', 'consignment_no', 'consignment_at', 'pic_user_id', 'status', 'remarks', 'confirmed_at', 'confirmed_by_user_id', 'edited_after_confirmation', 'last_post_confirm_edit_at', 'last_post_confirm_edit_by_user_id', 'last_post_confirm_edit_reason'])]
+#[Fillable(['client_id', 'consignment_no', 'consignment_at', 'pic_user_id', 'status', 'surgeon_name', 'case_name', 'case_date', 'remarks', 'confirmed_at', 'confirmed_by_user_id', 'edited_after_confirmation', 'last_post_confirm_edit_at', 'last_post_confirm_edit_by_user_id', 'last_post_confirm_edit_reason'])]
 class Consignment extends Model
 {
     use HasFactory;
@@ -18,6 +18,7 @@ class Consignment extends Model
     {
         return [
             'consignment_at' => 'datetime',
+            'case_date' => 'date',
             'confirmed_at' => 'datetime',
             'last_post_confirm_edit_at' => 'datetime',
             'edited_after_confirmation' => 'boolean',

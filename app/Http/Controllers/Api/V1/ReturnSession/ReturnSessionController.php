@@ -13,6 +13,8 @@ use App\Services\Return\ReturnScanService;
 use App\Services\Return\ReturnSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReturnSessionController extends Controller
 {
@@ -55,6 +57,8 @@ class ReturnSessionController extends Controller
             'completedByUser:id,full_name',
             'returnSessionItems.lot.product:id,ref_num,product_name',
             'returnSessionItems.setInstrumentItems.product:id,ref_num,product_name',
+            'reconciliation.reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliation.reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ])->loadCount('returnSessionItems');
 
         return $this->successResponse(new ReturnSessionResource($returnSession), 'Return session fetched successfully');
@@ -76,8 +80,48 @@ class ReturnSessionController extends Controller
 
     public function complete(Request $request, ReturnSession $returnSession): JsonResponse
     {
-        $completed = $this->returnSessionService->complete($returnSession, $request->user());
+        $completed = $this->returnSessionService->completeWithReconciliation($returnSession, $request->user());
 
         return $this->successResponse(new ReturnSessionResource($completed), 'Return session completed successfully');
+    }
+
+    public function reopen(Request $request, ReturnSession $returnSession): JsonResponse
+    {
+        $reopened = $this->returnSessionService->reopenWithReconciliation(
+            $returnSession,
+            $request->input('reopen_reason', 'Reopened by user request'),
+            $request->user()
+        );
+
+        return $this->successResponse(new ReturnSessionResource($reopened), 'Return session reopened successfully');
+    }
+
+    public function print(Request $request, ReturnSession $returnSession): Response
+    {
+        $returnSession->load([
+            'reconciliation.consignment:id,consignment_no,client_id,pic_user_id,consignment_at',
+            'reconciliation.consignment.client:id,client_name',
+            'reconciliation.consignment.picUser:id,full_name',
+            'reconciliation.returnSession:id,return_session_no',
+            'reconciliation.picUser:id,full_name',
+            'reconciliation.completedByUser:id,full_name',
+            'reconciliation.reopenedByUser:id,full_name',
+            'reconciliation.reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliation.reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
+        ]);
+
+        if (!$returnSession->reconciliation) {
+            abort(404, 'No reconciliation report generated for this return session yet.');
+        }
+
+        // We use the existing reconciliation-note view, but pass the embedded reconciliation
+        $pdf = Pdf::loadView('exports.reconciliation-note', [
+            'reconciliation' => $returnSession->reconciliation,
+            'printedBy' => $request->user(),
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = sprintf('return_usage_%s_%s.pdf', $returnSession->return_session_no, now()->format('Ymd_His'));
+
+        return $pdf->download($fileName);
     }
 }

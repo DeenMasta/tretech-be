@@ -20,6 +20,9 @@ class UpdateConsignmentRequest extends FormRequest
             'client_id'      => ['sometimes', 'integer', 'exists:clients,id'],
             'consignment_at' => ['sometimes', 'date'],
             'pic_user_id'    => ['sometimes', 'integer', 'exists:users,id'],
+            'surgeon_name'   => ['nullable', 'string', 'max:255'],
+            'case_name'      => ['nullable', 'string', 'max:255'],
+            'case_date'      => ['nullable', 'date'],
             'remarks'        => ['nullable', 'string'],
         ];
     }

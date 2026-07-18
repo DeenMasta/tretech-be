@@ -17,8 +17,11 @@ class PostConfirmEditRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'reason'  => ['required', 'string', 'min:5', 'max:1000'],
-            'remarks' => ['nullable', 'string'],
+            'reason'       => ['required', 'string', 'min:5', 'max:1000'],
+            'surgeon_name' => ['nullable', 'string', 'max:255'],
+            'case_name'    => ['nullable', 'string', 'max:255'],
+            'case_date'    => ['nullable', 'date'],
+            'remarks'      => ['nullable', 'string'],
         ];
     }
 }

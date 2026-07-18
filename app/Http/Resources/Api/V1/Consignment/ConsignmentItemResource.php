@@ -28,6 +28,7 @@ class ConsignmentItemResource extends JsonResource
                         'id'           => $this->lot->product?->id,
                         'ref_num'      => $this->lot->product?->ref_num,
                         'product_name' => $this->lot->product?->product_name,
+                        'product_type' => $this->lot->product?->product_type,
                     ] : null,
                 ];
             }),
