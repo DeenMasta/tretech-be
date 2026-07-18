@@ -192,7 +192,7 @@ class QrPayloadService
     private function appendDateLines(array &$lines, int $y, ?string $exp, ?string $mfg): void
     {
         $paired = $exp !== null && $mfg !== null;
-        $font = $paired ? '2' : '2';
+        $font = $paired ? '1' : '2';
 
         if ($exp !== null) {
             $lines[] = 'TEXT 8,' . $y . ',"' . $font . '",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 14) . '"';
