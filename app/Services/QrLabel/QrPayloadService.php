@@ -192,14 +192,14 @@ class QrPayloadService
     private function appendDateLines(array &$lines, int $y, ?string $exp, ?string $mfg): void
     {
         $paired = $exp !== null && $mfg !== null;
-        $font = $paired ? '1' : '2';
+        $font = $paired ? '2' : '2';
 
         if ($exp !== null) {
             $lines[] = 'TEXT 8,' . $y . ',"' . $font . '",0,1,1,"EXP: ' . $this->sanitizeTsplText($exp, 14) . '"';
         }
 
         if ($mfg !== null) {
-            $lines[] = 'TEXT 180,' . $y . ',"' . $font . '",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
+            $lines[] = 'TEXT 170,' . $y . ',"' . $font . '",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
         }
     }
 
