@@ -218,7 +218,7 @@ class QrPayloadService
         }
 
         if ($mfg !== null) {
-            $lines[] = 'TEXT 210,' . $y . ',"' . $font . '",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
+            $lines[] = 'TEXT 230,' . $y . ',"' . $font . '",0,1,1,"MFG: ' . $this->sanitizeTsplText($mfg, 14) . '"';
         }
     }
 
