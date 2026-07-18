@@ -170,13 +170,28 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $this->service->validatePayload('V=1;REF=R;LOT=;MFG=-;EXP=-');
     }
 
+    #[Test]
+    public function build_tspl_payload_falls_back_to_ref_when_product_name_is_missing(): void
+    {
+        $product = $this->makeProduct('REF-TSPL-001', null);
+        $lot = $this->makeProductLot($product, 'LOT-TSPL-001', null, '2027-01-01');
+
+        $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-001;LOT=LOT-TSPL-001;MFG=-;EXP=2027-01-01', $lot);
+
+        $this->assertStringContainsString('TEXT 8,140,"2",0,1,1,"REF-TSPL-001"', $tspl);
+        $this->assertStringNotContainsString('TEXT 8,140,"2",0,1,1,"-"', $tspl);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers (build model stubs without touching DB)
     // -------------------------------------------------------------------------
 
-    private function makeProduct(string $refNum): Product
+    private function makeProduct(string $refNum, ?string $productName = 'Test Product'): Product
     {
-        $product = new Product(['ref_num' => $refNum]);
+        $product = new Product([
+            'ref_num' => $refNum,
+            'product_name' => $productName,
+        ]);
         return $product;
     }
 

@@ -154,9 +154,13 @@ class QrPayloadService
 
         if ($lot->product_id !== null) {
             $ref = $lot->product?->ref_num ?? '-';
+            $productTitle = $lot->product?->product_name;
+            if ($productTitle === null || trim($productTitle) === '') {
+                $productTitle = $ref;
+            }
 
             $lines = array_merge($lines, [
-                'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($lot->product?->product_name ?? '-', 36) . '"',
+                'TEXT 8,140,"2",0,1,1,"' . $this->sanitizeTsplText($productTitle, 36) . '"',
                 'TEXT 8,163,"2",0,1,1,"REF: ' . $this->sanitizeTsplText($ref, 30) . '"',
                 'TEXT 8,183,"2",0,1,1,"LOT: ' . $this->sanitizeTsplText($lotNo, 30) . '"',
             ]);
