@@ -226,6 +226,19 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $this->assertStringContainsString('TEXT 210,205,"1",0,1,1,"MFG: 2026-07-18"', $tspl);
     }
 
+    #[Test]
+    public function build_tspl_payload_sanitizes_non_latin_symbols_for_printer_safe_output(): void
+    {
+        $product = $this->makeProduct('REF-TSPL-005', 'Hamstring Tendon Stripper, Φ7mm, Curved');
+        $lot = $this->makeProductLot($product, 'LOT-TSPL-005', null, '2030-06-30');
+
+        $tspl = $this->service->buildTsplPayload('V=1;REF=REF-TSPL-005;LOT=LOT-TSPL-005;MFG=-;EXP=2030-06-30', $lot);
+
+        $this->assertStringNotContainsString('Φ', $tspl);
+        $this->assertStringContainsString('Hamstring Tendon Stripper,', $tspl);
+        $this->assertStringContainsString('7mm', $tspl);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers (build model stubs without touching DB)
     // -------------------------------------------------------------------------

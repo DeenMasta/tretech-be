@@ -6,6 +6,7 @@ use App\Exceptions\BusinessLogicException;
 use App\Models\Lot;
 use App\Models\QrLabel;
 use App\Models\User;
+use Illuminate\Support\Str;
 
 class QrPayloadService
 {
@@ -210,6 +211,13 @@ class QrPayloadService
         $text = trim((string) $value);
         $text = str_replace(['"', "\r", "\n"], ["'", ' ', ' '], $text);
         $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+        $text = Str::ascii($text);
+        $text = preg_replace('/[^\x20-\x7E]/', '', $text) ?? $text;
+        $text = trim($text);
+
+        if ($text === '') {
+            return '-';
+        }
 
         if (strlen($text) <= $maxLength) {
             return $text;
