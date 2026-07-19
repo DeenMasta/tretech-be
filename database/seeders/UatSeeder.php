@@ -47,7 +47,7 @@ class UatSeeder extends Seeder
         $staffRole     = Role::query()->where('role_code', 'logistic_staff')->firstOrFail();
 
         /** @var User $admin */
-        $admin = User::query()->where('email', config('app.admin.email', 'admin@tretech.com'))->firstOrFail();
+        $admin = User::query()->where('email', config('app.admin.email', 'admin@gmail.com'))->firstOrFail();
         $adminId = $admin->id;
 
         // ------------------------------------------------------------------ //

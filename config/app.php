@@ -124,9 +124,9 @@ return [
     ],
 
     'admin' => [
-        'email' => env('ADMIN_EMAIL', 'admin@tretech.com'),
+        'email' => env('ADMIN_EMAIL', 'admin@gmail.com'),
         'name' => env('ADMIN_NAME', 'TRETECH Admin'),
-        'password' => env('ADMIN_PASSWORD', 'Admin123!'),
+        'password' => env('ADMIN_PASSWORD', 'password'),
     ],
 
 ];
