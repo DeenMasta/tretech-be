@@ -27,7 +27,10 @@ class ProductService
                     $subQuery->where('ref_num', 'like', "%{$search}%")
                         ->orWhere('product_name', 'like', "%{$search}%")
                         ->orWhere('product_type', 'like', "%{$search}%")
-                        ->orWhere('category', 'like', "%{$search}%");
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhereHas('lots', function ($lotQuery) use ($search) {
+                            $lotQuery->where('lot_number', 'like', "%{$search}%");
+                        });
                 });
             })
             ->when($isActive !== null, fn ($query) => $query->where('is_active', (bool) $isActive))

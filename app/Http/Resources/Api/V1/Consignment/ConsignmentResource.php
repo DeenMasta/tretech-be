@@ -31,6 +31,9 @@ class ConsignmentResource extends JsonResource
                     'full_name' => $this->picUser?->full_name,
                 ];
             }),
+            'surgeon_name'   => $this->surgeon_name,
+            'case_name'      => $this->case_name,
+            'case_date'      => $this->case_date?->toIso8601String(),
             'remarks'        => $this->remarks,
             'confirmed_at'          => $this->confirmed_at?->toIso8601String(),
             'confirmed_by_user_id'  => $this->confirmed_by_user_id,

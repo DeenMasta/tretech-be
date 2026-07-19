@@ -65,8 +65,10 @@ class AuditAction
     // -------------------------------------------------------------------------
     const CONSIGNMENT_CREATED           = 'consignment.created';
     const CONSIGNMENT_UPDATED           = 'consignment.updated';
+    const CONSIGNMENT_DELETED           = 'consignment.deleted';
     const CONSIGNMENT_CONFIRMED         = 'consignment.confirmed';
     const CONSIGNMENT_ITEM_ADDED        = 'consignment.item_added';
+    const CONSIGNMENT_ITEM_UPDATED      = 'consignment.item_updated';
     const CONSIGNMENT_ITEM_REMOVED      = 'consignment.item_removed';
     const CONSIGNMENT_POST_CONFIRM_EDIT = 'consignment.post_confirm_edit';
 

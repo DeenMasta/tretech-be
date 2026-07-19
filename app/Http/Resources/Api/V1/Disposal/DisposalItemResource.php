@@ -34,6 +34,7 @@ class DisposalItemResource extends JsonResource
                     ] : null,
                 ];
             }),
+            'quantity'          => $this->quantity,
             'disposal_category' => $this->disposal_category,
             'reason_text'       => $this->reason_text,
             'remarks'           => $this->remarks,

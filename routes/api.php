@@ -263,6 +263,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:consignments.edit_draft');
         Route::patch('/{consignment}', [ConsignmentController::class, 'update'])
             ->middleware('permission:consignments.edit_draft');
+        Route::delete('/{consignment}', [ConsignmentController::class, 'destroy'])
+            ->middleware('permission:consignments.edit_draft');
         Route::post('/{consignment}/confirm', [ConsignmentController::class, 'confirm'])
             ->middleware('permission:consignments.confirm');
         Route::put('/{consignment}/post-confirm-edit', [ConsignmentController::class, 'postConfirmEdit'])
@@ -271,6 +273,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/{consignment}/items', [ConsignmentItemController::class, 'index'])
             ->middleware('permission:consignments.view');
         Route::post('/{consignment}/items', [ConsignmentItemController::class, 'store'])
+            ->middleware('permission:consignments.edit_draft');
+        Route::put('/{consignment}/items/{consignmentItem}', [ConsignmentItemController::class, 'update'])
             ->middleware('permission:consignments.edit_draft');
         Route::delete('/{consignment}/items/{consignmentItem}', [ConsignmentItemController::class, 'destroy'])
             ->middleware('permission:consignments.edit_draft');

@@ -177,6 +177,38 @@ class ConsignmentItemService
         ]);
     }
 
+    public function updateItem(Consignment $consignment, ConsignmentItem $item, array $data): ConsignmentItem
+    {
+        if ($consignment->status !== 'draft') {
+            throw new BusinessLogicException('Items can only be edited in draft consignments.');
+        }
+
+        if ($item->consignment_id !== $consignment->id) {
+            throw new BusinessLogicException('This item does not belong to the specified consignment.');
+        }
+
+        if (array_key_exists('proposed_quantity', $data)) {
+            $item->proposed_quantity = $data['proposed_quantity'];
+        }
+
+        if (array_key_exists('quantity', $data)) {
+            $item->quantity = $data['quantity'];
+        }
+
+        if (array_key_exists('remarks', $data)) {
+            $item->remarks = $data['remarks'];
+        }
+
+        $item->save();
+
+        return $item->refresh()->load([
+            'lot:id,product_id,lot_number,status,quantity_available,expiry_date',
+            'lot.product:id,ref_num,product_name,product_type',
+            'instrumentSet:id,set_code,set_name',
+            'instrumentSet.instrumentSetItems.product:id,product_name,ref_num',
+        ]);
+    }
+
     public function removeItem(Consignment $consignment, ConsignmentItem $item): void
     {
         if ($consignment->status !== 'draft') {

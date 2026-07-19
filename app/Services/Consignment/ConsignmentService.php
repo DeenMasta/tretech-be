@@ -59,11 +59,19 @@ class ConsignmentService
      */
     public function update(Consignment $consignment, array $data): Consignment
     {
-        $this->ensureDraft($consignment);
-
         $consignment->fill($data)->save();
 
         return $consignment->refresh();
+    }
+
+    public function delete(Consignment $consignment): void
+    {
+        $this->ensureDraft($consignment);
+
+        // Delete associated items first (optional, as DB cascades usually handle it, but good practice)
+        $consignment->consignmentItems()->delete();
+        
+        $consignment->delete();
     }
 
     public function ensureDraft(Consignment $consignment): void

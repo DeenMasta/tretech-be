@@ -24,6 +24,7 @@ class StoreDisposalItemRequest extends FormRequest
                 'string',
                 Rule::in(['expired', 'damaged', 'lost', 'other']),
             ],
+            'quantity'    => ['required', 'integer', 'min:1'],
             'reason_text' => ['required', 'string', 'max:500'],
             'remarks'     => ['nullable', 'string', 'max:1000'],
         ];

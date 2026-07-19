@@ -103,6 +103,27 @@ class ConsignmentController extends Controller
         return $this->successResponse(new ConsignmentResource($updated), 'Consignment updated successfully');
     }
 
+    public function destroy(Request $request, Consignment $consignment): JsonResponse
+    {
+        $before = $consignment->toArray();
+
+        $this->consignmentService->delete($consignment);
+
+        $this->auditLogService->logModelAction(
+            auditableType: Consignment::class,
+            auditableId:   $consignment->id,
+            actionType:    AuditAction::CONSIGNMENT_DELETED,
+            actor:         $request->user(),
+            description:   "Deleted draft consignment {$consignment->consignment_no}",
+            ipAddress:     (string) $request->ip(),
+            deviceId:      $request->header('X-Device-Id'),
+            before:        $before,
+            after:         null
+        );
+
+        return $this->successResponse(null, 'Consignment deleted successfully');
+    }
+
     public function review(Consignment $consignment): JsonResponse
     {
         $consignment->load([

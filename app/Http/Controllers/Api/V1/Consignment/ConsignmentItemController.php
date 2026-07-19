@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Consignment;
 use App\Enums\AuditAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Consignment\StoreConsignmentItemRequest;
+use App\Http\Requests\Api\V1\Consignment\UpdateConsignmentItemRequest;
 use App\Http\Resources\Api\V1\Consignment\ConsignmentItemResource;
 use App\Models\Consignment;
 use App\Models\ConsignmentItem;
@@ -52,6 +53,31 @@ class ConsignmentItemController extends Controller
         );
 
         return $this->successResponse(new ConsignmentItemResource($item), 'Item added to consignment successfully', 201);
+    }
+
+    public function update(UpdateConsignmentItemRequest $request, Consignment $consignment, ConsignmentItem $consignmentItem): JsonResponse
+    {
+        $before = $consignmentItem->toArray();
+
+        $updatedItem = $this->consignmentItemService->updateItem(
+            $consignment,
+            $consignmentItem,
+            $request->validated()
+        );
+
+        $this->auditLogService->logModelAction(
+            auditableType: ConsignmentItem::class,
+            auditableId:   $updatedItem->id,
+            actionType:    AuditAction::CONSIGNMENT_ITEM_UPDATED,
+            actor:         $request->user(),
+            description:   "Updated item in consignment {$consignment->consignment_no}",
+            ipAddress:     (string) $request->ip(),
+            deviceId:      $request->header('X-Device-Id'),
+            before:        $before,
+            after:         $updatedItem->toArray()
+        );
+
+        return $this->successResponse(new ConsignmentItemResource($updatedItem), 'Item updated successfully');
     }
 
     public function destroy(Request $request, Consignment $consignment, ConsignmentItem $consignmentItem): JsonResponse
