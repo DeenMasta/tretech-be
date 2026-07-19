@@ -135,7 +135,7 @@
             <tr>
                 <td style="width: 90px; vertical-align: middle; border: none; padding: 0;">
                     @php
-                        $logoPath = base_path('../tretech-frontend/src/assets/tremed_logo.png');
+                        $logoPath = public_path('tremed_logo.png');
                         $logoData = '';
                         if (file_exists($logoPath)) {
                             $type = pathinfo($logoPath, PATHINFO_EXTENSION);
