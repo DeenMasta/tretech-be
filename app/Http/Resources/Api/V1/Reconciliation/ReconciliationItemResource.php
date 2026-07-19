@@ -29,6 +29,19 @@ class ReconciliationItemResource extends JsonResource
                     ] : null,
                 ];
             }),
+            'instrument_set'     => $this->whenLoaded('instrumentSet', function () {
+                return [
+                    'id'       => $this->instrumentSet?->id,
+                    'set_name' => $this->instrumentSet?->set_name,
+                ];
+            }),
+            'product'            => $this->whenLoaded('product', function () {
+                return [
+                    'id'           => $this->product?->id,
+                    'ref_num'      => $this->product?->ref_num,
+                    'product_name' => $this->product?->product_name,
+                ];
+            }),
             'result'             => $this->result,
             'remarks'            => $this->remarks,
             'instrument_results' => $this->whenLoaded('setInstrumentResults', function () {

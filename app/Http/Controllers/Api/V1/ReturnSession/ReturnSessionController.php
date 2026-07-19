@@ -60,6 +60,8 @@ class ReturnSessionController extends Controller
             'returnSessionItems.product:id,ref_num,product_name',
             'returnSessionItems.setInstrumentItems.product:id,ref_num,product_name',
             'reconciliation.reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliation.reconciliationItems.instrumentSet:id,set_name',
+            'reconciliation.reconciliationItems.product:id,ref_num,product_name',
             'reconciliation.reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ])->loadCount('returnSessionItems');
 
