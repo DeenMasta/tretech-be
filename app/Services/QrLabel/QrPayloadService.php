@@ -146,7 +146,7 @@ class QrPayloadService
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 20,31,{$qrPrintSettings['ecc']},2,A,0,M2,S1,\"{$qrPrintSettings['payload']}\"",
+            "QRCODE 17,28,{$qrPrintSettings['ecc']},2,A,0,M2,S1,\"{$qrPrintSettings['payload']}\"",
             'TEXT 115,15,"0",0,1,1,"TREMED Surgical Solution"',
             'TEXT 115,31,"0",0,1,1,"No 6-1, Block A,"',
             'TEXT 115,47,"0",0,1,1,"Zenith Corporate Park,"',
