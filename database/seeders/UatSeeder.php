@@ -83,40 +83,17 @@ class UatSeeder extends Seeder
             ]
         );
 
-        $productMsk = Product::query()->firstOrCreate(
-            ['ref_num' => 'P-MSK-001'],
-            [
-                'product_name'    => 'Surgical Mask Type IIR',
-                'product_type'    => 'consumable',
-                'category'        => 'PPE',
-                'uom'             => 'box',
-                'requires_expiry' => true,
-                'requires_lot'    => true,
-                'is_active'       => true,
-            ]
-        );
-
-        $productCat = Product::query()->firstOrCreate(
-            ['ref_num' => 'P-CAT-001'],
-            [
-                'product_name'    => 'Urinary Catheter Kit 14Fr',
-                'product_type'    => 'consumable',
-                'category'        => 'Urology',
-                'uom'             => 'pcs',
-                'requires_expiry' => true,
-                'requires_lot'    => true,
-                'is_active'       => true,
-            ]
-        );
-
         // Resolve existing master data created by SampleMasterDataSeeder
-        $supplierMed = Supplier::query()->where('supplier_name', 'Medline Malaysia')->firstOrFail();
-        $supplierStp = Supplier::query()->where('supplier_name', 'SteriPro Asia')->firstOrFail();
-        $clientRss   = Client::query()->where('client_name', 'Hospital Selangor Daya')->firstOrFail();
-        $clientKpc   = Client::query()->where('client_name', 'Klinik Prima Care')->firstOrFail();
-        $productGlv  = Product::query()->where('ref_num', 'P-GLV-001')->firstOrFail();
-        $productSyr  = Product::query()->where('ref_num', 'P-SYR-001')->firstOrFail();
-        $productIns  = Product::query()->where('ref_num', 'P-INS-001')->firstOrFail();
+        $supplierMed = Supplier::query()->where('supplier_name', 'Tremed Surgical Solution Sdn Bhd')->firstOrFail();
+        $supplierStp = Supplier::query()->where('supplier_name', 'Medikraft Orthopaedic Supplies Sdn Bhd')->firstOrFail();
+        $clientRss   = Client::query()->where('client_name', 'Hospital Kuala Lumpur')->firstOrFail();
+        $clientKpc   = Client::query()->where('client_name', 'Klinik Kesihatan Kelana Jaya')->firstOrFail();
+        
+        $productGlv  = Product::query()->where('ref_num', '115012300')->firstOrFail();
+        $productSyr  = Product::query()->where('ref_num', '115011400')->firstOrFail();
+        $productIns  = Product::query()->where('ref_num', '115011500')->firstOrFail();
+        $productMsk  = Product::query()->where('ref_num', '115010300')->firstOrFail();
+        $productCat  = Product::query()->where('ref_num', '115011600')->firstOrFail();
 
         // ------------------------------------------------------------------ //
         // STEP 2 · Logistic staff users
@@ -216,7 +193,7 @@ class UatSeeder extends Seeder
         $this->seedQrLabelsAndPrintJobs(
             [$lotGlv1Id, $lotGlv2Id, $lotSyr1Id],
             ['LOT-GLV-U001', 'LOT-GLV-U002', 'LOT-SYR-U001'],
-            ['P-GLV-001', 'P-GLV-001', 'P-SYR-001'],
+            ['115012300', '115012300', '115011400'],
             ['2025-01-01', '2025-01-02', '2025-01-03'],
             ['2027-06-30', '2027-06-30', '2026-12-31'],
             $sin1At, $staff1Id
@@ -293,7 +270,7 @@ class UatSeeder extends Seeder
         $this->seedQrLabelsAndPrintJobs(
             [$lotIns1Id, $lotIns2Id, $lotMsk1Id],
             ['LOT-INS-U001', 'LOT-INS-U002', 'LOT-MSK-U001'],
-            ['P-INS-001', 'P-INS-001', 'P-MSK-001'],
+            ['115011500', '115011500', '115010300'],
             ['2025-02-01', '2025-02-02', '2025-02-03'],
             [null, null, '2026-09-30'],
             $sin2At, $staff2Id
@@ -356,7 +333,7 @@ class UatSeeder extends Seeder
         $this->seedQrLabelsAndPrintJobs(
             [$lotCat1Id, $lotCat2Id],
             ['LOT-CAT-U001', 'LOT-CAT-U002'],
-            ['P-CAT-001', 'P-CAT-001'],
+            ['115011600', '115011600'],
             ['2023-01-01', '2025-03-02'],
             ['2024-01-01', '2026-08-31'],
             $sin3At, $staff1Id
