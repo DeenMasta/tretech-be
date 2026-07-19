@@ -45,21 +45,22 @@
         .info-box {
             border: 1.5px solid #111;
             border-radius: 4px;
-            padding: 10px 12px;
+            padding: 12px 14px;
             margin-bottom: 14px;
+            background-color: #fcfcfc;
         }
         .info-box-inner {
             width: 100%;
+            table-layout: fixed;
         }
-        .field-row { margin-bottom: 6px; width: 100%; }
-        .field-row td { vertical-align: bottom; }
-        .field-label { font-weight: bold; font-size: 9px; width: 120px; padding-right: 6px; white-space: nowrap; }
-        .field-colon { width: 6px; }
+        .field-row { margin-bottom: 8px; }
+        .field-row td { vertical-align: top; padding-bottom: 6px; }
+        .field-label { font-weight: bold; font-size: 9px; color: #444; }
+        .field-colon { width: 10px; font-weight: bold; color: #444; }
         .field-value {
             font-size: 9px;
-            border-bottom: 1px dashed #555;
-            min-width: 160px;
-            padding-bottom: 1px;
+            color: #111;
+            font-weight: 500;
         }
 
         /* ── Items Table ── */
@@ -127,19 +128,26 @@
     <div class="info-box">
         <table class="info-box-inner">
             @php
+                // Only take scalar values or simple stringable values for the summary box
                 $summaryKeys = collect($summary)->filter(fn($v) => is_scalar($v))->keys()->toArray();
-                $chunks = array_chunk($summaryKeys, 2);
+                $chunks = array_chunk($summaryKeys, 3);
             @endphp
             @foreach($chunks as $chunk)
-            <tr class="field-row">
+            <tr>
                 @foreach($chunk as $key)
-                <td class="field-label">{{ ucwords(str_replace('_', ' ', $key)) }}</td>
-                <td class="field-colon">:</td>
-                <td class="field-value">{{ $summary[$key] }}</td>
-                @if($loop->first && count($chunk) == 1)
-                <td colspan="3"></td>
-                @endif
+                <td style="width: 33.3%; vertical-align: top; padding-bottom: 6px;">
+                    <table style="width: 100%; border: none;">
+                        <tr>
+                            <td class="field-label" style="width: 120px; white-space: nowrap;">{{ ucwords(str_replace('_', ' ', $key)) }}</td>
+                            <td class="field-colon" style="width: 10px;">:</td>
+                            <td class="field-value">{{ $summary[$key] }}</td>
+                        </tr>
+                    </table>
+                </td>
                 @endforeach
+                @for($i = count($chunk); $i < 3; $i++)
+                <td style="width: 33.3%;"></td>
+                @endfor
             </tr>
             @endforeach
         </table>

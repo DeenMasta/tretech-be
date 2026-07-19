@@ -18,6 +18,7 @@ class ConsignmentReportService
                 'client:id,client_name',
                 'picUser:id,full_name',
                 'consignmentItems.lot.product:id,ref_num,product_name,uom',
+                'consignmentItems.instrumentSet:id,set_code,set_name',
             ])
             ->withCount('consignmentItems');
 
@@ -73,19 +74,20 @@ class ConsignmentReportService
             foreach ($consignment->consignmentItems as $item) {
                 $lot     = $item->lot;
                 $product = $lot?->product;
+                $set     = $item->instrumentSet;
 
                 $rows[] = [
-                    'Consignment No'  => $consignment->consignment_no,
-                    'Status'          => $consignment->status,
-                    'Client'          => $consignment->client?->client_name,
+                    'Consignment No'   => $consignment->consignment_no,
+                    'Status'           => $consignment->status,
+                    'Client'           => $consignment->client?->client_name,
                     'Consignment Date' => $consignment->consignment_at?->format('Y-m-d'),
-                    'Lot Number'      => $lot?->lot_number,
-                    'Batch Code'      => $lot?->manufacturing_date,
-                    'Product Ref'     => $product?->ref_num,
-                    'Product Name'    => $product?->product_name,
-                    'UOM'             => $product?->uom,
-                    'Expiry Date'     => $lot?->expiry_date?->format('Y-m-d'),
-                    'PIC'             => $consignment->picUser?->full_name,
+                    'Lot Number'       => $lot?->lot_number,
+                    'Batch Code'       => $lot?->manufacturing_date,
+                    'Product Ref'      => $product ? $product->ref_num : ($set ? $set->set_code : ''),
+                    'Product Name'     => $product ? $product->product_name : ($set ? $set->set_name : ''),
+                    'UOM'              => $product ? $product->uom : 'SET',
+                    'Expiry Date'      => $lot?->expiry_date?->format('Y-m-d'),
+                    'PIC'              => $consignment->picUser?->full_name,
                 ];
             }
         }

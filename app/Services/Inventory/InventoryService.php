@@ -189,6 +189,16 @@ class InventoryService
             ->when(!empty($filters['movement_type']), fn ($q) => $q->where('movement_type', $filters['movement_type']))
             ->when(!empty($filters['from_date']), fn ($q) => $q->whereDate('performed_at', '>=', $filters['from_date']))
             ->when(!empty($filters['to_date']), fn ($q) => $q->whereDate('performed_at', '<=', $filters['to_date']))
+            ->when(!empty($filters['search']), function ($q) use ($filters) {
+                $term = $filters['search'];
+                $q->whereHas('lot', function ($lq) use ($term) {
+                    $lq->where('lot_number', 'like', "%{$term}%")
+                       ->orWhereHas('product', function ($pq) use ($term) {
+                           $pq->where('ref_num', 'like', "%{$term}%")
+                              ->orWhere('product_name', 'like', "%{$term}%");
+                       });
+                });
+            })
             ->orderByDesc('id')
             ->paginate($perPage);
     }

@@ -54,13 +54,28 @@ class ReportingTest extends FeatureTestCase
         $product  = $this->createProduct();
         Sanctum::actingAs($user);
 
-        // Stock-in report is Lot-based; create a Lot with received_at set
-        $this->createLot($product, $supplier, 'available');
+        // Stock-in report is session-based; create a StockIn with an item
+        $lot = $this->createLot($product, $supplier, 'available');
+        $stockIn = \App\Models\StockIn::query()->create([
+            'session_no'  => 'SI-TEST-001',
+            'do_number'   => 'DO-TEST-001',
+            'supplier_id' => $supplier->id,
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status'      => 'completed',
+        ]);
+        \App\Models\StockInItem::query()->create([
+            'stock_in_id'        => $stockIn->id,
+            'lot_id'             => $lot->id,
+            'product_id'         => $product->id,
+            'scanned_lot_number' => $lot->lot_number,
+            'quantity'           => 10,
+        ]);
 
         $response = $this->getJson('/api/v1/reports/stock-in');
 
         $response->assertOk();
-        $this->assertGreaterThanOrEqual(1, $response->json('data.summary.total_units') ?? 0);
+        $this->assertGreaterThanOrEqual(1, $response->json('data.summary.total_items') ?? 0);
     }
 
     // =========================================================================
@@ -137,7 +152,7 @@ class ReportingTest extends FeatureTestCase
         $response = $this->getJson('/api/v1/reports/disposals');
 
         $response->assertOk();
-        $this->assertGreaterThanOrEqual(1, $response->json('data.summary.total_disposed_units') ?? 0);
+        $this->assertGreaterThanOrEqual(1, $response->json('data.summary.total_disposed_items') ?? 0);
     }
 
     // =========================================================================
@@ -298,14 +313,53 @@ class ReportingTest extends FeatureTestCase
         $supplier2 = $this->createSupplier();
         Sanctum::actingAs($user);
 
-        $this->createLot($product, $supplier1, 'available', 'LOT-SUP1-001');
-        $this->createLot($product, $supplier2, 'available', 'LOT-SUP2-001');
+        $lot1 = $this->createLot($product, $supplier1, 'available', 'LOT-SUP1-001');
+        $lot2 = $this->createLot($product, $supplier2, 'available', 'LOT-SUP2-001');
+        
+        $stockIn = \App\Models\StockIn::query()->create([
+            'session_no'  => 'SI-TEST-002',
+            'do_number'   => 'DO-TEST-002',
+            'supplier_id' => $supplier1->id,
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status'      => 'completed',
+        ]);
+        \App\Models\StockInItem::query()->create([
+            'stock_in_id'        => $stockIn->id,
+            'lot_id'             => $lot1->id,
+            'product_id'         => $product->id,
+            'scanned_lot_number' => $lot1->lot_number,
+            'quantity'           => 10,
+        ]);
+        
+        $stockIn2 = \App\Models\StockIn::query()->create([
+            'session_no'  => 'SI-TEST-003',
+            'do_number'   => 'DO-TEST-003',
+            'supplier_id' => $supplier2->id,
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status'      => 'completed',
+        ]);
+        \App\Models\StockInItem::query()->create([
+            'stock_in_id'        => $stockIn2->id,
+            'lot_id'             => $lot2->id,
+            'product_id'         => $product->id,
+            'scanned_lot_number' => $lot2->lot_number,
+            'quantity'           => 10,
+        ]);
 
         $response = $this->getJson("/api/v1/reports/stock-in?supplier_id={$supplier1->id}");
 
         $response->assertOk();
 
-        $lotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
+        // Stock in report returns sessions, so we need to pluck lot_number from stock_in_items
+        $lotNumbers = collect($response->json('data.data'))
+            ->pluck('stock_in_items')
+            ->flatten(1)
+            ->pluck('scanned_lot_number')
+            ->filter()
+            ->all();
+
         $this->assertContains('LOT-SUP1-001', $lotNumbers);
         $this->assertNotContains('LOT-SUP2-001', $lotNumbers);
     }
@@ -355,11 +409,17 @@ class ReportingTest extends FeatureTestCase
 
         $response->assertOk();
 
-        // All returned disposal_items should have category 'expired'
-        $categories = collect($response->json('data.data'))->pluck('disposal_category')->unique()->values()->all();
-        if (!empty($categories)) {
-            $this->assertNotContains('damaged', $categories);
-        }
+        // Disposal report returns sessions, so we need to pluck disposal_category from disposal_items
+        $categories = collect($response->json('data.data'))
+            ->pluck('disposal_items')
+            ->flatten(1)
+            ->pluck('disposal_category')
+            ->unique()
+            ->values()
+            ->all();
+            
+        $this->assertNotEmpty($categories);
+        $this->assertNotContains('damaged', $categories);
     }
 
     // =========================================================================

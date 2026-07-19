@@ -36,8 +36,8 @@ class ReturnsAnalysisService
         $consignments = $query->orderByDesc('consignment_at')->get();
 
         $rows = $consignments->map(function (Consignment $c) {
-            $issued   = $c->consignmentItems->count();
-            $returned = $c->returnSession?->returnSessionItems()->count() ?? 0;
+            $issued   = $c->consignment_items_count;
+            $returned = $c->returnSession?->returnSessionItems->count() ?? 0;
 
             // Reconciliation: items with result=`used`
             $usedCount = 0;
@@ -53,13 +53,19 @@ class ReturnsAnalysisService
             return [
                 'consignment_id'    => $c->id,
                 'consignment_no'    => $c->consignment_no,
+                'return_session_id' => $c->returnSession?->id,
+                'return_session_no' => $c->returnSession?->return_session_no,
                 'client'            => $c->client?->client_name,
+                'client_name'       => $c->client?->client_name, // For frontend client.client_name fallback
                 'consignment_at'    => $c->consignment_at?->format('Y-m-d'),
-                'status'            => $c->status,
+                'returned_at'       => $c->returnSession?->created_at?->format('Y-m-d H:i:s'),
+                'completed_at'      => $c->returnSession?->completed_at?->format('Y-m-d H:i:s'),
+                'items_count'       => $returned,
+                'status'            => $c->returnSession ? $c->returnSession->status : $c->status,
                 'issued_count'      => $issued,
                 'returned_count'    => $returned,
                 'used_count'        => $usedCount,
-                'unreconciled_count' => $unreconciledCount,
+                'unreconciled_count'=> $unreconciledCount,
                 'return_rate'       => $issued > 0 ? round(($returned / $issued) * 100, 2) : 0,
                 'usage_rate'        => $issued > 0 ? round(($usedCount / $issued) * 100, 2) : 0,
             ];

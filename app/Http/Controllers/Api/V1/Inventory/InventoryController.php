@@ -219,7 +219,7 @@ class InventoryController extends Controller
     {
         $perPage   = max(1, min((int) $request->integer('per_page', 15), 100));
         $paginator = $this->inventoryService->paginateLedger(
-            $request->only(['lot_id', 'lot_number', 'movement_type', 'from_date', 'to_date']),
+            $request->only(['lot_id', 'lot_number', 'movement_type', 'from_date', 'to_date', 'search']),
             $perPage
         );
 

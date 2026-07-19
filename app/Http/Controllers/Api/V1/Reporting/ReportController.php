@@ -107,7 +107,7 @@ class ReportController extends Controller
             'consignments'     => [$this->consignmentReport->getExportRows($filters),  $this->consignmentReport->getReport($filters)['summary']],
             'returns-analysis' => [$this->returnsAnalysis->getExportRows($filters),    $this->returnsAnalysis->getReport($filters)['summary']],
             'disposals'        => [$this->disposalReport->getExportRows($filters),     $this->disposalReport->getReport($filters)['summary']],
-            'expiry'           => [$this->expiryDashboard->getExportRows($filters),    []],
+            'expiry'           => [$this->expiryDashboard->getExportRows($filters),    $this->expiryDashboard->getReport($filters)['summary'] ?? []],
         };
 
         return $this->exportService->download($type, $format, $rows, $summary);

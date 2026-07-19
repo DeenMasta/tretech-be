@@ -86,16 +86,44 @@ class ExpiryDashboardService
                 fn (Lot $lot) => $lot->expiry_date !== null && $lot->expiry_date->lte($windowEnd)
             )->values();
 
-            return [
-                'window_days'  => $requestedWindow,
-                'count'        => $filteredLots->count(),
+            $summary = [
+                'total_lots'      => $filteredLots->count(),
                 'already_expired' => $windows['already_expired'],
-                'data'         => $filteredLots,
+                'by_status'       => $filteredLots->groupBy('status')->map->count(),
+                'by_supplier'     => $filteredLots->groupBy('supplier_id')->map(function ($group) {
+                    $supplier = $group->first()->supplier;
+                    return [
+                        'supplier_name' => $supplier?->supplier_name,
+                        'lot_count'     => $group->count(),
+                    ];
+                })->values(),
+            ];
+
+            return [
+                'summary' => $summary,
+                'data'    => $filteredLots,
             ];
         }
 
+        // If no window is specified (all windows)
+        $summary = [
+            'already_expired' => $windows['already_expired'],
+            'within_30_days'  => $windows['within_30_days']['count'],
+            'within_60_days'  => $windows['within_60_days']['count'],
+            'within_90_days'  => $windows['within_90_days']['count'],
+            'total_tracked'   => $lots->count(),
+            'by_status'       => $lots->groupBy('status')->map->count(),
+            'by_supplier'     => $lots->groupBy('supplier_id')->map(function ($group) {
+                $supplier = $group->first()->supplier;
+                return [
+                    'supplier_name' => $supplier?->supplier_name,
+                    'lot_count'     => $group->count(),
+                ];
+            })->values(),
+        ];
+
         return [
-            'summary' => $windows,
+            'summary' => $summary,
             'data'    => $lots,
         ];
     }

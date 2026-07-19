@@ -65,7 +65,10 @@ class ExportService
     ): \Illuminate\Http\Response {
         $headers  = !empty($rows) ? array_keys($rows[0]) : [];
 
-        $pdf = Pdf::loadView('exports.generic-table', [
+        $viewPath = "exports.{$viewName}";
+        $actualView = view()->exists($viewPath) ? $viewPath : 'exports.generic-table';
+
+        $pdf = Pdf::loadView($actualView, [
             'title'   => $title,
             'headers' => $headers,
             'rows'    => $rows,
