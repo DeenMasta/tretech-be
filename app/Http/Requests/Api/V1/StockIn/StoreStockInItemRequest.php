@@ -70,7 +70,29 @@ class StoreStockInItemRequest extends FormRequest
                 'nullable',
                 'date',
             ],
-            'expiry_date' => ['nullable', 'date'],
+            'expiry_date' => [
+                'nullable',
+                'date',
+                Rule::requiredIf(function () use ($isSet) {
+                    if ($isSet) return false;
+                    if ($productId = $this->input('product_id')) {
+                        $product = \App\Models\Product::find($productId);
+                        if ($product && $product->requires_expiry) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }),
+                function ($attribute, $value, $fail) use ($isSet) {
+                    if ($isSet) return;
+                    if (!empty($value) && $productId = $this->input('product_id')) {
+                        $product = \App\Models\Product::find($productId);
+                        if ($product && !$product->requires_expiry) {
+                            $fail('Expiry date cannot be provided for products that do not require it.');
+                        }
+                    }
+                },
+            ],
             'lot_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'expiry_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'missing_lot_flag' => [

@@ -38,7 +38,26 @@ class UpdateStockInItemRequest extends FormRequest
                 },
             ],
             'manufacturing_date' => ['nullable', 'date'],
-            'expiry_date' => ['nullable', 'date'],
+            'expiry_date' => [
+                'nullable',
+                'date',
+                function ($attribute, $value, $fail) {
+                    $stockInItem = $this->route('stockInItem');
+                    $productId = $this->input('product_id', $stockInItem ? $stockInItem->product_id : null);
+                    
+                    if ($productId) {
+                        $product = \App\Models\Product::find($productId);
+                        if ($product) {
+                            if ($product->requires_expiry && empty($value)) {
+                                $fail('The expiry date field is required.');
+                            }
+                            if (!$product->requires_expiry && !empty($value)) {
+                                $fail('Expiry date cannot be provided for products that do not require it.');
+                            }
+                        }
+                    }
+                },
+            ],
             'lot_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'expiry_entry_mode' => ['sometimes', Rule::in(['scan', 'manual'])],
             'missing_lot_flag' => [
