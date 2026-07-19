@@ -147,7 +147,7 @@
                         <img src="{{ $logoData }}" alt="Logo" style="width: 130px; height: auto;">
                     @endif
                 </td>
-                <td style="vertical-align: top; border: none; padding: 10;">
+                <td style="vertical-align: top; border: none; padding: 10px;">
                     <div class="company-name">Tremed Surgical Solution Sdn. Bhd.</div>
                     <div class="company-reg">(202301013019 / 1506941-M)</div>
                     <div class="company-address">
