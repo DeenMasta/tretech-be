@@ -129,8 +129,26 @@ class ReconciliationFinalizeService
 
                 $returnItem = $returnSessionItemsByKey->get($key);
                 $consignedQty = $ci->quantity ?? 1;
-                $returnedQty = $returnItem ? ($returnItem->quantity ?? 1) : 0;
-                $usedQty = max(0, $consignedQty - $returnedQty);
+                
+                $returnedQty = 0;
+                $usedQty = 0;
+                $damagedQty = 0;
+                $missingQty = 0;
+
+                if ($returnItem) {
+                    $returnedQty = $returnItem->quantity ?? 0;
+                    $usedQty = $returnItem->used_quantity ?? 0;
+                    $damagedQty = $returnItem->damaged_quantity ?? 0;
+                    $missingQty = $returnItem->missing_quantity ?? 0;
+
+                    // Fallback for non-instrument products where UI only sends returned quantity
+                    if ($usedQty === 0 && $damagedQty === 0 && $missingQty === 0 && $returnedQty < $consignedQty) {
+                        $usedQty = max(0, $consignedQty - $returnedQty);
+                    }
+                } else {
+                    $returnedQty = 0;
+                    $usedQty = $consignedQty;
+                }
 
                 $result = 'returned';
                 if ($usedQty > 0 && $returnedQty > 0) {
@@ -138,6 +156,15 @@ class ReconciliationFinalizeService
                 } elseif ($usedQty > 0 && $returnedQty == 0) {
                     $result = 'used';
                 }
+                
+                // If the entire lot is missing or damaged, result might be considered partial or just marked accordingly.
+                // Keeping existing result logic mostly intact, but extending it if usedQty + damagedQty + missingQty > 0
+                if (($usedQty + $damagedQty + $missingQty) > 0 && $returnedQty == 0) {
+                    $result = 'used'; // Generic non-returned state
+                } elseif (($usedQty + $damagedQty + $missingQty) > 0 && $returnedQty > 0) {
+                    $result = 'partial';
+                }
+
                 if ($usedQty > 0) {
                     $usedItemCount++;
                 }
@@ -190,12 +217,56 @@ class ReconciliationFinalizeService
                             'to_status'            => 'used',
                             'from_location_type'   => $lot->current_location_type,
                             'from_location_id'     => $lot->current_location_id,
-                            'to_location_type'     => $lot->current_location_type, // Or some consumed state
+                            'to_location_type'     => $lot->current_location_type,
                             'to_location_id'       => $lot->current_location_id,
                             'performed_at'         => now(),
                             'performed_by_user_id' => $actor->id,
                             'remarks'              => "Marked used via reconciliation {$locked->reconciliation_no}",
                             'quantity'             => $usedQty,
+                        ]);
+                    }
+
+                    if ($damagedQty > 0) {
+                        $lot->quantity_consigned -= $damagedQty;
+                        $lot->quantity_available += $damagedQty; // Wait, damaged goes back to warehouse but in different status? Let's assume it goes to 'damaged' status, but quantity is in warehouse.
+
+                        LotMovement::query()->create([
+                            'lot_id'               => $lot->id,
+                            'movement_type'        => 'damaged',
+                            'reference_type'       => Reconciliation::class,
+                            'reference_id'         => $locked->id,
+                            'from_status'          => $lot->status,
+                            'to_status'            => 'damaged',
+                            'from_location_type'   => $lot->current_location_type,
+                            'from_location_id'     => $lot->current_location_id,
+                            'to_location_type'     => 'warehouse',
+                            'to_location_id'       => null,
+                            'performed_at'         => now(),
+                            'performed_by_user_id' => $actor->id,
+                            'remarks'              => "Marked damaged via reconciliation {$locked->reconciliation_no}",
+                            'quantity'             => $damagedQty,
+                        ]);
+                    }
+
+                    if ($missingQty > 0) {
+                        $lot->quantity_consigned -= $missingQty;
+                        // Missing quantity is removed from inventory. It is conceptually depleted/lost.
+
+                        LotMovement::query()->create([
+                            'lot_id'               => $lot->id,
+                            'movement_type'        => 'missing',
+                            'reference_type'       => Reconciliation::class,
+                            'reference_id'         => $locked->id,
+                            'from_status'          => $lot->status,
+                            'to_status'            => 'missing',
+                            'from_location_type'   => $lot->current_location_type,
+                            'from_location_id'     => $lot->current_location_id,
+                            'to_location_type'     => $lot->current_location_type,
+                            'to_location_id'       => $lot->current_location_id,
+                            'performed_at'         => now(),
+                            'performed_by_user_id' => $actor->id,
+                            'remarks'              => "Marked missing via reconciliation {$locked->reconciliation_no}",
+                            'quantity'             => $missingQty,
                         ]);
                     }
 
@@ -206,8 +277,12 @@ class ReconciliationFinalizeService
                             'current_location_id'   => null,
                         ]);
                     }
-                    if ($usedQty > 0 && $returnedQty === 0) {
+                    if ($usedQty > 0 && $returnedQty === 0 && $damagedQty === 0 && $missingQty === 0) {
                         $lot->fill(['status' => 'used']);
+                    } elseif ($damagedQty > 0 && $returnedQty === 0 && $usedQty === 0 && $missingQty === 0) {
+                        $lot->fill(['status' => 'damaged', 'current_location_type' => 'warehouse', 'current_location_id' => null]);
+                    } elseif ($missingQty > 0 && $returnedQty === 0 && $usedQty === 0 && $damagedQty === 0) {
+                        $lot->fill(['status' => 'missing']);
                     }
                     $lot->save();
 
@@ -219,6 +294,8 @@ class ReconciliationFinalizeService
                         'quantity'          => $consignedQty,
                         'returned_quantity' => $returnedQty,
                         'used_quantity'     => $usedQty,
+                        'damaged_quantity'  => $damagedQty,
+                        'missing_quantity'  => $missingQty,
                     ]);
 
                     if ($lot->isSetInstance()) {

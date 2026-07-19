@@ -24,7 +24,7 @@ class InstrumentSetController extends Controller
     {
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
         $includeAvailability = $request->boolean('include_availability', false);
-        $paginator = $this->instrumentSetService->paginate($request->only(['search', 'is_active']), $perPage, $includeAvailability);
+        $paginator = $this->instrumentSetService->paginate($request->only(['search', 'is_active', 'sort']), $perPage, $includeAvailability);
 
         return $this->paginatedResponse(
             items: InstrumentSetResource::collection($paginator->items())->resolve(),

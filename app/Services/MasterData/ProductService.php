@@ -14,6 +14,7 @@ class ProductService
     {
         $search = (string) ($filters['search'] ?? '');
         $isActive = $filters['is_active'] ?? null;
+        $productType = (string) ($filters['product_type'] ?? '');
 
         return Product::query()
             ->withCount(['lots as available_lots_count' => function ($query) {
@@ -34,6 +35,14 @@ class ProductService
                 });
             })
             ->when($isActive !== null, fn ($query) => $query->where('is_active', (bool) $isActive))
+            ->when($productType !== '', fn ($query) => $query->where('product_type', $productType))
+            ->when($filters['sort'] ?? null, function ($query, $sort) {
+                if ($sort === 'non_instrument_first') {
+                    $query->orderByRaw("CASE WHEN product_type = 'instrument' THEN 1 ELSE 0 END ASC");
+                } elseif ($sort === 'available_qty_desc') {
+                    $query->orderByDesc('total_quantity_available');
+                }
+            })
             ->orderByDesc('id')
             ->paginate($perPage);
     }

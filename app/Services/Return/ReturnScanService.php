@@ -58,8 +58,9 @@ class ReturnScanService
                 throw new BusinessLogicException("Lot {$lot->lot_number} has already been scanned in this return session.");
             }
 
-            if ($qty > ($consignedItem->quantity ?? 1)) {
-                throw new BusinessLogicException("Cannot return more than consigned quantity for lot {$lot->lot_number}.");
+            $totalScannedQty = $qty + ($data['used_quantity'] ?? 0) + ($data['damaged_quantity'] ?? 0) + ($data['missing_quantity'] ?? 0);
+            if ($totalScannedQty > ($consignedItem->quantity ?? 1)) {
+                throw new BusinessLogicException("Sum of quantities cannot exceed consigned quantity for lot {$lot->lot_number}.");
             }
 
             if ($lot->isSetInstance() && empty($data['instrument_results'])) {
@@ -74,6 +75,9 @@ class ReturnScanService
                 'source_qr_payload'    => $data['source_qr_payload'] ?? null,
                 'remarks'              => $data['remarks'] ?? null,
                 'quantity'             => $qty,
+                'used_quantity'        => $data['used_quantity'] ?? 0,
+                'damaged_quantity'     => $data['damaged_quantity'] ?? 0,
+                'missing_quantity'     => $data['missing_quantity'] ?? 0,
             ]);
 
             $description = "Scanned lot {$lot->lot_number} into return session {$session->return_session_no}";

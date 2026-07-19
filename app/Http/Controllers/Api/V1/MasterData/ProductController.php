@@ -23,7 +23,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
-        $paginator = $this->productService->paginate($request->only(['search', 'is_active']), $perPage);
+        $paginator = $this->productService->paginate($request->only(['search', 'is_active', 'product_type', 'sort']), $perPage);
 
         return $this->paginatedResponse(
             items: ProductResource::collection($paginator->items())->resolve(),

@@ -26,7 +26,15 @@ class InstrumentSetService
                 });
             })
             ->when($isActive !== null, fn ($query) => $query->where('is_active', (bool) $isActive))
-            ->orderByDesc('id')
+            ->when(($filters['sort'] ?? null) === 'available_qty_desc', function ($query) {
+                $subquery = \Illuminate\Support\Facades\DB::table('instrument_set_items')
+                    ->selectRaw('MIN(FLOOR(COALESCE((SELECT SUM(quantity_available) FROM lots WHERE lots.product_id = instrument_set_items.product_id AND status = ?), 0) / NULLIF(instrument_set_items.quantity, 0)))', ['available'])
+                    ->whereColumn('instrument_set_items.instrument_set_id', 'instrument_sets.id');
+                    
+                $query->selectSub($subquery, 'computed_available_sets_count')
+                      ->orderByDesc(\Illuminate\Support\Facades\DB::raw('COALESCE(computed_available_sets_count, 0)'));
+            })
+            ->when(($filters['sort'] ?? null) !== 'available_qty_desc', fn ($query) => $query->orderByDesc('id'))
             ->paginate($perPage);
 
         if ($includeAvailability && $paginator->isNotEmpty()) {

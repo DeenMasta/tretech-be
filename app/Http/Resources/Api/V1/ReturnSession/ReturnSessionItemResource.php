@@ -29,10 +29,27 @@ class ReturnSessionItemResource extends JsonResource
                     ] : null,
                 ];
             }),
+            'instrument_set'       => $this->whenLoaded('instrumentSet', function () {
+                return [
+                    'id'       => $this->instrumentSet?->id,
+                    'set_name' => $this->instrumentSet?->set_name,
+                ];
+            }),
+            'product'              => $this->whenLoaded('product', function () {
+                return [
+                    'id'           => $this->product?->id,
+                    'ref_num'      => $this->product?->ref_num,
+                    'product_name' => $this->product?->product_name,
+                ];
+            }),
             'returned_at'          => $this->returned_at?->toIso8601String(),
             'returned_by_user_id'  => $this->returned_by_user_id,
             'source_qr_payload'    => $this->source_qr_payload,
             'remarks'              => $this->remarks,
+            'quantity'             => $this->quantity,
+            'used_quantity'        => $this->used_quantity,
+            'damaged_quantity'     => $this->damaged_quantity,
+            'missing_quantity'     => $this->missing_quantity,
             'instrument_results'   => $this->whenLoaded('setInstrumentItems', function () {
                 return $this->setInstrumentItems->map(fn ($item) => [
                     'product_id'        => $item->product_id,
