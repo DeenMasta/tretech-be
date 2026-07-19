@@ -167,7 +167,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productGlv->id,
             'supplier_id'               => $supplierMed->id,
             'lot_number'                => 'LOT-GLV-U001',
-            'manufacturing_date'       => 'MED-B2501',
+            'manufacturing_date'       => '2025-01-01',
             'expiry_date'               => '2027-06-30',
             'status'                    => 'available',   // returned & back in warehouse
             'current_location_type'     => 'warehouse',
@@ -180,7 +180,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productGlv->id,
             'supplier_id'               => $supplierMed->id,
             'lot_number'                => 'LOT-GLV-U002',
-            'manufacturing_date'       => 'MED-B2502',
+            'manufacturing_date'       => '2025-01-02',
             'expiry_date'               => '2027-06-30',
             'status'                    => 'available',   // returned & back in warehouse
             'current_location_type'     => 'warehouse',
@@ -193,7 +193,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productSyr->id,
             'supplier_id'               => $supplierMed->id,
             'lot_number'                => 'LOT-SYR-U001',
-            'manufacturing_date'       => 'MED-B2503',
+            'manufacturing_date'       => '2025-01-03',
             'expiry_date'               => '2026-12-31',
             'status'                    => 'used',        // confirmed used in reconciliation
             'current_location_type'     => null,
@@ -203,9 +203,9 @@ class UatSeeder extends Seeder
         ]);
 
         $this->seedStockInItems($sin1Id, [
-            ['product_id' => $productGlv->id, 'lot_id' => $lotGlv1Id, 'scanned_lot_number' => 'LOT-GLV-U001', 'manufacturing_date' => 'MED-B2501', 'expiry_date' => '2027-06-30', 'now' => $now],
-            ['product_id' => $productGlv->id, 'lot_id' => $lotGlv2Id, 'scanned_lot_number' => 'LOT-GLV-U002', 'manufacturing_date' => 'MED-B2502', 'expiry_date' => '2027-06-30', 'now' => $now],
-            ['product_id' => $productSyr->id, 'lot_id' => $lotSyr1Id, 'scanned_lot_number' => 'LOT-SYR-U001', 'manufacturing_date' => 'MED-B2503', 'expiry_date' => '2026-12-31', 'now' => $now],
+            ['product_id' => $productGlv->id, 'lot_id' => $lotGlv1Id, 'scanned_lot_number' => 'LOT-GLV-U001', 'manufacturing_date' => '2025-01-01', 'expiry_date' => '2027-06-30', 'now' => $now],
+            ['product_id' => $productGlv->id, 'lot_id' => $lotGlv2Id, 'scanned_lot_number' => 'LOT-GLV-U002', 'manufacturing_date' => '2025-01-02', 'expiry_date' => '2027-06-30', 'now' => $now],
+            ['product_id' => $productSyr->id, 'lot_id' => $lotSyr1Id, 'scanned_lot_number' => 'LOT-SYR-U001', 'manufacturing_date' => '2025-01-03', 'expiry_date' => '2026-12-31', 'now' => $now],
         ]);
 
         $this->seedReceiveLotMovements(
@@ -217,7 +217,7 @@ class UatSeeder extends Seeder
             [$lotGlv1Id, $lotGlv2Id, $lotSyr1Id],
             ['LOT-GLV-U001', 'LOT-GLV-U002', 'LOT-SYR-U001'],
             ['P-GLV-001', 'P-GLV-001', 'P-SYR-001'],
-            ['MED-B2501', 'MED-B2502', 'MED-B2503'],
+            ['2025-01-01', '2025-01-02', '2025-01-03'],
             ['2027-06-30', '2027-06-30', '2026-12-31'],
             $sin1At, $staff1Id
         );
@@ -244,7 +244,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productIns->id,
             'supplier_id'               => $supplierStp->id,
             'lot_number'                => 'LOT-INS-U001',
-            'manufacturing_date'       => 'STP-B2501',
+            'manufacturing_date'       => '2025-02-01',
             'expiry_date'               => null,
             'status'                    => 'supplied',    // in active consignment
             'current_location_type'     => 'consignment',
@@ -257,7 +257,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productIns->id,
             'supplier_id'               => $supplierStp->id,
             'lot_number'                => 'LOT-INS-U002',
-            'manufacturing_date'       => 'STP-B2502',
+            'manufacturing_date'       => '2025-02-02',
             'expiry_date'               => null,
             'status'                    => 'holding',     // put on hold
             'current_location_type'     => 'holding',
@@ -270,7 +270,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productMsk->id,
             'supplier_id'               => $supplierStp->id,
             'lot_number'                => 'LOT-MSK-U001',
-            'manufacturing_date'       => 'STP-B2503',
+            'manufacturing_date'       => '2025-02-03',
             'expiry_date'               => '2026-09-30',
             'status'                    => 'supplied',    // in active consignment
             'current_location_type'     => 'consignment',
@@ -280,9 +280,9 @@ class UatSeeder extends Seeder
         ]);
 
         $this->seedStockInItems($sin2Id, [
-            ['product_id' => $productIns->id, 'lot_id' => $lotIns1Id, 'scanned_lot_number' => 'LOT-INS-U001', 'manufacturing_date' => 'STP-B2501', 'expiry_date' => null, 'now' => $now],
-            ['product_id' => $productIns->id, 'lot_id' => $lotIns2Id, 'scanned_lot_number' => 'LOT-INS-U002', 'manufacturing_date' => 'STP-B2502', 'expiry_date' => null, 'now' => $now],
-            ['product_id' => $productMsk->id, 'lot_id' => $lotMsk1Id, 'scanned_lot_number' => 'LOT-MSK-U001', 'manufacturing_date' => 'STP-B2503', 'expiry_date' => '2026-09-30', 'now' => $now],
+            ['product_id' => $productIns->id, 'lot_id' => $lotIns1Id, 'scanned_lot_number' => 'LOT-INS-U001', 'manufacturing_date' => '2025-02-01', 'expiry_date' => null, 'now' => $now],
+            ['product_id' => $productIns->id, 'lot_id' => $lotIns2Id, 'scanned_lot_number' => 'LOT-INS-U002', 'manufacturing_date' => '2025-02-02', 'expiry_date' => null, 'now' => $now],
+            ['product_id' => $productMsk->id, 'lot_id' => $lotMsk1Id, 'scanned_lot_number' => 'LOT-MSK-U001', 'manufacturing_date' => '2025-02-03', 'expiry_date' => '2026-09-30', 'now' => $now],
         ]);
 
         $this->seedReceiveLotMovements(
@@ -294,7 +294,7 @@ class UatSeeder extends Seeder
             [$lotIns1Id, $lotIns2Id, $lotMsk1Id],
             ['LOT-INS-U001', 'LOT-INS-U002', 'LOT-MSK-U001'],
             ['P-INS-001', 'P-INS-001', 'P-MSK-001'],
-            ['STP-B2501', 'STP-B2502', 'STP-B2503'],
+            ['2025-02-01', '2025-02-02', '2025-02-03'],
             [null, null, '2026-09-30'],
             $sin2At, $staff2Id
         );
@@ -321,7 +321,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productCat->id,
             'supplier_id'               => $supplierGmp->id,
             'lot_number'                => 'LOT-CAT-U001',
-            'manufacturing_date'       => 'GMP-B2501',
+            'manufacturing_date'       => '2023-01-01',
             'expiry_date'               => '2024-01-01',  // expired
             'status'                    => 'disposed',
             'current_location_type'     => null,
@@ -334,7 +334,7 @@ class UatSeeder extends Seeder
             'product_id'                => $productCat->id,
             'supplier_id'               => $supplierGmp->id,
             'lot_number'                => 'LOT-CAT-U002',
-            'manufacturing_date'       => 'GMP-B2502',
+            'manufacturing_date'       => '2025-03-02',
             'expiry_date'               => '2026-08-31',
             'status'                    => 'available',
             'current_location_type'     => 'warehouse',
@@ -344,8 +344,8 @@ class UatSeeder extends Seeder
         ]);
 
         $this->seedStockInItems($sin3Id, [
-            ['product_id' => $productCat->id, 'lot_id' => $lotCat1Id, 'scanned_lot_number' => 'LOT-CAT-U001', 'manufacturing_date' => 'GMP-B2501', 'expiry_date' => '2024-01-01', 'now' => $now],
-            ['product_id' => $productCat->id, 'lot_id' => $lotCat2Id, 'scanned_lot_number' => 'LOT-CAT-U002', 'manufacturing_date' => 'GMP-B2502', 'expiry_date' => '2026-08-31', 'now' => $now],
+            ['product_id' => $productCat->id, 'lot_id' => $lotCat1Id, 'scanned_lot_number' => 'LOT-CAT-U001', 'manufacturing_date' => '2023-01-01', 'expiry_date' => '2024-01-01', 'now' => $now],
+            ['product_id' => $productCat->id, 'lot_id' => $lotCat2Id, 'scanned_lot_number' => 'LOT-CAT-U002', 'manufacturing_date' => '2025-03-02', 'expiry_date' => '2026-08-31', 'now' => $now],
         ]);
 
         $this->seedReceiveLotMovements(
@@ -357,7 +357,7 @@ class UatSeeder extends Seeder
             [$lotCat1Id, $lotCat2Id],
             ['LOT-CAT-U001', 'LOT-CAT-U002'],
             ['P-CAT-001', 'P-CAT-001'],
-            ['GMP-B2501', 'GMP-B2502'],
+            ['2023-01-01', '2025-03-02'],
             ['2024-01-01', '2026-08-31'],
             $sin3At, $staff1Id
         );

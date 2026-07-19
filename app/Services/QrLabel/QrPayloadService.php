@@ -152,8 +152,8 @@ class QrPayloadService
             'TEXT 140,47,"0",0,1,1,"Zenith Corporate Park,"',
             'TEXT 140,63,"0",0,1,1,"Jalan SS 7/26, 47301"',
             'TEXT 140,79,"0",0,1,1,"Petaling Jaya, Selangor"',
-            'TEXT 140,95,"0",0,1,1,"Tel: 0126338787"',
-            'TEXT 140,111,"0",0,1,1,"finance@tremedsurgical.com"',
+            'TEXT 140,95,"0",0,1,1,"Tel: +603 7886 1704"',
+            'TEXT 140,111,"0",0,1,1,"enquiries@tremedsurgical.com"',
         ];
 
         if ($lot->product_id !== null) {
