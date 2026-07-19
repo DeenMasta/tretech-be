@@ -107,5 +107,6 @@ class AuditAction
     const SUPPLIER_RETURN_ITEM_ADDED   = 'supplier_return.item_added';
     const SUPPLIER_RETURN_ITEM_REMOVED = 'supplier_return.item_removed';
     const SUPPLIER_RETURN_COMPLETED    = 'supplier_return.completed';
+    const SUPPLIER_RETURN_DELETED      = 'supplier_return.deleted';
 
 }

@@ -395,6 +395,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:supplier_returns.create');
         Route::patch('/{supplierReturn}', [SupplierReturnController::class, 'update'])
             ->middleware('permission:supplier_returns.create');
+        Route::delete('/{supplierReturn}', [SupplierReturnController::class, 'destroy'])
+            ->middleware('permission:supplier_returns.create');
         Route::get('/{supplierReturn}/items', [SupplierReturnController::class, 'indexItems'])
             ->middleware('permission:supplier_returns.view');
         Route::post('/{supplierReturn}/items', [SupplierReturnController::class, 'storeItem'])

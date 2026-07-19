@@ -106,9 +106,11 @@ class ReconciliationController extends Controller
     public function print(Request $request, Reconciliation $reconciliation): Response
     {
         $reconciliation->load([
-            'consignment:id,consignment_no,client_id,pic_user_id,consignment_at',
+            'consignment:id,consignment_no,client_id,pic_user_id,consignment_at,surgeon_name,case_date,case_name',
             'consignment.client:id,client_name',
             'consignment.picUser:id,full_name',
+            'consignment.consignmentItems:id,consignment_id,entry_kind,instrument_set_id',
+            'consignment.consignmentItems.instrumentSet:id,set_code,set_name',
             'returnSession:id,return_session_no',
             'picUser:id,full_name',
             'completedByUser:id,full_name',

@@ -19,6 +19,7 @@ class StoreSupplierReturnItemRequest extends FormRequest
         return [
             'lot_id'        => ['required', 'integer', 'exists:lots,id'],
             'return_reason' => ['required', 'string', 'max:500'],
+            'quantity'      => ['required', 'integer', 'min:1'],
             'remarks'       => ['nullable', 'string', 'max:1000'],
         ];
     }

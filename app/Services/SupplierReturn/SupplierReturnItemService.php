@@ -12,7 +12,7 @@ class SupplierReturnItemService
     /**
      * Add a lot to a draft supplier return.
      *
-     * @param array<string, mixed> $data  Expects: lot_id, return_reason, remarks?
+     * @param array<string, mixed> $data  Expects: lot_id, return_reason, quantity?, remarks?
      */
     public function addItem(SupplierReturn $supplierReturn, array $data): SupplierReturnItem
     {
@@ -46,10 +46,19 @@ class SupplierReturnItemService
             );
         }
 
+        $qty = $data['quantity'] ?? 1;
+
+        if (!$lot->hasAvailableStock($qty)) {
+            throw new BusinessLogicException(
+                "Lot {$lot->lot_number} does not have enough stock available (requested: {$qty}, available: {$lot->quantity_available})."
+            );
+        }
+
         return SupplierReturnItem::query()->create([
             'supplier_return_id' => $supplierReturn->id,
             'lot_id'             => $lot->id,
             'return_reason'      => $data['return_reason'],
+            'quantity'           => $qty,
             'remarks'            => $data['remarks'] ?? null,
         ]);
     }

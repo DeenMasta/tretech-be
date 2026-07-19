@@ -106,6 +106,13 @@ class SupplierReturnController extends Controller
         );
     }
 
+    public function destroy(Request $request, SupplierReturn $supplierReturn): JsonResponse
+    {
+        $this->supplierReturnService->delete($supplierReturn, $request->user());
+
+        return $this->successResponse(null, 'Supplier return deleted successfully');
+    }
+
     // -------------------------------------------------------------------------
     // Supplier Return Items
     // -------------------------------------------------------------------------

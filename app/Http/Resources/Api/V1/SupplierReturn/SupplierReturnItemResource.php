@@ -34,6 +34,7 @@ class SupplierReturnItemResource extends JsonResource
                     ] : null,
                 ];
             }),
+            'quantity'      => $this->quantity,
             'return_reason' => $this->return_reason,
             'remarks'       => $this->remarks,
             'created_at'    => $this->created_at?->toIso8601String(),

@@ -5,10 +5,16 @@ namespace App\Services\SupplierReturn;
 use App\Exceptions\BusinessLogicException;
 use App\Models\SupplierReturn;
 use App\Models\User;
+use App\Enums\AuditAction;
+use App\Services\Audit\AuditLogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class SupplierReturnService
 {
+    public function __construct(
+        private readonly AuditLogService $auditLogService
+    ) {}
     /**
      * @param array<string, mixed> $filters
      */
@@ -54,6 +60,32 @@ class SupplierReturnService
         $supplierReturn->fill($data)->save();
 
         return $supplierReturn->refresh();
+    }
+
+    /**
+     * Delete a draft supplier return.
+     */
+    public function delete(SupplierReturn $supplierReturn, User $actor): void
+    {
+        $this->ensureDraft($supplierReturn);
+
+        DB::transaction(function () use ($supplierReturn, $actor) {
+            $before = $supplierReturn->toArray();
+            
+            // Delete associated items first
+            $supplierReturn->supplierReturnItems()->delete();
+            
+            $supplierReturn->delete();
+
+            $this->auditLogService->logModelAction(
+                auditableType: SupplierReturn::class,
+                auditableId:   $supplierReturn->id,
+                actionType:    AuditAction::SUPPLIER_RETURN_DELETED,
+                actor:         $actor,
+                description:   "Draft supplier return {$supplierReturn->supplier_return_no} deleted.",
+                before:        $before,
+            );
+        });
     }
 
     public function ensureDraft(SupplierReturn $supplierReturn): void

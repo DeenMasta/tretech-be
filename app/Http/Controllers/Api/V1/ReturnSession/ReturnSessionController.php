@@ -103,9 +103,11 @@ class ReturnSessionController extends Controller
     public function print(Request $request, ReturnSession $returnSession): Response
     {
         $returnSession->load([
-            'reconciliation.consignment:id,consignment_no,client_id,pic_user_id,consignment_at',
+            'reconciliation.consignment:id,consignment_no,client_id,pic_user_id,consignment_at,surgeon_name,case_date,case_name',
             'reconciliation.consignment.client:id,client_name',
             'reconciliation.consignment.picUser:id,full_name',
+            'reconciliation.consignment.consignmentItems:id,consignment_id,entry_kind,instrument_set_id',
+            'reconciliation.consignment.consignmentItems.instrumentSet:id,set_code,set_name',
             'reconciliation.returnSession:id,return_session_no',
             'reconciliation.picUser:id,full_name',
             'reconciliation.completedByUser:id,full_name',
