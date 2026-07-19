@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
 
         // Scenario data — only for local / staging / UAT
         if (app()->environment(['local', 'staging', 'uat'])) {
-            $this->call(UatSeeder::class);
+            // $this->call(UatSeeder::class);
         }
     }
 }
