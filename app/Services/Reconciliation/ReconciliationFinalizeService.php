@@ -179,7 +179,7 @@ class ReconciliationFinalizeService
                             'reference_type'       => Reconciliation::class,
                             'reference_id'         => $locked->id,
                             'from_status'          => $lot->status,
-                            'to_status'            => 'holding',
+                            'to_status'            => 'available',
                             'from_location_type'   => $lot->current_location_type,
                             'from_location_id'     => $lot->current_location_id,
                             'to_location_type'     => 'warehouse',
@@ -188,13 +188,6 @@ class ReconciliationFinalizeService
                             'performed_by_user_id' => $actor->id,
                             'remarks'              => "Returned via reconciliation {$locked->reconciliation_no}",
                             'quantity'             => $returnedQty,
-                        ]);
-
-                        \App\Models\LotHolding::query()->create([
-                            'lot_id'              => $lot->id,
-                            'holding_reason'      => 'Pending inspection after return',
-                            'assigned_at'         => now(),
-                            'assigned_by_user_id' => $actor->id,
                         ]);
 
                         $lot->quantity_available += $returnedQty;
@@ -272,7 +265,7 @@ class ReconciliationFinalizeService
 
                     if ($returnedQty > 0) {
                         $lot->fill([
-                            'status' => 'holding',
+                            'status' => 'available',
                             'current_location_type' => 'warehouse',
                             'current_location_id'   => null,
                         ]);

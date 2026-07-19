@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\MasterData\SupplierController;
 use App\Http\Controllers\Api\V1\MasterData\UserController;
 use App\Http\Controllers\Api\V1\QrLabel\PrintJobController;
 use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
+use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
 use App\Http\Controllers\Api\V1\Reporting\ReportController;
 use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
 use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
@@ -309,6 +310,24 @@ Route::prefix('v1')->group(function () {
         Route::post('/{returnSession}/complete', [ReturnSessionController::class, 'complete'])
             ->middleware('permission:returns.finalize');
         Route::post('/{returnSession}/reopen', [ReturnSessionController::class, 'reopen'])
+            ->middleware('permission:returns.reopen_reconciliation');
+    });
+
+    // -------------------------------------------------------------------------
+    // Reconciliations
+    // -------------------------------------------------------------------------
+    Route::prefix('reconciliations')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [ReconciliationController::class, 'index'])
+            ->middleware('permission:returns.view');
+        Route::post('/', [ReconciliationController::class, 'store'])
+            ->middleware('permission:returns.finalize');
+        Route::get('/{reconciliation}', [ReconciliationController::class, 'show'])
+            ->middleware('permission:returns.view');
+        Route::get('/{reconciliation}/print', [ReconciliationController::class, 'print'])
+            ->middleware('permission:returns.view');
+        Route::post('/{reconciliation}/finalize', [ReconciliationController::class, 'finalize'])
+            ->middleware('permission:returns.finalize');
+        Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
             ->middleware('permission:returns.reopen_reconciliation');
     });
 

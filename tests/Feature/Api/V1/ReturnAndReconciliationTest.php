@@ -327,7 +327,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             ->assertJsonPath('data.status', 'finalized');
 
         $this->assertDatabaseHas('lots', ['id' => $lotUsed->id, 'status' => 'used']);
-        $this->assertDatabaseHas('lots', ['id' => $lotReturned->id, 'status' => 'holding']);
+        $this->assertDatabaseHas('lots', ['id' => $lotReturned->id, 'status' => 'available']);
     }
 
     public function test_reconciliation_finalize_records_product_component_results_for_set_lot(): void
