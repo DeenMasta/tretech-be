@@ -112,7 +112,10 @@ class ReturnSessionController extends Controller
             'reconciliation.picUser:id,full_name',
             'reconciliation.completedByUser:id,full_name',
             'reconciliation.reopenedByUser:id,full_name',
-            'reconciliation.reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliation.reconciliationItems.lot.product:id,ref_num,product_name,product_type',
+            'reconciliation.reconciliationItems.lot.instrumentSet:id,set_code,set_name',
+            'reconciliation.reconciliationItems.product:id,ref_num,product_name,product_type',
+            'reconciliation.reconciliationItems.instrumentSet:id,set_code,set_name',
             'reconciliation.reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ]);
 

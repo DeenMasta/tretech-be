@@ -74,7 +74,7 @@ class ConsignmentController extends Controller
             'picUser:id,full_name',
             'confirmedByUser:id,full_name',
             'lastPostConfirmEditByUser:id,full_name',
-            'consignmentItems.lot.product:id,ref_num,product_name',
+            'consignmentItems.lot.product:id,ref_num,product_name,product_type',
         ])->loadCount('consignmentItems');
 
         return $this->successResponse(new ConsignmentResource($consignment), 'Consignment fetched successfully');
@@ -154,7 +154,7 @@ class ConsignmentController extends Controller
         $consignment->load([
             'client:id,client_name',
             'picUser:id,full_name',
-            'consignmentItems.lot.product:id,ref_num,product_name',
+            'consignmentItems.lot.product:id,ref_num,product_name,product_type',
             'consignmentItems.lot:id,lot_number,product_id',
             'consignmentItems.instrumentSet:id,set_code,set_name',
             'consignmentItems.instrumentSet.instrumentSetItems.product:id,product_name,ref_num',

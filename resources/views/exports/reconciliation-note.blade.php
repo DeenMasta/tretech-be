@@ -251,6 +251,18 @@
         <tbody>
             @php
                 $items = $reconciliation->reconciliationItems;
+                $setItems = $items->filter(
+                    fn($item) => $item->instrument_set_id || $item->setInstrumentResults->isNotEmpty()
+                );
+                $standaloneItems = $items->reject(
+                    fn($item) => $item->instrument_set_id || $item->setInstrumentResults->isNotEmpty()
+                );
+                $instrumentItems = $standaloneItems->filter(
+                    fn($item) => strtolower((string) ($item->lot?->product?->product_type ?? $item->product?->product_type ?? '')) === 'instrument'
+                );
+                $implantItems = $standaloneItems->reject(
+                    fn($item) => strtolower((string) ($item->lot?->product?->product_type ?? $item->product?->product_type ?? '')) === 'instrument'
+                );
             @endphp
 
             @if($items->isEmpty())
@@ -258,31 +270,75 @@
                     <td colspan="8">No items in this reconciliation.</td>
                 </tr>
             @else
-                @php $no = 1; @endphp
-                @foreach($items as $item)
+                {{-- 1. Instrument sets --}}
+                @foreach($setItems as $setItem)
                     <tr>
-                        <td class="center">{{ $no++ }}</td>
-                        <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
-                        <td>
-                            {{ $item->lot?->product?->product_name ?? ($item->instrumentSet?->set_name ?? '-') }}
-                            @if($item->setInstrumentResults->isNotEmpty())
-                                <div style="margin-top: 4px; font-size: 7.5px; border-top: 1px dashed #ccc; padding-top: 4px;">
-                                    @foreach($item->setInstrumentResults as $res)
-                                        <div>
-                                            {{ $res->product?->product_name ?? 'Unknown' }}
-                                            (Out:{{ $res->expected_quantity }} Used:{{ $res->used_quantity }} In:{{ $res->returned_quantity }})
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
+                        <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                            {{ $setItem->instrumentSet?->set_name ?? $setItem->lot?->instrumentSet?->set_name ?? 'Instrument Set' }}
                         </td>
+                    </tr>
+                    @php $setNo = 1; @endphp
+                    @forelse($setItem->setInstrumentResults as $result)
+                        <tr>
+                            <td class="center">{{ $setNo++ }}</td>
+                            <td>{{ $result->product?->ref_num ?? '-' }}</td>
+                            <td>{{ $result->product?->product_name ?? '-' }}</td>
+                            <td>-</td>
+                            <td class="center">{{ $result->expected_quantity }}</td>
+                            <td class="center">{{ $result->used_quantity }}</td>
+                            <td class="center">{{ $result->returned_quantity }}</td>
+                            <td>{{ $setItem->remarks ?? '' }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="center" style="color: #888; font-style: italic;">No instruments listed in this set.</td>
+                        </tr>
+                    @endforelse
+                @endforeach
+
+                {{-- 2. A la carte instruments --}}
+                @if($instrumentItems->isNotEmpty())
+                    <tr>
+                        <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                            Instruments
+                        </td>
+                    </tr>
+                    @php $instrumentNo = 1; @endphp
+                    @foreach($instrumentItems as $item)
+                        <tr>
+                            <td class="center">{{ $instrumentNo++ }}</td>
+                            <td>{{ $item->lot?->product?->ref_num ?? $item->product?->ref_num ?? '-' }}</td>
+                            <td>{{ $item->lot?->product?->product_name ?? $item->product?->product_name ?? '-' }}</td>
+                            <td>{{ $item->lot?->lot_number ?? '-' }}</td>
+                            <td class="center">{{ $item->quantity ?? 1 }}</td>
+                            <td class="center">{{ $item->used_quantity ?? 0 }}</td>
+                            <td class="center">{{ $item->returned_quantity ?? 0 }}</td>
+                            <td>{{ $item->remarks ?? '' }}</td>
+                        </tr>
+                    @endforeach
+                @endif
+
+                {{-- 3. Implants --}}
+                @if($implantItems->isNotEmpty())
+                    <tr>
+                        <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                            Implants
+                        </td>
+                    </tr>
+                    @php $implantNo = 1; @endphp
+                    @foreach($implantItems as $item)
+                    <tr>
+                        <td class="center">{{ $implantNo++ }}</td>
+                        <td>{{ $item->lot?->product?->ref_num ?? $item->product?->ref_num ?? '-' }}</td>
+                        <td>{{ $item->lot?->product?->product_name ?? $item->product?->product_name ?? '-' }}</td>
                         <td>{{ $item->lot?->lot_number ?? '-' }}</td>
                         <td class="center">{{ $item->quantity ?? 1 }}</td>
                         <td class="center">{{ $item->used_quantity ?? 0 }}</td>
                         <td class="center">{{ $item->returned_quantity ?? 0 }}</td>
                         <td>{{ $item->remarks ?? '' }}</td>
                     </tr>
-                @endforeach
+                    @endforeach
+                @endif
             @endif
         </tbody>
     </table>

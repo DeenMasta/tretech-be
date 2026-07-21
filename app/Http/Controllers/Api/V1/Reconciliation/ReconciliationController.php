@@ -69,7 +69,9 @@ class ReconciliationController extends Controller
             'picUser:id,full_name',
             'completedByUser:id,full_name',
             'reopenedByUser:id,full_name',
-            'reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliationItems.lot.product:id,ref_num,product_name,product_type',
+            'reconciliationItems.lot.instrumentSet:id,set_code,set_name',
+            'reconciliationItems.instrumentSet:id,set_code,set_name',
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ])->loadCount('reconciliationItems');
 
@@ -115,7 +117,10 @@ class ReconciliationController extends Controller
             'picUser:id,full_name',
             'completedByUser:id,full_name',
             'reopenedByUser:id,full_name',
-            'reconciliationItems.lot.product:id,ref_num,product_name',
+            'reconciliationItems.lot.product:id,ref_num,product_name,product_type',
+            'reconciliationItems.lot.instrumentSet:id,set_code,set_name',
+            'reconciliationItems.product:id,ref_num,product_name,product_type',
+            'reconciliationItems.instrumentSet:id,set_code,set_name',
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ]);
 

@@ -260,6 +260,12 @@
             @php
                 $setItems = $consignment->consignmentItems->filter(fn($i) => $i->entry_kind === 'set');
                 $lotItems = $consignment->consignmentItems->filter(fn($i) => $i->entry_kind === 'lot' || empty($i->entry_kind));
+                $instrumentItems = $lotItems->filter(
+                    fn($i) => strtolower((string) ($i->lot?->product?->product_type ?? '')) === 'instrument'
+                );
+                $implantItems = $lotItems->reject(
+                    fn($i) => strtolower((string) ($i->lot?->product?->product_type ?? '')) === 'instrument'
+                );
                 $hasSets = $setItems->isNotEmpty();
                 $hasLots = $lotItems->isNotEmpty();
             @endphp
@@ -286,7 +292,7 @@
                 @if($setItem->instrumentSet && $setItem->instrumentSet->relationLoaded('instrumentSetItems'))
                     @foreach($setItem->instrumentSet->instrumentSetItems as $subItem)
                         @php
-                            $qtyIn = '';
+                            $qtyIn = 0;
                             if ($rsi) {
                                 $rsSubItem = $rsi->setInstrumentItems->where('product_id', $subItem->product_id)->first();
                                 if ($rsSubItem) {
@@ -315,17 +321,46 @@
                 @endif
             @endforeach
 
-            {{-- 2. Implants --}}
-            @if($hasLots)
+            {{-- 2. A la carte instruments --}}
+            @if($instrumentItems->isNotEmpty())
+                <tr>
+                    <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                        Instruments
+                    </td>
+                </tr>
+                @php $instrumentNo = 1; @endphp
+                @foreach($instrumentItems as $item)
+                    @php
+                        $qtyIn = 0;
+                        $rsi = $consignment->returnSession?->returnSessionItems->where('lot_id', $item->lot_id)->first();
+                        if ($rsi) {
+                            $qtyIn = $rsi->quantity;
+                        }
+                    @endphp
+                    <tr>
+                        <td class="center">{{ $instrumentNo++ }}</td>
+                        <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
+                        <td>{{ $item->lot?->product?->product_name ?? '-' }}</td>
+                        <td class="center">{{ $item->proposed_quantity ?? 1 }}</td>
+                        <td>{{ $item->lot?->lot_number ?? ' ' }}</td>
+                        <td class="center">{{ $item->quantity ?? 1 }}</td>
+                        <td class="center">{!! $qtyIn !!}</td>
+                        <td>{{ $item->remarks ?? '' }}</td>
+                    </tr>
+                @endforeach
+            @endif
+
+            {{-- 3. Implants --}}
+            @if($implantItems->isNotEmpty())
                 <tr>
                     <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
                         Implants
                     </td>
                 </tr>
                 @php $implantNo = 1; @endphp
-                @foreach($lotItems as $item)
+                @foreach($implantItems as $item)
                     @php
-                        $qtyIn = '';
+                        $qtyIn = 0;
                         $rsi = $consignment->returnSession?->returnSessionItems->where('lot_id', $item->lot_id)->first();
                         if ($rsi) {
                             $qtyIn = $rsi->quantity;
