@@ -73,6 +73,28 @@ class MasterDataEndpointsTest extends TestCase
             ->assertJsonPath('data.0.ref_num', 'PRD-001');
     }
 
+    public function test_logistic_staff_can_access_products_index_for_stock_in(): void
+    {
+        Product::query()->create([
+            'ref_num' => 'PRD-LOG-001',
+            'product_name' => 'Logistic Stock Item',
+            'product_type' => 'consumable',
+            'category' => 'PPE',
+            'uom' => 'box',
+            'requires_expiry' => true,
+            'requires_lot' => true,
+            'is_active' => true,
+        ]);
+
+        $staffRole = Role::query()->where('role_code', 'logistic_staff')->firstOrFail();
+        $user = User::factory()->create(['role_id' => $staffRole->id]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/master-data/products?search=Logistic')
+            ->assertOk()
+            ->assertJsonPath('data.0.ref_num', 'PRD-LOG-001');
+    }
+
     public function test_user_with_manage_users_permission_can_list_roles(): void
     {
         $role = Role::query()->where('role_code', 'admin')->firstOrFail();

@@ -144,6 +144,7 @@ class PermissionSeeder extends Seeder
             'logistic_staff' => [
                 // Logistic Staff permissions
                 'dashboard.view',
+                'products.view',
                 'suppliers.view',
                 'clients.view',
                 'instrument_sets.view',
