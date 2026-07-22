@@ -314,6 +314,12 @@ class ReconciliationFinalizeService
                     $instrumentSet = \App\Models\InstrumentSet::with(['instrumentSetItems.product'])->find($ci->instrument_set_id);
                     if ($returnedQty > 0 && $returnItem) {
                         $this->processSetInstrumentResults($reconItem, $returnItem, $instrumentSet);
+                        $this->restoreReturnedSetComponents(
+                            $returnItem,
+                            $instrumentSet,
+                            $locked,
+                            $actor,
+                        );
                     } else {
                         $this->processUsedSetInstrumentResults($reconItem, $instrumentSet);
                     }
@@ -395,6 +401,93 @@ class ReconciliationFinalizeService
                     'damaged_quantity'  => 0,
                     'result'            => $used > 0 ? 'partial' : 'returned',
                 ]);
+            }
+        }
+    }
+
+    /**
+     * Generic sets are supplied by deducting their individual component lots.
+     * Credit those same component lots when the set is returned so they are
+     * available for a subsequent surgery.
+     */
+    private function restoreReturnedSetComponents(
+        ReturnSessionItem $returnItem,
+        $instrumentSet,
+        Reconciliation $reconciliation,
+        User $actor,
+    ): void {
+        if (!$instrumentSet) {
+            return;
+        }
+
+        foreach ($returnItem->setInstrumentItems as $component) {
+            $quantityToRestore = (int) $component->returned_quantity;
+
+            if (!$component->product_id || $quantityToRestore < 1) {
+                continue;
+            }
+
+            // A generic set is issued through component-level consignment
+            // movements. Restore against those lots (FIFO) rather than minting
+            // new inventory or increasing the set master record.
+            $sourceMovements = LotMovement::query()
+                ->with('lot')
+                ->where('reference_type', \App\Models\Consignment::class)
+                ->where('reference_id', $reconciliation->consignment_id)
+                ->where('movement_type', 'consigned')
+                ->where('remarks', 'like', 'Set component consigned via%')
+                ->whereHas('lot', fn ($query) => $query->where('product_id', $component->product_id))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($sourceMovements as $sourceMovement) {
+                if ($quantityToRestore === 0) {
+                    break;
+                }
+
+                $lot = $sourceMovement->lot;
+                if (!$lot) {
+                    continue;
+                }
+
+                $restoredQuantity = min($quantityToRestore, (int) $sourceMovement->quantity);
+                $fromStatus = $lot->status;
+                $fromLocationType = $lot->current_location_type;
+                $fromLocationId = $lot->current_location_id;
+
+                $lot->quantity_available += $restoredQuantity;
+                $lot->quantity_consigned -= $restoredQuantity;
+                $lot->fill([
+                    'status'                => 'available',
+                    'current_location_type' => 'warehouse',
+                    'current_location_id'   => null,
+                ])->save();
+
+                LotMovement::query()->create([
+                    'lot_id'               => $lot->id,
+                    'movement_type'        => 'returned',
+                    'reference_type'       => Reconciliation::class,
+                    'reference_id'         => $reconciliation->id,
+                    'from_status'          => $fromStatus,
+                    'to_status'            => 'available',
+                    'from_location_type'   => $fromLocationType,
+                    'from_location_id'     => $fromLocationId,
+                    'to_location_type'     => 'warehouse',
+                    'to_location_id'       => null,
+                    'performed_at'         => now(),
+                    'performed_by_user_id' => $actor->id,
+                    'remarks'              => "Set component returned via reconciliation {$reconciliation->reconciliation_no}",
+                    'quantity'             => $restoredQuantity,
+                ]);
+
+                $quantityToRestore -= $restoredQuantity;
+            }
+
+            if ($quantityToRestore > 0) {
+                throw new BusinessLogicException(
+                    "Unable to restore all returned components for instrument set {$instrumentSet->set_name}."
+                );
             }
         }
     }

@@ -6,6 +6,7 @@ use App\Models\Consignment;
 use App\Models\ConsignmentItem;
 use App\Models\InstrumentSet;
 use App\Models\Lot;
+use App\Models\LotMovement;
 use App\Models\Reconciliation;
 use App\Models\ReturnSession;
 use App\Models\ReturnSessionItem;
@@ -442,6 +443,116 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'expected_quantity' => 2,
             'returned_quantity' => 1,
             'used_quantity' => 1,
+        ]);
+    }
+
+    public function test_reconciliation_finalize_restores_returned_generic_set_components_to_inventory(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
+        $client = $this->createClient();
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct();
+        Sanctum::actingAs($user);
+
+        $set = InstrumentSet::query()->create([
+            'set_code' => 'SET-RESTOCK-01',
+            'set_name' => 'Reusable Surgical Set',
+            'is_active' => true,
+        ]);
+        InstrumentSetItem::query()->create([
+            'instrument_set_id' => $set->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'sort_order' => 1,
+        ]);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-SET-RESTOCK-01',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+        ConsignmentItem::query()->create([
+            'consignment_id' => $consignment->id,
+            'instrument_set_id' => $set->id,
+            'entry_kind' => 'set',
+            'quantity' => 1,
+            'issued_at' => now(),
+            'issued_by_user_id' => $user->id,
+        ]);
+
+        $componentLot = Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'COMP-RESTOCK-01',
+            'status' => 'depleted',
+            'current_location_type' => 'client',
+            'current_location_id' => $client->id,
+            'received_at' => now(),
+            'quantity' => 2,
+            'quantity_available' => 0,
+            'quantity_consigned' => 2,
+        ]);
+        LotMovement::query()->create([
+            'lot_id' => $componentLot->id,
+            'movement_type' => 'consigned',
+            'reference_type' => Consignment::class,
+            'reference_id' => $consignment->id,
+            'from_status' => 'available',
+            'to_status' => 'depleted',
+            'to_location_type' => 'client',
+            'to_location_id' => $client->id,
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'remarks' => "Set component consigned via {$consignment->consignment_no} (set: {$set->set_name})",
+            'quantity' => 2,
+        ]);
+
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-SET-RESTOCK-01',
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
+        ]);
+        $returnItem = ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'instrument_set_id' => $set->id,
+            'quantity' => 1,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+        ]);
+        $returnItem->setInstrumentItems()->create([
+            'product_id' => $product->id,
+            'returned_quantity' => 2,
+        ]);
+
+        $reconciliation = Reconciliation::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_id' => $returnSession->id,
+            'reconciliation_no' => 'REC-SET-RESTOCK-01',
+            'pic_user_id' => $user->id,
+            'status' => 'pending',
+        ]);
+
+        $this->postJson("/api/v1/reconciliations/{$reconciliation->id}/finalize")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'finalized');
+
+        $this->assertDatabaseHas('lots', [
+            'id' => $componentLot->id,
+            'status' => 'available',
+            'quantity_available' => 2,
+            'quantity_consigned' => 0,
+        ]);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $componentLot->id,
+            'movement_type' => 'returned',
+            'reference_type' => Reconciliation::class,
+            'reference_id' => $reconciliation->id,
+            'quantity' => 2,
         ]);
     }
 
