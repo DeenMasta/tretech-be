@@ -153,7 +153,7 @@ class PermissionSeeder extends Seeder
                 'consignments.create', 'consignments.view', 'consignments.confirm', 'consignments.edit_draft',
                 'returns.create', 'returns.view', 'returns.finalize',
                 'disposals.create', 'supplier_returns.view', 'supplier_returns.create', 'disposals.view',
-                'holding_area.view',
+                'holding_area.view', 'holding_area.assign_lot',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
             ],
         ];

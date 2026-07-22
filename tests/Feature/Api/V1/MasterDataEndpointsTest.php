@@ -95,6 +95,38 @@ class MasterDataEndpointsTest extends TestCase
             ->assertJsonPath('data.0.ref_num', 'PRD-LOG-001');
     }
 
+    public function test_logistic_staff_has_standard_operations_permissions_but_no_sensitive_or_audit_access(): void
+    {
+        $staffRole = Role::query()->where('role_code', 'logistic_staff')->firstOrFail();
+
+        foreach ([
+            'stock_in.create',
+            'stock_in.view',
+            'stock_in.confirm',
+            'stock_in.edit_draft',
+            'consignments.create',
+            'consignments.view',
+            'consignments.confirm',
+            'consignments.edit_draft',
+            'returns.create',
+            'returns.view',
+            'returns.finalize',
+            'holding_area.view',
+            'holding_area.assign_lot',
+            'disposals.create',
+            'disposals.view',
+            'supplier_returns.create',
+            'supplier_returns.view',
+        ] as $permissionCode) {
+            $this->assertTrue($staffRole->hasPermission($permissionCode));
+        }
+
+        $this->assertFalse($staffRole->hasPermission('stock_in.correct_confirmed'));
+        $this->assertFalse($staffRole->hasPermission('consignments.edit_confirmed'));
+        $this->assertFalse($staffRole->hasPermission('returns.reopen_reconciliation'));
+        $this->assertFalse($staffRole->hasPermission('system.manage_roles'));
+    }
+
     public function test_user_with_manage_users_permission_can_list_roles(): void
     {
         $role = Role::query()->where('role_code', 'admin')->firstOrFail();
