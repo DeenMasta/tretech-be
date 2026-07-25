@@ -2,8 +2,8 @@
 
 namespace App\Services\StockIn;
 
-use App\Exceptions\BusinessLogicException;
 use App\Enums\AuditAction;
+use App\Exceptions\BusinessLogicException;
 use App\Models\InstrumentSet;
 use App\Models\InstrumentSetItem;
 use App\Models\Lot;
@@ -25,8 +25,7 @@ class StockInFinalizeService
         private readonly QrPayloadService $qrPayloadService,
         private readonly PrintJobService $printJobService,
         private readonly AuditLogService $auditLogService
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{stock_in: StockIn, lots: Collection<int, Lot>}
@@ -47,7 +46,7 @@ class StockInFinalizeService
                 throw new BusinessLogicException('Cannot finalize an empty stock-in session.');
             }
 
-            $createdLots = new Collection();
+            $createdLots = new Collection;
 
             foreach ($session->stockInItems as $item) {
                 if ($item->isSetEntry()) {
@@ -73,18 +72,18 @@ class StockInFinalizeService
             // Audit the finalization event
             $this->auditLogService->logModelAction(
                 auditableType: StockIn::class,
-                auditableId:   $session->id,
-                actionType:    AuditAction::STOCK_IN_FINALIZED,
-                actor:         $actor,
-                description:   sprintf(
+                auditableId: $session->id,
+                actionType: AuditAction::STOCK_IN_FINALIZED,
+                actor: $actor,
+                description: sprintf(
                     'Stock-in session %s finalized — %d lot(s) created.',
                     $session->session_no,
                     $createdLots->count()
                 ),
                 after: [
-                    'status'          => 'finalized',
-                    'total_lots'      => $createdLots->count(),
-                    'confirmed_at'    => now()->toIso8601String(),
+                    'status' => 'finalized',
+                    'total_lots' => $createdLots->count(),
+                    'confirmed_at' => now()->toIso8601String(),
                 ],
             );
 
@@ -92,11 +91,11 @@ class StockInFinalizeService
                 'stock_in' => $session->refresh()->load([
                     'supplier:id,supplier_name',
                     'picUser:id,full_name',
-                'confirmedByUser:id,full_name',
-                'stockInItems.product:id,ref_num,product_name',
-                'stockInItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
-                'stockInItems.lot:id,lot_number,status',
-            ]),
+                    'confirmedByUser:id,full_name',
+                    'stockInItems.product:id,ref_num,product_name',
+                    'stockInItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
+                    'stockInItems.lot:id,lot_number,status',
+                ]),
                 'lots' => $createdLots->load('product:id,ref_num,product_name'),
             ];
         });
@@ -107,10 +106,13 @@ class StockInFinalizeService
 
         $requiresLotTracking = $this->requiresLotTracking((int) $item->product_id);
         $incomingLotNumber = trim((string) ($item->scanned_lot_number ?? ''));
-        $isHolding = $requiresLotTracking && ((bool) $item->missing_lot_flag || $incomingLotNumber === '');
+        $generateLotNumber = (bool) $item->generate_lot_number;
+        $isHolding = ! $generateLotNumber && $requiresLotTracking && ((bool) $item->missing_lot_flag || $incomingLotNumber === '');
 
         if ($isHolding) {
             $lotNumber = $this->generateHoldingLotNumber($stockIn, $item);
+        } elseif ($generateLotNumber) {
+            $lotNumber = $this->generateAutoLotNumber($stockIn, $item);
         } elseif ($incomingLotNumber !== '') {
             $lotNumber = $incomingLotNumber;
         } else {
@@ -134,7 +136,7 @@ class StockInFinalizeService
                 'supplier_id' => $stockIn->supplier_id,
                 'lot_number' => $lotNumber,
 
-                'is_system_generated_lot' => $isHolding,
+                'is_system_generated_lot' => $isHolding || $generateLotNumber,
                 'manufacturing_date' => $item->manufacturing_date,
                 'expiry_date' => $item->expiry_date,
                 'status' => $isHolding ? 'holding' : 'available',
@@ -196,7 +198,7 @@ class StockInFinalizeService
             ->with(['instrumentSetItems.product:id,ref_num,product_name,requires_lot'])
             ->find($item->instrument_set_id, ['id', 'set_code', 'set_name']);
 
-        if (!$set) {
+        if (! $set) {
             throw new BusinessLogicException('Selected instrument set is not found.');
         }
 
@@ -207,14 +209,23 @@ class StockInFinalizeService
         }
 
         $setQty = $item->quantity ?? 1;
-        $createdLots = new Collection();
+        $createdLots = new Collection;
+        $componentLotsBySetItemId = collect($item->component_lots ?? [])
+            ->keyBy(fn (array $componentLot) => (int) ($componentLot['instrument_set_item_id'] ?? 0));
 
         foreach ($set->instrumentSetItems as $setItem) {
             $componentQty = $setItem->quantity * $setQty;
-            $productId    = $setItem->product_id;
+            $productId = $setItem->product_id;
+            $componentLot = $componentLotsBySetItemId->get($setItem->id);
+            $manualLotNumber = trim((string) ($componentLot['lot_number'] ?? ''));
+            $generateLotNumber = (bool) ($componentLot['generate_lot_number'] ?? false);
 
-            // Auto-generate a lot number for the component product (no lot/expiry on set components)
-            $lotNumber = $this->generateAutoComponentLotNumber($stockIn, $set, $setItem);
+            // Existing drafts created before component capture was introduced
+            // remain compatible by generating their component lot numbers.
+            $isSystemGenerated = $componentLot === null || $generateLotNumber;
+            $lotNumber = $isSystemGenerated
+                ? $this->generateAutoComponentLotNumber($stockIn, $set, $setItem)
+                : $manualLotNumber;
 
             // Find existing lot for same product from same set receipt, or create new
             $lot = Lot::query()
@@ -223,34 +234,34 @@ class StockInFinalizeService
                 ->first();
 
             if ($lot) {
-                $lot->quantity           += $componentQty;
+                $lot->quantity += $componentQty;
                 $lot->quantity_available += $componentQty;
-                
+
                 if ($lot->status === 'depleted') {
                     $lot->status = 'available';
                 }
-                
+
                 $lot->current_location_type = 'warehouse';
-                $lot->current_location_id   = null;
-                
+                $lot->current_location_id = null;
+
                 $lot->save();
             } else {
                 $lot = Lot::query()->create([
-                    'product_id'              => $productId,
-                    'instrument_set_id'       => $set->id,  // tagged to know it came from a set receipt
-                    'supplier_id'             => $stockIn->supplier_id,
-                    'lot_number'              => $lotNumber,
-                    'is_system_generated_lot' => true,
-                    'manufacturing_date'     => null,
-                    'expiry_date'             => null,
-                    'status'                  => 'available',
-                    'current_location_type'   => 'warehouse',
-                    'current_location_id'     => null,
-                    'remarks'                 => $item->remarks,
-                    'received_at'             => $stockIn->stock_in_at,
-                    'quantity'                => $componentQty,
-                    'quantity_available'      => $componentQty,
-                    'quantity_consigned'      => 0,
+                    'product_id' => $productId,
+                    'instrument_set_id' => $set->id,  // tagged to know it came from a set receipt
+                    'supplier_id' => $stockIn->supplier_id,
+                    'lot_number' => $lotNumber,
+                    'is_system_generated_lot' => $isSystemGenerated,
+                    'manufacturing_date' => null,
+                    'expiry_date' => null,
+                    'status' => 'available',
+                    'current_location_type' => 'warehouse',
+                    'current_location_id' => null,
+                    'remarks' => $item->remarks,
+                    'received_at' => $stockIn->stock_in_at,
+                    'quantity' => $componentQty,
+                    'quantity_available' => $componentQty,
+                    'quantity_consigned' => 0,
                 ]);
             }
 
@@ -260,20 +271,20 @@ class StockInFinalizeService
             }
 
             LotMovement::query()->create([
-                'lot_id'               => $lot->id,
-                'movement_type'        => 'stock_in',
-                'reference_type'       => StockIn::class,
-                'reference_id'         => $stockIn->id,
-                'from_status'          => null,
-                'to_status'            => $lot->status,
-                'from_location_type'   => null,
-                'from_location_id'     => null,
-                'to_location_type'     => $lot->current_location_type,
-                'to_location_id'       => $lot->current_location_id,
-                'performed_at'         => now(),
+                'lot_id' => $lot->id,
+                'movement_type' => 'stock_in',
+                'reference_type' => StockIn::class,
+                'reference_id' => $stockIn->id,
+                'from_status' => null,
+                'to_status' => $lot->status,
+                'from_location_type' => null,
+                'from_location_id' => null,
+                'to_location_type' => $lot->current_location_type,
+                'to_location_id' => $lot->current_location_id,
+                'performed_at' => now(),
                 'performed_by_user_id' => $actor->id,
-                'remarks'              => "Unpacked from set '{$set->set_name}' during stock-in finalization",
-                'quantity'             => $componentQty,
+                'remarks' => "Unpacked from set '{$set->set_name}' during stock-in finalization",
+                'quantity' => $componentQty,
             ]);
 
             $createdLots->push($lot);
@@ -285,25 +296,25 @@ class StockInFinalizeService
     /**
      * Generate a stable, human-readable lot number for a component product
      * that came from unpacking a specific set during a stock-in session.
-     * Format: SETCOMP-{SET_CODE}-{PRODUCT_ID}-{DATE}
+     * Format: COMP-{SET_CODE}-{PRODUCT_ID}-{DATE}
      */
     private function generateAutoComponentLotNumber(StockIn $stockIn, InstrumentSet $set, InstrumentSetItem $setItem): string
     {
-        $codePart  = $set->set_code !== null && $set->set_code !== ''
+        $codePart = $set->set_code !== null && $set->set_code !== ''
             ? preg_replace('/[^A-Z0-9_-]+/', '', strtoupper((string) $set->set_code))
-            : 'SET' . $set->id;
-        $datePart  = now()->format('Ymd');
-        $base      = sprintf('SETCOMP-%s-P%d-%s', $codePart, $setItem->product_id, $datePart);
+            : 'SET'.$set->id;
+        $datePart = now()->format('Ymd');
+        $base = sprintf('COMP-%s-P%d-%s', $codePart, $setItem->product_id, $datePart);
 
         // The base itself is unique enough for one set-product per day;
         // append sequence only if there is a collision.
-        if (!Lot::query()->where('lot_number', $base)->where('product_id', '!=', $setItem->product_id)->exists()) {
+        if (! Lot::query()->where('lot_number', $base)->where('product_id', '!=', $setItem->product_id)->exists()) {
             return $base;
         }
 
         for ($attempt = 1; $attempt <= 9999; $attempt++) {
             $candidate = sprintf('%s-%04d', $base, $attempt);
-            if (!Lot::query()->where('lot_number', $candidate)->where('product_id', '!=', $setItem->product_id)->exists()) {
+            if (! Lot::query()->where('lot_number', $candidate)->where('product_id', '!=', $setItem->product_id)->exists()) {
                 return $candidate;
             }
         }
@@ -314,16 +325,16 @@ class StockInFinalizeService
     private function generateHoldingLotNumber(StockIn $stockIn, StockInItem $item): string
     {
         $product = $item->product ?? Product::find($item->product_id);
-        
-        $prodName = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$product->product_name));
+
+        $prodName = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string) $product->product_name));
         $prodNamePart = str_pad(substr($prodName, 0, 4), 4, 'X');
-        
+
         $datePart = now()->format('ymd');
         $base = sprintf('HOLD-%s-%s', $prodNamePart, $datePart);
 
         for ($attempt = 1; $attempt < 999; $attempt++) {
-            $candidate = $base . '-' . str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
-            if (!Lot::query()->where('lot_number', $candidate)->exists()) {
+            $candidate = $base.'-'.str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
+            if (! Lot::query()->where('lot_number', $candidate)->exists()) {
                 return $candidate;
             }
         }
@@ -334,19 +345,19 @@ class StockInFinalizeService
     private function generateAutoLotNumber(StockIn $stockIn, StockInItem $item): string
     {
         $product = $item->product ?? Product::find($item->product_id);
-        
-        $prodCode = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$product->ref_num));
+
+        $prodCode = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string) $product->ref_num));
         $prodCodePart = str_pad(substr($prodCode, 0, 3), 3, 'X');
-        
-        $prodName = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$product->product_name));
+
+        $prodName = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string) $product->product_name));
         $prodNamePart = str_pad(substr($prodName, 0, 4), 4, 'X');
-        
+
         $datePart = now()->format('ymd');
         $base = sprintf('%s-%s-%s', $prodCodePart, $prodNamePart, $datePart);
 
         for ($attempt = 1; $attempt < 999; $attempt++) {
-            $candidate = $base . '-' . str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
-            if (!Lot::query()->where('lot_number', $candidate)->exists()) {
+            $candidate = $base.'-'.str_pad((string) $attempt, 2, '0', STR_PAD_LEFT);
+            if (! Lot::query()->where('lot_number', $candidate)->exists()) {
                 return $candidate;
             }
         }
@@ -358,7 +369,7 @@ class StockInFinalizeService
     {
         $product = Product::query()->select(['id', 'requires_lot'])->find($productId);
 
-        if (!$product) {
+        if (! $product) {
             throw new BusinessLogicException('Selected product is not found.');
         }
 

@@ -20,7 +20,7 @@ class StockInItemResource extends JsonResource
             'entry_kind' => $this->entry_kind ?? 'product',
             'product_id' => $this->product_id,
             'product' => $this->whenLoaded('product', function () {
-                if (!$this->product) {
+                if (! $this->product) {
                     return null;
                 }
 
@@ -31,8 +31,9 @@ class StockInItemResource extends JsonResource
                 ];
             }),
             'instrument_set_id' => $this->instrument_set_id,
+            'component_lots' => $this->component_lots,
             'instrument_set' => $this->whenLoaded('instrumentSet', function () {
-                if (!$this->instrumentSet) {
+                if (! $this->instrumentSet) {
                     return null;
                 }
 
@@ -42,6 +43,7 @@ class StockInItemResource extends JsonResource
                     foreach ($this->instrumentSet->instrumentSetItems as $item) {
                         $items->push([
                             'id' => $item->id,
+                            'product_id' => $item->product_id,
                             'name' => $item->product?->product_name ?? 'Unknown Product',
                             'code' => $item->product?->ref_num,
                             'quantity' => $item->quantity,
@@ -72,6 +74,7 @@ class StockInItemResource extends JsonResource
             'lot_entry_mode' => $this->lot_entry_mode,
             'expiry_entry_mode' => $this->expiry_entry_mode,
             'missing_lot_flag' => (bool) $this->missing_lot_flag,
+            'generate_lot_number' => (bool) $this->generate_lot_number,
             'source_barcode' => $this->source_barcode,
             'entry_override_reason' => $this->entry_override_reason,
             'remarks' => $this->remarks,

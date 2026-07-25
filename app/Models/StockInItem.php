@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'entry_kind',
     'product_id',
     'instrument_set_id',
+    'component_lots',
     'lot_id',
     'scanned_lot_number',
     'manufacturing_date',
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'lot_entry_mode',
     'expiry_entry_mode',
     'missing_lot_flag',
+    'generate_lot_number',
     'source_barcode',
     'entry_override_reason',
     'remarks',
@@ -29,6 +31,7 @@ class StockInItem extends Model
     use HasFactory;
 
     public const ENTRY_KIND_PRODUCT = 'product';
+
     public const ENTRY_KIND_SET = 'set';
 
     protected function casts(): array
@@ -37,6 +40,8 @@ class StockInItem extends Model
             'manufacturing_date' => 'date',
             'expiry_date' => 'date',
             'missing_lot_flag' => 'boolean',
+            'generate_lot_number' => 'boolean',
+            'component_lots' => 'array',
         ];
     }
 

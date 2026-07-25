@@ -12,9 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 class StockInItemService
 {
-    public function __construct(private readonly StockInSessionService $stockInSessionService)
-    {
-    }
+    public function __construct(private readonly StockInSessionService $stockInSessionService) {}
 
     /**
      * @return Collection<int, StockInItem>
@@ -33,7 +31,7 @@ class StockInItemService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function addItem(StockIn $stockIn, array $data): StockInItem
     {
@@ -49,16 +47,21 @@ class StockInItemService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function addProductItem(StockIn $stockIn, array $data): StockInItem
     {
         $lotNumber = $this->normalizeLotNumber($data['scanned_lot_number'] ?? null);
         $missingLotFlag = (bool) ($data['missing_lot_flag'] ?? false);
+        $generateLotNumber = (bool) ($data['generate_lot_number'] ?? false);
         $requiresLotTracking = $this->requiresLotTracking((int) $data['product_id']);
 
-        if ($requiresLotTracking && !$missingLotFlag && $lotNumber === null) {
-            throw new BusinessLogicException('Lot number is required unless missing_lot_flag is true.');
+        if ($generateLotNumber && ! $this->isInstrumentProduct((int) $data['product_id'])) {
+            throw new BusinessLogicException('Generate lot number is only available for instrument products.');
+        }
+
+        if ($requiresLotTracking && ! $missingLotFlag && ! $generateLotNumber && $lotNumber === null) {
+            throw new BusinessLogicException('Lot number is required unless missing_lot_flag or generate_lot_number is true.');
         }
 
         if ($lotNumber !== null) {
@@ -76,6 +79,7 @@ class StockInItemService
             'lot_entry_mode' => $data['lot_entry_mode'] ?? 'scan',
             'expiry_entry_mode' => $data['expiry_entry_mode'] ?? 'scan',
             'missing_lot_flag' => $missingLotFlag,
+            'generate_lot_number' => $generateLotNumber,
             'source_barcode' => $data['source_barcode'] ?? null,
             'entry_override_reason' => $data['entry_override_reason'] ?? null,
             'remarks' => $data['remarks'] ?? null,
@@ -92,27 +96,33 @@ class StockInItemService
      * Set-instance entry. No lot number is captured here — finalize will mint
      * one from the set code. Supplier batch / expiry are not collected.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function addSetItem(StockIn $stockIn, array $data): StockInItem
     {
         $instrumentSetId = (int) ($data['instrument_set_id'] ?? 0);
 
-        $set = InstrumentSet::query()->select(['id', 'is_active'])->find($instrumentSetId);
+        $set = InstrumentSet::query()
+            ->with('instrumentSetItems:id,instrument_set_id,product_id,quantity')
+            ->select(['id', 'is_active'])
+            ->find($instrumentSetId);
 
-        if (!$set) {
+        if (! $set) {
             throw new BusinessLogicException('Selected instrument set is not found.');
         }
 
-        if (!$set->is_active) {
+        if (! $set->is_active) {
             throw new BusinessLogicException('Inactive instrument sets cannot be received.');
         }
+
+        $componentLots = $this->normalizeComponentLots($set, $data['component_lots'] ?? []);
 
         return StockInItem::query()->create([
             'stock_in_id' => $stockIn->id,
             'entry_kind' => 'set',
             'product_id' => null,
             'instrument_set_id' => $instrumentSetId,
+            'component_lots' => $componentLots,
             'scanned_lot_number' => null,
             'manufacturing_date' => null,
             'expiry_date' => null,
@@ -132,7 +142,7 @@ class StockInItemService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function updateItem(StockIn $stockIn, StockInItem $stockInItem, array $data): StockInItem
     {
@@ -149,7 +159,21 @@ class StockInItemService
         // Set-entry items are minimal: only remarks/source_barcode are
         // editable while in draft. Product/lot fields are not applicable.
         if ($stockInItem->isSetEntry()) {
-            $allowed = array_intersect_key($data, array_flip(['remarks', 'source_barcode']));
+            $allowed = array_intersect_key($data, array_flip(['remarks', 'source_barcode', 'quantity']));
+
+            if (array_key_exists('component_lots', $data)) {
+                $set = InstrumentSet::query()
+                    ->with('instrumentSetItems:id,instrument_set_id,product_id,quantity')
+                    ->select(['id', 'is_active'])
+                    ->find($stockInItem->instrument_set_id);
+
+                if (! $set) {
+                    throw new BusinessLogicException('Selected instrument set is not found.');
+                }
+
+                $allowed['component_lots'] = $this->normalizeComponentLots($set, $data['component_lots']);
+            }
+
             $stockInItem->fill($allowed)->save();
 
             return $stockInItem->refresh()->load($reload);
@@ -166,9 +190,16 @@ class StockInItemService
         $nextMissingFlag = array_key_exists('missing_lot_flag', $data)
             ? (bool) $data['missing_lot_flag']
             : (bool) $stockInItem->missing_lot_flag;
+        $nextGenerateLotNumber = array_key_exists('generate_lot_number', $data)
+            ? (bool) $data['generate_lot_number']
+            : (bool) $stockInItem->generate_lot_number;
 
-        if ($requiresLotTracking && !$nextMissingFlag && $nextLotNumber === null) {
-            throw new BusinessLogicException('Lot number is required unless missing_lot_flag is true.');
+        if ($nextGenerateLotNumber && ! $this->isInstrumentProduct($nextProductId)) {
+            throw new BusinessLogicException('Generate lot number is only available for instrument products.');
+        }
+
+        if ($requiresLotTracking && ! $nextMissingFlag && ! $nextGenerateLotNumber && $nextLotNumber === null) {
+            throw new BusinessLogicException('Lot number is required unless missing_lot_flag or generate_lot_number is true.');
         }
 
         if ($nextLotNumber !== null) {
@@ -227,10 +258,61 @@ class StockInItemService
     {
         $product = Product::query()->select(['id', 'requires_lot'])->find($productId);
 
-        if (!$product) {
+        if (! $product) {
             throw new BusinessLogicException('Selected product is not found.');
         }
 
         return (bool) $product->requires_lot;
+    }
+
+    private function isInstrumentProduct(int $productId): bool
+    {
+        $product = Product::query()->select(['id', 'product_type'])->find($productId);
+
+        return $product && strcasecmp((string) $product->product_type, 'Instrument') === 0;
+    }
+
+    /**
+     * @param  array<int, mixed>  $componentLots
+     * @return array<int, array{instrument_set_item_id: int, lot_number: ?string, generate_lot_number: bool}>
+     */
+    private function normalizeComponentLots(InstrumentSet $set, array $componentLots): array
+    {
+        $setItemIds = $set->instrumentSetItems->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        if ($setItemIds === []) {
+            throw new BusinessLogicException('Selected instrument set has no component products defined.');
+        }
+
+        $entriesBySetItemId = [];
+        foreach ($componentLots as $entry) {
+            $setItemId = (int) ($entry['instrument_set_item_id'] ?? 0);
+            if (! in_array($setItemId, $setItemIds, true)) {
+                throw new BusinessLogicException('A component lot does not belong to the selected instrument set.');
+            }
+
+            if (array_key_exists($setItemId, $entriesBySetItemId)) {
+                throw new BusinessLogicException('Each instrument set component can only have one lot decision.');
+            }
+
+            $lotNumber = $this->normalizeLotNumber($entry['lot_number'] ?? null);
+            $generateLotNumber = (bool) ($entry['generate_lot_number'] ?? false);
+
+            if ($lotNumber === null && ! $generateLotNumber) {
+                throw new BusinessLogicException('Enter a component lot number or select generate lot number.');
+            }
+
+            $entriesBySetItemId[$setItemId] = [
+                'instrument_set_item_id' => $setItemId,
+                'lot_number' => $generateLotNumber ? null : $lotNumber,
+                'generate_lot_number' => $generateLotNumber,
+            ];
+        }
+
+        if (count($entriesBySetItemId) !== count($setItemIds)) {
+            throw new BusinessLogicException('Provide a lot decision for every component in the instrument set.');
+        }
+
+        return array_values($entriesBySetItemId);
     }
 }
