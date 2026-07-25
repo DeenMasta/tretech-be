@@ -40,46 +40,6 @@ class SampleMasterDataSeeder extends Seeder
                 'address' => 'Lot 12, Jalan TPP 5/17, Taman Perindustrian Puchong, 47100 Puchong, Selangor',
                 'is_active' => true,
             ],
-            [
-                'supplier_name' => 'Sinar Sterile Healthcare Sdn Bhd',
-                'pic_name' => 'Nur Aisyah Hassan',
-                'phone' => '+60-3-7845-6620',
-                'email' => 'cs@sinarsterile.com.my',
-                'address' => 'No. 22, Jalan U1/26, Hicom Glenmarie Industrial Park, 40150 Shah Alam, Selangor',
-                'is_active' => true,
-            ],
-            [
-                'supplier_name' => 'Penang Precision Medical Devices Sdn Bhd',
-                'pic_name' => 'Tan Mei Ling',
-                'phone' => '+60-4-644-9088',
-                'email' => 'sales@ppmedical.com.my',
-                'address' => 'Plot 88, Lorong Perindustrian Bukit Minyak 12, Kawasan Perindustrian Bukit Minyak, 14100 Simpang Ampat, Pulau Pinang',
-                'is_active' => true,
-            ],
-            [
-                'supplier_name' => 'Bayan Lepas Surgical Instruments Sdn Bhd',
-                'pic_name' => 'Mohd Hafiz Ismail',
-                'phone' => '+60-4-646-3177',
-                'email' => 'procurement@blsurgical.com.my',
-                'address' => 'No. 15, Lintang Bayan Lepas 6, Bayan Lepas Industrial Park, 11900 Bayan Lepas, Pulau Pinang',
-                'is_active' => true,
-            ],
-            [
-                'supplier_name' => 'Johor Medline Distribution Sdn Bhd',
-                'pic_name' => 'Muthu Rajan',
-                'phone' => '+60-7-562-4410',
-                'email' => 'sales.johor@johormedline.com.my',
-                'address' => 'No. 31, Jalan Perindustrian 2, Kawasan Perindustrian Senai, 81400 Senai, Johor',
-                'is_active' => true,
-            ],
-            [
-                'supplier_name' => 'KL Endoscopy & Surgical Supply Sdn Bhd',
-                'pic_name' => 'Siti Farhana Abdullah',
-                'phone' => '+60-3-6279-8801',
-                'email' => 'admin@klendosurgical.com.my',
-                'address' => 'Unit 3-12, Jalan Metro Perdana Barat 1, Taman Usahawan Kepong, 52100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
-                'is_active' => true,
-            ],
         ];
 
         foreach ($suppliers as $supplier) {
@@ -109,62 +69,6 @@ class SampleMasterDataSeeder extends Seeder
                 'phone' => '+60-3-7949-4422',
                 'email' => 'unit.perolehan.ppum@tretech-demo.my',
                 'address' => 'Lembah Pantai, 59100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'Subang Jaya Medical Centre',
-                'client_type' => 'hospital',
-                'phone' => '+60-3-5639-1212',
-                'email' => 'supplychain.sjmc@tretech-demo.my',
-                'address' => 'No. 1, Jalan SS 12/1A, 47500 Subang Jaya, Selangor',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'Pantai Hospital Penang',
-                'client_type' => 'hospital',
-                'phone' => '+60-4-643-3888',
-                'email' => 'procurement.phpg@tretech-demo.my',
-                'address' => '82, Jalan Tengah, Bayan Baru, 11900 Bayan Lepas, Pulau Pinang',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'Hospital Sultanah Aminah Johor Bahru',
-                'client_type' => 'hospital',
-                'phone' => '+60-7-225-7000',
-                'email' => 'bekalan.hsa@tretech-demo.my',
-                'address' => 'Jalan Persiaran Abu Bakar Sultan, 80100 Johor Bahru, Johor',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'KPJ Johor Specialist Hospital',
-                'client_type' => 'hospital',
-                'phone' => '+60-7-225-3000',
-                'email' => 'materials.kpjjohor@tretech-demo.my',
-                'address' => '39-B, Jalan Abdul Samad, Kolam Ayer, 80100 Johor Bahru, Johor',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'Klinik Kesihatan Kelana Jaya',
-                'client_type' => 'clinic',
-                'phone' => '+60-3-7806-1022',
-                'email' => 'kk.kelanajaya@tretech-demo.my',
-                'address' => 'Jalan SS 6/3, Kelana Jaya, 47301 Petaling Jaya, Selangor',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'Klinik Pakar Ortopedik Damansara',
-                'client_type' => 'clinic',
-                'phone' => '+60-3-7728-9011',
-                'email' => 'admin.ortho.damansara@tretech-demo.my',
-                'address' => 'No. 18-1, Jalan PJU 5/20, The Strand, Kota Damansara, 47810 Petaling Jaya, Selangor',
-                'is_active' => true,
-            ],
-            [
-                'client_name' => 'Klinik Perubatan Bayan Baru',
-                'client_type' => 'clinic',
-                'phone' => '+60-4-646-2188',
-                'email' => 'admin.klinikbayanbaru@tretech-demo.my',
-                'address' => 'No. 34, Medan Kampung Relau, Bayan Baru, 11900 Bayan Lepas, Pulau Pinang',
                 'is_active' => true,
             ],
         ];
@@ -215,7 +119,7 @@ class SampleMasterDataSeeder extends Seeder
                 'requires_lot' => true,
                 'is_active' => true,
             ],
-            
+
             // Consumables
             [
                 'ref_num' => '115012300', // Used by UatSeeder
@@ -287,7 +191,7 @@ class SampleMasterDataSeeder extends Seeder
                 'requires_lot' => true,
                 'is_active' => true,
             ],
-            
+
             // Loose Instruments (not in a set)
             [
                 'ref_num' => 'INS-001',
@@ -333,69 +237,7 @@ class SampleMasterDataSeeder extends Seeder
                         'sort_order' => 3,
                         'remarks' => 'For tibial tunnel targeting',
                     ],
-                    [
-                        'code' => 'INST-ACL-004',
-                        'name' => 'Tibial ACL Drill Guide, Footprint',
-                        'quantity' => 1,
-                        'sort_order' => 4,
-                        'remarks' => 'Footprint-style guide',
-                    ],
-                    [
-                        'code' => 'INST-ACL-005',
-                        'name' => 'Femoral ACL Drill Guide, Left',
-                        'quantity' => 1,
-                        'sort_order' => 5,
-                        'remarks' => 'Left knee orientation',
-                    ],
-                    [
-                        'code' => 'INST-ACL-006',
-                        'name' => 'Femoral ACL Drill Guide, Right',
-                        'quantity' => 1,
-                        'sort_order' => 6,
-                        'remarks' => 'Right knee orientation',
-                    ],
-                    [
-                        'code' => 'INST-ACL-007',
-                        'name' => 'Ratcheting Drill Sleeve for FlipCutter',
-                        'quantity' => 1,
-                        'sort_order' => 7,
-                        'remarks' => '7mm step, 3.5mm sleeve',
-                    ],
-                    [
-                        'code' => 'INST-ACL-008',
-                        'name' => 'FlipCutter Reamer, 6mm',
-                        'quantity' => 1,
-                        'sort_order' => 8,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-ACL-009',
-                        'name' => 'FlipCutter Reamer, 7mm',
-                        'quantity' => 1,
-                        'sort_order' => 9,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-ACL-010',
-                        'name' => 'FlipCutter Reamer, 8mm',
-                        'quantity' => 1,
-                        'sort_order' => 10,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-ACL-011',
-                        'name' => 'Guide Wire, 1.1mm x 360mm',
-                        'quantity' => 2,
-                        'sort_order' => 11,
-                        'remarks' => 'Reusable guide wire',
-                    ],
-                    [
-                        'code' => null,
-                        'name' => 'Graft Preparation Board',
-                        'quantity' => 1,
-                        'sort_order' => 12,
-                        'remarks' => 'For graft preparation table',
-                    ],
+
                 ],
             ],
             [
@@ -432,55 +274,6 @@ class SampleMasterDataSeeder extends Seeder
                         'sort_order' => 4,
                         'remarks' => null,
                     ],
-                    [
-                        'code' => 'INST-BONE-005',
-                        'name' => 'Hohmann Retractor, Medium',
-                        'quantity' => 2,
-                        'sort_order' => 5,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-BONE-006',
-                        'name' => 'Drill Guide, 2.5mm',
-                        'quantity' => 1,
-                        'sort_order' => 6,
-                        'remarks' => 'For 3.5mm cortical screws',
-                    ],
-                    [
-                        'code' => 'INST-BONE-007',
-                        'name' => 'Twist Drill Bit, 2.5mm',
-                        'quantity' => 2,
-                        'sort_order' => 7,
-                        'remarks' => 'Check sharpness before use',
-                    ],
-                    [
-                        'code' => 'INST-BONE-008',
-                        'name' => 'Depth Gauge, 60mm',
-                        'quantity' => 1,
-                        'sort_order' => 8,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-BONE-009',
-                        'name' => 'Tap for 3.5mm Cortical Screw',
-                        'quantity' => 1,
-                        'sort_order' => 9,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-BONE-010',
-                        'name' => 'Hex Screwdriver, 2.5mm',
-                        'quantity' => 2,
-                        'sort_order' => 10,
-                        'remarks' => 'For small fragment system',
-                    ],
-                    [
-                        'code' => null,
-                        'name' => 'Plate Bending Iron Pair',
-                        'quantity' => 1,
-                        'sort_order' => 11,
-                        'remarks' => 'Pair counted as one set',
-                    ],
                 ],
             ],
             [
@@ -503,55 +296,6 @@ class SampleMasterDataSeeder extends Seeder
                         'sort_order' => 2,
                         'remarks' => null,
                     ],
-                    [
-                        'code' => 'INST-MIN-003',
-                        'name' => 'Metzenbaum Scissors, Curved, 18cm',
-                        'quantity' => 1,
-                        'sort_order' => 3,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-MIN-004',
-                        'name' => 'Adson Tissue Forceps, 1x2 Teeth',
-                        'quantity' => 1,
-                        'sort_order' => 4,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-MIN-005',
-                        'name' => 'Adson Dressing Forceps, Serrated',
-                        'quantity' => 1,
-                        'sort_order' => 5,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => 'INST-MIN-006',
-                        'name' => 'Mosquito Artery Forceps, Curved',
-                        'quantity' => 4,
-                        'sort_order' => 6,
-                        'remarks' => 'Small hemostat',
-                    ],
-                    [
-                        'code' => 'INST-MIN-007',
-                        'name' => 'Needle Holder, Mayo-Hegar, 15cm',
-                        'quantity' => 1,
-                        'sort_order' => 7,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => null,
-                        'name' => 'Sponge Holding Forceps',
-                        'quantity' => 1,
-                        'sort_order' => 8,
-                        'remarks' => null,
-                    ],
-                    [
-                        'code' => null,
-                        'name' => 'Small Gallipot',
-                        'quantity' => 2,
-                        'sort_order' => 9,
-                        'remarks' => 'For antiseptic or saline',
-                    ],
                 ],
             ],
         ];
@@ -559,13 +303,13 @@ class SampleMasterDataSeeder extends Seeder
         foreach ($instrumentSets as $setData) {
             $instruments = $setData['instruments'] ?? [];
             unset($setData['instruments']);
-            
+
             $set = InstrumentSet::query()->firstOrCreate(['set_code' => $setData['set_code']], $setData);
-            
+
             foreach ($instruments as $instrumentData) {
                 // 1. Ensure the product exists
                 $refNum = $instrumentData['code'] ?? ('INST-AUTO-' . strtoupper(substr(md5($instrumentData['name']), 0, 6)));
-                
+
                 $product = Product::query()->firstOrCreate(
                     ['ref_num' => $refNum],
                     [

@@ -5,6 +5,8 @@ namespace App\Services\Reconciliation;
 use App\Enums\AuditAction;
 use App\Exceptions\BusinessLogicException;
 use App\Models\Reconciliation;
+use App\Models\ReconciliationItem;
+use App\Models\ReconciliationSetInstrumentResult;
 use App\Models\ReturnSession;
 use App\Models\User;
 use App\Services\Audit\AuditLogService;
@@ -88,6 +90,71 @@ class ReconciliationService
             'returnSession:id,return_session_no',
             'picUser:id,full_name',
         ]);
+    }
+
+    public function updateItemRemarks(Reconciliation $reconciliation, ReconciliationItem $item, array $data, User $actor): ReconciliationItem
+    {
+        if ($reconciliation->status !== 'finalized') {
+            throw new BusinessLogicException('Item remarks can only be updated on a finalized reconciliation.');
+        }
+
+        if ($item->reconciliation_id !== $reconciliation->id) {
+            throw new BusinessLogicException('This item does not belong to the specified reconciliation.');
+        }
+
+        $before = $item->toArray();
+        $remarks = trim((string) ($data['remarks'] ?? ''));
+        $item->update(['remarks' => $remarks === '' ? null : $remarks]);
+
+        $this->auditLogService->logModelAction(
+            auditableType: ReconciliationItem::class,
+            auditableId:   $item->id,
+            actionType:    AuditAction::RECONCILIATION_ITEM_UPDATED,
+            actor:         $actor,
+            description:   "Updated remarks for reconciliation item {$item->id} in {$reconciliation->reconciliation_no}",
+            before:        $before,
+            after:         $item->fresh()->toArray(),
+        );
+
+        return $item->refresh()->load([
+            'lot.product:id,ref_num,product_name,product_type',
+            'lot.instrumentSet:id,set_code,set_name',
+            'product:id,ref_num,product_name,product_type',
+            'instrumentSet:id,set_code,set_name',
+            'setInstrumentResults.product:id,ref_num,product_name',
+        ]);
+    }
+
+    public function updateSetComponentRemarks(
+        Reconciliation $reconciliation,
+        ReconciliationItem $item,
+        ReconciliationSetInstrumentResult $component,
+        array $data,
+        User $actor
+    ): ReconciliationSetInstrumentResult {
+        if ($reconciliation->status !== 'finalized') {
+            throw new BusinessLogicException('Component remarks can only be updated on a finalized reconciliation.');
+        }
+
+        if ($item->reconciliation_id !== $reconciliation->id || $component->reconciliation_item_id !== $item->id) {
+            throw new BusinessLogicException('This component does not belong to the specified reconciliation item.');
+        }
+
+        $before = $component->toArray();
+        $remarks = trim((string) ($data['remarks'] ?? ''));
+        $component->update(['remarks' => $remarks === '' ? null : $remarks]);
+
+        $this->auditLogService->logModelAction(
+            auditableType: ReconciliationSetInstrumentResult::class,
+            auditableId:   $component->id,
+            actionType:    AuditAction::RECONCILIATION_SET_COMPONENT_UPDATED,
+            actor:         $actor,
+            description:   "Updated remarks for set component {$component->id} in {$reconciliation->reconciliation_no}",
+            before:        $before,
+            after:         $component->fresh()->toArray(),
+        );
+
+        return $component->refresh()->load('product:id,ref_num,product_name');
     }
 
     private function generateReconciliationNo(): string

@@ -129,6 +129,24 @@ class DisposalCompleteServiceTest extends ServiceTestCase
         $this->service->complete($disposal, $this->actor);
     }
 
+    #[Test]
+    public function complete_rejects_a_quantity_greater_than_the_locked_lot_balance(): void
+    {
+        $disposal = $this->makeDraftDisposal();
+        $lot = $this->makeAvailableLot(quantity: 1);
+        $this->attachItem($disposal, $lot, quantity: 2);
+
+        $this->expectException(BusinessLogicException::class);
+        $this->expectExceptionMessageMatches('/only 1 available/i');
+
+        try {
+            $this->service->complete($disposal, $this->actor);
+        } finally {
+            $this->assertSame(1, $lot->refresh()->quantity_available);
+            $this->assertSame('draft', $disposal->refresh()->status);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -143,7 +161,7 @@ class DisposalCompleteServiceTest extends ServiceTestCase
         ]);
     }
 
-    private function makeAvailableLot(?string $lotNumber = null): Lot
+    private function makeAvailableLot(?string $lotNumber = null, int $quantity = 1): Lot
     {
         return Lot::query()->create([
             'product_id'            => $this->product->id,
@@ -153,16 +171,19 @@ class DisposalCompleteServiceTest extends ServiceTestCase
             'status'                => 'available',
             'current_location_type' => 'warehouse',
             'received_at'           => now(),
+            'quantity'              => $quantity,
+            'quantity_available'    => $quantity,
         ]);
     }
 
-    private function attachItem(Disposal $disposal, Lot $lot): DisposalItem
+    private function attachItem(Disposal $disposal, Lot $lot, int $quantity = 1): DisposalItem
     {
         return DisposalItem::query()->create([
             'disposal_id'      => $disposal->id,
             'lot_id'           => $lot->id,
             'disposal_category'=> 'expired',
             'reason_text'      => 'Past expiry date',
+            'quantity'         => $quantity,
         ]);
     }
 }

@@ -104,6 +104,32 @@ class ConsignmentConfirmServiceTest extends ServiceTestCase
     }
 
     #[Test]
+    public function confirm_partial_consignment_records_the_client_location(): void
+    {
+        $consignment = $this->makeDraftConsignment();
+        $lot = $this->makeAvailableLot(quantity: 10);
+        $this->attachItem($consignment, $lot, quantity: 3);
+
+        $this->service->confirm($consignment, $this->actor);
+
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'status' => 'available',
+            'quantity_available' => 7,
+            'quantity_consigned' => 3,
+            'current_location_type' => 'client',
+            'current_location_id' => $this->client->id,
+        ]);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lot->id,
+            'movement_type' => 'consigned',
+            'from_location_type' => 'warehouse',
+            'to_location_type' => 'client',
+            'quantity' => 3,
+        ]);
+    }
+
+    #[Test]
     public function confirm_empty_consignment_throws(): void
     {
         $consignment = $this->makeDraftConsignment();
@@ -155,7 +181,7 @@ class ConsignmentConfirmServiceTest extends ServiceTestCase
         ]);
     }
 
-    private function makeAvailableLot(?string $lotNumber = null): Lot
+    private function makeAvailableLot(?string $lotNumber = null, int $quantity = 1): Lot
     {
         return Lot::query()->create([
             'product_id'            => $this->product->id,
@@ -166,14 +192,18 @@ class ConsignmentConfirmServiceTest extends ServiceTestCase
             'status'                => 'available',
             'current_location_type' => 'warehouse',
             'received_at'           => now(),
+            'quantity'              => $quantity,
+            'quantity_available'    => $quantity,
+            'quantity_consigned'    => 0,
         ]);
     }
 
-    private function attachItem(Consignment $consignment, Lot $lot): ConsignmentItem
+    private function attachItem(Consignment $consignment, Lot $lot, int $quantity = 1): ConsignmentItem
     {
         return ConsignmentItem::query()->create([
             'consignment_id'    => $consignment->id,
             'lot_id'            => $lot->id,
+            'quantity'          => $quantity,
             'issued_at'         => now(),
             'issued_by_user_id' => $this->actor->id,
         ]);

@@ -77,6 +77,7 @@ class AuditAction
     // -------------------------------------------------------------------------
     const RETURN_SESSION_CREATED   = 'return_session.created';
     const RETURN_SESSION_ITEM_SCANNED = 'return_session.item_scanned';
+    const RETURN_SESSION_ITEM_UPDATED = 'return_session.item_updated';
     const RETURN_SESSION_ITEM_REMOVED = 'return_session.item_removed';
     const RETURN_SESSION_COMPLETED = 'return_session.completed';
     const RETURN_SESSION_REOPENED = 'return_session.reopened';
@@ -87,6 +88,8 @@ class AuditAction
     const RECONCILIATION_CREATED   = 'reconciliation.created';
     const RECONCILIATION_FINALIZED = 'reconciliation.finalized';
     const RECONCILIATION_REOPENED  = 'reconciliation.reopened';
+    const RECONCILIATION_ITEM_UPDATED = 'reconciliation.item_updated';
+    const RECONCILIATION_SET_COMPONENT_UPDATED = 'reconciliation.set_component_updated';
     const INSTRUMENT_SET_UPDATED   = 'instrument_set.updated';
     const INSTRUMENT_SET_DELETED   = 'instrument_set.deleted';
 

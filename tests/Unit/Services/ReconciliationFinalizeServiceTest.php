@@ -15,6 +15,8 @@ use App\Models\ReturnSessionItem;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Reconciliation\ReconciliationFinalizeService;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 
 class ReconciliationFinalizeServiceTest extends ServiceTestCase
@@ -42,49 +44,6 @@ class ReconciliationFinalizeServiceTest extends ServiceTestCase
     }
 
     #[Test]
-    public function finalize_all_lots_returned_marks_all_as_available(): void
-    {
-        [$consignment, $returnSession, $lots] = $this->buildScenario(consign: 2, returnBack: 2);
-        $reconciliation = $this->makePendingReconciliation($consignment, $returnSession);
-
-        $result = $this->service->finalize($reconciliation, $this->actor);
-
-        $this->assertSame('finalized', $result->status);
-
-        foreach ($lots as $lot) {
-            $this->assertSame('holding', $lot->refresh()->status);
-        }
-
-        $this->assertSame(0, ReconciliationItem::query()
-            ->where('reconciliation_id', $result->id)
-            ->where('result', 'used')
-            ->count());
-
-        $this->assertSame(2, ReconciliationItem::query()
-            ->where('reconciliation_id', $result->id)
-            ->where('result', 'returned')
-            ->count());
-    }
-
-    #[Test]
-    public function finalize_no_lots_returned_marks_all_as_used(): void
-    {
-        [$consignment, $returnSession, $lots] = $this->buildScenario(consign: 2, returnBack: 0);
-        $reconciliation = $this->makePendingReconciliation($consignment, $returnSession);
-
-        $result = $this->service->finalize($reconciliation, $this->actor);
-
-        foreach ($lots as $lot) {
-            $this->assertSame('used', $lot->refresh()->status);
-        }
-
-        $this->assertSame(2, ReconciliationItem::query()
-            ->where('reconciliation_id', $result->id)
-            ->where('result', 'used')
-            ->count());
-    }
-
-    #[Test]
     public function finalize_partial_return_creates_correct_used_and_returned_items(): void
     {
         [$consignment, $returnSession, $lots] = $this->buildScenario(consign: 3, returnBack: 1);
@@ -100,16 +59,131 @@ class ReconciliationFinalizeServiceTest extends ServiceTestCase
     }
 
     #[Test]
-    public function finalize_creates_lot_movements_for_all_lots(): void
+    public function finalize_loads_return_session_items_once(): void
     {
-        [$consignment, $returnSession] = $this->buildScenario(consign: 2, returnBack: 1);
+        [$consignment, $returnSession] = $this->buildScenario(consign: 1, returnBack: 1);
+        $reconciliation = $this->makePendingReconciliation($consignment, $returnSession);
+        $returnSessionItemQueries = 0;
+
+        DB::listen(function (QueryExecuted $query) use (&$returnSessionItemQueries): void {
+            if (str_contains(strtolower($query->sql), 'return_session_items')) {
+                $returnSessionItemQueries++;
+            }
+        });
+
+        $this->service->finalize($reconciliation, $this->actor);
+
+        $this->assertSame(1, $returnSessionItemQueries);
+    }
+
+    #[Test]
+    public function finalize_damaged_stock_does_not_inflate_available_quantity(): void
+    {
+        $consignment = $this->makeConfirmedConsignment();
+        $returnSession = $this->makeCompletedReturnSession($consignment);
+        $lot = Lot::query()->create([
+            'product_id' => $this->product->id,
+            'supplier_id' => $this->supplier->id,
+            'lot_number' => 'LOT-D-' . str()->upper(str()->random(6)),
+            'manufacturing_date' => '2026-01-01',
+            'status' => 'supplied',
+            'current_location_type' => 'client',
+            'current_location_id' => $this->client->id,
+            'received_at' => now(),
+            'quantity' => 3,
+            'quantity_available' => 0,
+            'quantity_consigned' => 3,
+        ]);
+        ConsignmentItem::query()->create([
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'quantity' => 3,
+            'issued_at' => now(),
+            'issued_by_user_id' => $this->actor->id,
+        ]);
+        ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lot->id,
+            'quantity' => 1,
+            'damaged_quantity' => 2,
+            'returned_at' => now(),
+            'returned_by_user_id' => $this->actor->id,
+        ]);
         $reconciliation = $this->makePendingReconciliation($consignment, $returnSession);
 
-        $result = $this->service->finalize($reconciliation, $this->actor);
+        $this->service->finalize($reconciliation, $this->actor);
 
-        // 1 returned movement + 1 used movement
-        $this->assertDatabaseHas('lot_movements', ['movement_type' => 'returned', 'reference_id' => $result->id]);
-        $this->assertDatabaseHas('lot_movements', ['movement_type' => 'used',     'reference_id' => $result->id]);
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'quantity_available' => 1,
+            'quantity_consigned' => 0,
+            'status' => 'available',
+        ]);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lot->id,
+            'movement_type' => 'damaged',
+            'quantity' => 2,
+        ]);
+        $this->assertDatabaseHas('reconciliation_items', [
+            'reconciliation_id' => $reconciliation->id,
+            'lot_id' => $lot->id,
+            'result' => 'partial',
+            'returned_quantity' => 1,
+            'damaged_quantity' => 2,
+        ]);
+    }
+
+    #[Test]
+    public function finalize_never_deducts_more_than_the_consigned_balance(): void
+    {
+        $consignment = $this->makeConfirmedConsignment();
+        $returnSession = $this->makeCompletedReturnSession($consignment);
+        $lot = Lot::query()->create([
+            'product_id' => $this->product->id,
+            'supplier_id' => $this->supplier->id,
+            'lot_number' => 'LOT-B-' . str()->upper(str()->random(6)),
+            'manufacturing_date' => '2026-01-01',
+            'status' => 'supplied',
+            'current_location_type' => 'client',
+            'current_location_id' => $this->client->id,
+            'received_at' => now(),
+            'quantity' => 2,
+            'quantity_available' => 0,
+            'quantity_consigned' => 2,
+        ]);
+        ConsignmentItem::query()->create([
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'quantity' => 2,
+            'issued_at' => now(),
+            'issued_by_user_id' => $this->actor->id,
+        ]);
+        ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lot->id,
+            'quantity' => 0,
+            'used_quantity' => 3,
+            'missing_quantity' => 1,
+            'returned_at' => now(),
+            'returned_by_user_id' => $this->actor->id,
+        ]);
+        $reconciliation = $this->makePendingReconciliation($consignment, $returnSession);
+
+        $this->service->finalize($reconciliation, $this->actor);
+
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'quantity_consigned' => 0,
+        ]);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lot->id,
+            'movement_type' => 'used',
+            'quantity' => 2,
+        ]);
+        $this->assertDatabaseMissing('lot_movements', [
+            'lot_id' => $lot->id,
+            'movement_type' => 'missing',
+        ]);
     }
 
     #[Test]

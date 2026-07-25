@@ -77,15 +77,21 @@ class ConsignmentConfirmService
 
                 $lot        = $item->lot;
                 $fromStatus = $lot->status;
+                $fromLocationType = $lot->current_location_type;
+                $fromLocationId = $lot->current_location_id;
 
                 $lot->quantity_available -= $item->quantity;
                 $lot->quantity_consigned += $item->quantity;
 
                 if ($lot->isFullyDepleted()) {
                     $lot->status = 'depleted';
-                    $lot->current_location_type = 'client';
-                    $lot->current_location_id   = $locked->client_id;
                 }
+
+                // A batch can be split between the warehouse and a client.
+                // The quantity balances retain that split, while the lot location
+                // must not continue to report the lot as wholly in the warehouse.
+                $lot->current_location_type = 'client';
+                $lot->current_location_id   = $locked->client_id;
 
                 LotMovement::query()->create([
                     'lot_id'               => $lot->id,
@@ -94,8 +100,8 @@ class ConsignmentConfirmService
                     'reference_id'         => $locked->id,
                     'from_status'          => $fromStatus,
                     'to_status'            => $lot->status,
-                    'from_location_type'   => $lot->current_location_type,
-                    'from_location_id'     => $lot->current_location_id,
+                    'from_location_type'   => $fromLocationType,
+                    'from_location_id'     => $fromLocationId,
                     'to_location_type'     => 'client',
                     'to_location_id'       => $locked->client_id,
                     'performed_at'         => now(),
@@ -202,15 +208,18 @@ class ConsignmentConfirmService
 
                 $deduct     = min($remaining, $lot->quantity_available);
                 $fromStatus = $lot->status;
+                $fromLocationType = $lot->current_location_type;
+                $fromLocationId = $lot->current_location_id;
 
                 $lot->quantity_available -= $deduct;
                 $lot->quantity_consigned += $deduct;
 
                 if ($lot->isFullyDepleted()) {
                     $lot->status = 'depleted';
-                    $lot->current_location_type = 'client';
-                    $lot->current_location_id   = $consignment->client_id;
                 }
+
+                $lot->current_location_type = 'client';
+                $lot->current_location_id   = $consignment->client_id;
 
                 LotMovement::query()->create([
                     'lot_id'               => $lot->id,
@@ -219,8 +228,8 @@ class ConsignmentConfirmService
                     'reference_id'         => $consignment->id,
                     'from_status'          => $fromStatus,
                     'to_status'            => $lot->status,
-                    'from_location_type'   => $lot->current_location_type, // Captures previous location
-                    'from_location_id'     => $lot->current_location_id,
+                    'from_location_type'   => $fromLocationType,
+                    'from_location_id'     => $fromLocationId,
                     'to_location_type'     => 'client',
                     'to_location_id'       => $consignment->client_id,
                     'performed_at'         => now(),

@@ -287,7 +287,7 @@
                             <td class="center">{{ $result->expected_quantity }}</td>
                             <td class="center">{{ $result->used_quantity }}</td>
                             <td class="center">{{ $result->returned_quantity }}</td>
-                            <td>{{ $setItem->remarks ?? '' }}</td>
+                            <td>{{ $result->remarks ?? '' }}</td>
                         </tr>
                     @empty
                         <tr>

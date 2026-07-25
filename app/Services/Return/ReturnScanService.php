@@ -227,6 +227,43 @@ class ReturnScanService
     }
 
     /**
+     * Update the editable remarks for a scanned item.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function updateItemRemarks(ReturnSession $session, ReturnSessionItem $item, array $data, User $actor): ReturnSessionItem
+    {
+        if ($session->status !== 'in_progress') {
+            throw new BusinessLogicException('Item remarks can only be updated in an in-progress return session.');
+        }
+
+        if ($item->return_session_id !== $session->id) {
+            throw new BusinessLogicException('This item does not belong to the specified return session.');
+        }
+
+        $before = $item->toArray();
+        $remarks = trim((string) ($data['remarks'] ?? ''));
+        $item->update(['remarks' => $remarks === '' ? null : $remarks]);
+
+        $this->auditLogService->logModelAction(
+            auditableType: ReturnSessionItem::class,
+            auditableId:   $item->id,
+            actionType:    AuditAction::RETURN_SESSION_ITEM_UPDATED,
+            actor:         $actor,
+            description:   "Updated remarks for item {$item->id} in return session {$session->return_session_no}",
+            before:        $before,
+            after:         $item->fresh()->toArray(),
+        );
+
+        return $item->refresh()->load([
+            'lot.product:id,ref_num,product_name',
+            'setInstrumentItems.product:id,ref_num,product_name',
+            'instrumentSet',
+            'product:id,ref_num,product_name',
+        ]);
+    }
+
+    /**
      * Resolve a Lot from either lot_id or lot_number.
      *
      * @param array<string, mixed> $data

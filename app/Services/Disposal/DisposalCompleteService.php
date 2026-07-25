@@ -61,6 +61,12 @@ class DisposalCompleteService
 
                 $fromStatus = $lot->status;
 
+                if ($item->quantity > $lot->quantity_available) {
+                    throw new BusinessLogicException(
+                        "Cannot dispose {$item->quantity} unit(s) — only {$lot->quantity_available} available for lot [{$lot->lot_number}]."
+                    );
+                }
+
                 $lot->quantity_available -= $item->quantity;
                 
                 if ($lot->isFullyDepleted()) {

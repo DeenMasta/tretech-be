@@ -95,22 +95,6 @@ class ReconciliationFinalizeService
             // ----------------------------------------------------------------
             // 3. Process Consigned Items (Handle used & returned quantities)
             // ----------------------------------------------------------------
-            $returnSessionItemsByKey = collect();
-            $returnSessionItems = ReturnSessionItem::query()
-                ->with('setInstrumentItems')
-                ->where('return_session_id', $locked->return_session_id)
-                ->get();
-
-            foreach ($returnSessionItems as $rsi) {
-                if ($rsi->lot_id) {
-                    $returnSessionItemsByKey->put('lot_' . $rsi->lot_id, $rsi);
-                } elseif ($rsi->instrument_set_id) {
-                    $returnSessionItemsByKey->put('set_' . $rsi->instrument_set_id, $rsi);
-                } elseif ($rsi->product_id) {
-                    $returnSessionItemsByKey->put('prod_' . $rsi->product_id, $rsi);
-                }
-            }
-
             ReconciliationItem::query()
                 ->where('reconciliation_id', $locked->id)
                 ->delete();
@@ -173,25 +157,33 @@ class ReconciliationFinalizeService
                     $lot = Lot::query()->lockForUpdate()->findOrFail($ci->lot_id);
 
                     if ($returnedQty > 0) {
-                        LotMovement::query()->create([
-                            'lot_id'               => $lot->id,
-                            'movement_type'        => 'returned',
-                            'reference_type'       => Reconciliation::class,
-                            'reference_id'         => $locked->id,
-                            'from_status'          => $lot->status,
-                            'to_status'            => 'available',
-                            'from_location_type'   => $lot->current_location_type,
-                            'from_location_id'     => $lot->current_location_id,
-                            'to_location_type'     => 'warehouse',
-                            'to_location_id'       => null,
-                            'performed_at'         => now(),
-                            'performed_by_user_id' => $actor->id,
-                            'remarks'              => "Returned via reconciliation {$locked->reconciliation_no}",
-                            'quantity'             => $returnedQty,
-                        ]);
+                        // Older consignments can have a movement record without
+                        // a matching quantity_consigned balance. Only release the
+                        // quantity that is still reserved, so a return cannot make
+                        // the unsigned balance negative or duplicate stock.
+                        $quantityToRelease = min($returnedQty, max(0, (int) $lot->quantity_consigned));
 
-                        $lot->quantity_available += $returnedQty;
-                        $lot->quantity_consigned -= $returnedQty;
+                        if ($quantityToRelease > 0) {
+                            LotMovement::query()->create([
+                                'lot_id'               => $lot->id,
+                                'movement_type'        => 'returned',
+                                'reference_type'       => Reconciliation::class,
+                                'reference_id'         => $locked->id,
+                                'from_status'          => $lot->status,
+                                'to_status'            => 'available',
+                                'from_location_type'   => $lot->current_location_type,
+                                'from_location_id'     => $lot->current_location_id,
+                                'to_location_type'     => 'warehouse',
+                                'to_location_id'       => null,
+                                'performed_at'         => now(),
+                                'performed_by_user_id' => $actor->id,
+                                'remarks'              => "Returned via reconciliation {$locked->reconciliation_no}",
+                                'quantity'             => $quantityToRelease,
+                            ]);
+
+                            $lot->quantity_available += $quantityToRelease;
+                            $lot->quantity_consigned -= $quantityToRelease;
+                        }
 
                         if ($lot->quantity_available > 0 && $lot->status === 'depleted') {
                             $lot->status = 'available';
@@ -199,83 +191,99 @@ class ReconciliationFinalizeService
                     }
 
                     if ($usedQty > 0) {
-                        $lot->quantity_consigned -= $usedQty;
-                        
-                        LotMovement::query()->create([
-                            'lot_id'               => $lot->id,
-                            'movement_type'        => 'used',
-                            'reference_type'       => Reconciliation::class,
-                            'reference_id'         => $locked->id,
-                            'from_status'          => $lot->status,
-                            'to_status'            => 'used',
-                            'from_location_type'   => $lot->current_location_type,
-                            'from_location_id'     => $lot->current_location_id,
-                            'to_location_type'     => $lot->current_location_type,
-                            'to_location_id'       => $lot->current_location_id,
-                            'performed_at'         => now(),
-                            'performed_by_user_id' => $actor->id,
-                            'remarks'              => "Marked used via reconciliation {$locked->reconciliation_no}",
-                            'quantity'             => $usedQty,
-                        ]);
+                        $quantityUsed = min($usedQty, max(0, (int) $lot->quantity_consigned));
+
+                        if ($quantityUsed > 0) {
+                            $lot->quantity_consigned -= $quantityUsed;
+
+                            LotMovement::query()->create([
+                                'lot_id'               => $lot->id,
+                                'movement_type'        => 'used',
+                                'reference_type'       => Reconciliation::class,
+                                'reference_id'         => $locked->id,
+                                'from_status'          => $lot->status,
+                                'to_status'            => 'used',
+                                'from_location_type'   => $lot->current_location_type,
+                                'from_location_id'     => $lot->current_location_id,
+                                'to_location_type'     => $lot->current_location_type,
+                                'to_location_id'       => $lot->current_location_id,
+                                'performed_at'         => now(),
+                                'performed_by_user_id' => $actor->id,
+                                'remarks'              => "Marked used via reconciliation {$locked->reconciliation_no}",
+                                'quantity'             => $quantityUsed,
+                            ]);
+                        }
                     }
 
                     if ($damagedQty > 0) {
-                        $lot->quantity_consigned -= $damagedQty;
-                        $lot->quantity_available += $damagedQty; // Wait, damaged goes back to warehouse but in different status? Let's assume it goes to 'damaged' status, but quantity is in warehouse.
+                        // Damaged stock is written off. It must never be returned
+                        // to quantity_available, which is the usable stock balance.
+                        $quantityToWriteOff = min($damagedQty, max(0, (int) $lot->quantity_consigned));
 
-                        LotMovement::query()->create([
-                            'lot_id'               => $lot->id,
-                            'movement_type'        => 'damaged',
-                            'reference_type'       => Reconciliation::class,
-                            'reference_id'         => $locked->id,
-                            'from_status'          => $lot->status,
-                            'to_status'            => 'damaged',
-                            'from_location_type'   => $lot->current_location_type,
-                            'from_location_id'     => $lot->current_location_id,
-                            'to_location_type'     => 'warehouse',
-                            'to_location_id'       => null,
-                            'performed_at'         => now(),
-                            'performed_by_user_id' => $actor->id,
-                            'remarks'              => "Marked damaged via reconciliation {$locked->reconciliation_no}",
-                            'quantity'             => $damagedQty,
-                        ]);
+                        if ($quantityToWriteOff > 0) {
+                            $lot->quantity_consigned -= $quantityToWriteOff;
+
+                            LotMovement::query()->create([
+                                'lot_id'               => $lot->id,
+                                'movement_type'        => 'damaged',
+                                'reference_type'       => Reconciliation::class,
+                                'reference_id'         => $locked->id,
+                                'from_status'          => $lot->status,
+                                'to_status'            => 'damaged',
+                                'from_location_type'   => $lot->current_location_type,
+                                'from_location_id'     => $lot->current_location_id,
+                                'to_location_type'     => 'warehouse',
+                                'to_location_id'       => null,
+                                'performed_at'         => now(),
+                                'performed_by_user_id' => $actor->id,
+                                'remarks'              => "Marked damaged via reconciliation {$locked->reconciliation_no}",
+                                'quantity'             => $quantityToWriteOff,
+                            ]);
+                        }
                     }
 
                     if ($missingQty > 0) {
-                        $lot->quantity_consigned -= $missingQty;
-                        // Missing quantity is removed from inventory. It is conceptually depleted/lost.
+                        $quantityMissing = min($missingQty, max(0, (int) $lot->quantity_consigned));
 
-                        LotMovement::query()->create([
-                            'lot_id'               => $lot->id,
-                            'movement_type'        => 'missing',
-                            'reference_type'       => Reconciliation::class,
-                            'reference_id'         => $locked->id,
-                            'from_status'          => $lot->status,
-                            'to_status'            => 'missing',
-                            'from_location_type'   => $lot->current_location_type,
-                            'from_location_id'     => $lot->current_location_id,
-                            'to_location_type'     => $lot->current_location_type,
-                            'to_location_id'       => $lot->current_location_id,
-                            'performed_at'         => now(),
-                            'performed_by_user_id' => $actor->id,
-                            'remarks'              => "Marked missing via reconciliation {$locked->reconciliation_no}",
-                            'quantity'             => $missingQty,
-                        ]);
+                        if ($quantityMissing > 0) {
+                            $lot->quantity_consigned -= $quantityMissing;
+                            // Missing quantity is removed from inventory. It is conceptually depleted/lost.
+
+                            LotMovement::query()->create([
+                                'lot_id'               => $lot->id,
+                                'movement_type'        => 'missing',
+                                'reference_type'       => Reconciliation::class,
+                                'reference_id'         => $locked->id,
+                                'from_status'          => $lot->status,
+                                'to_status'            => 'missing',
+                                'from_location_type'   => $lot->current_location_type,
+                                'from_location_id'     => $lot->current_location_id,
+                                'to_location_type'     => $lot->current_location_type,
+                                'to_location_id'       => $lot->current_location_id,
+                                'performed_at'         => now(),
+                                'performed_by_user_id' => $actor->id,
+                                'remarks'              => "Marked missing via reconciliation {$locked->reconciliation_no}",
+                                'quantity'             => $quantityMissing,
+                            ]);
+                        }
                     }
 
-                    if ($returnedQty > 0) {
-                        $lot->fill([
-                            'status' => 'available',
-                            'current_location_type' => 'warehouse',
-                            'current_location_id'   => null,
-                        ]);
-                    }
-                    if ($usedQty > 0 && $returnedQty === 0 && $damagedQty === 0 && $missingQty === 0) {
-                        $lot->fill(['status' => 'used']);
-                    } elseif ($damagedQty > 0 && $returnedQty === 0 && $usedQty === 0 && $missingQty === 0) {
-                        $lot->fill(['status' => 'damaged', 'current_location_type' => 'warehouse', 'current_location_id' => null]);
-                    } elseif ($missingQty > 0 && $returnedQty === 0 && $usedQty === 0 && $damagedQty === 0) {
-                        $lot->fill(['status' => 'missing']);
+                    // A batch lot can contain mixed outcomes. Its status must
+                    // describe whether it still has usable inventory; the exact
+                    // used, damaged, and missing quantities are retained in the
+                    // reconciliation item and lot movements.
+                    $finalStatus = match (true) {
+                        $lot->quantity_available > 0 => 'available',
+                        $damagedQty > 0 => 'damaged',
+                        $missingQty > 0 => 'missing',
+                        $usedQty > 0 => 'used',
+                        default => $lot->status,
+                    };
+
+                    $lot->status = $finalStatus;
+                    if (in_array($finalStatus, ['available', 'damaged'], true)) {
+                        $lot->current_location_type = 'warehouse';
+                        $lot->current_location_id = null;
                     }
                     $lot->save();
 
@@ -283,7 +291,7 @@ class ReconciliationFinalizeService
                         'reconciliation_id' => $locked->id,
                         'lot_id'            => $lot->id,
                         'result'            => $result,
-                        'remarks'           => null,
+                        'remarks'           => $returnItem?->remarks,
                         'quantity'          => $consignedQty,
                         'returned_quantity' => $returnedQty,
                         'used_quantity'     => $usedQty,
@@ -305,7 +313,7 @@ class ReconciliationFinalizeService
                         'reconciliation_id' => $locked->id,
                         'instrument_set_id' => $ci->instrument_set_id,
                         'result'            => $result,
-                        'remarks'           => null,
+                        'remarks'           => $returnItem?->remarks,
                         'quantity'          => $consignedQty,
                         'returned_quantity' => $returnedQty,
                         'used_quantity'     => $usedQty,
@@ -328,7 +336,7 @@ class ReconciliationFinalizeService
                         'reconciliation_id' => $locked->id,
                         'product_id'        => $ci->product_id,
                         'result'            => $result,
-                        'remarks'           => null,
+                        'remarks'           => $returnItem?->remarks,
                         'quantity'          => $consignedQty,
                         'returned_quantity' => $returnedQty,
                         'used_quantity'     => $usedQty,
@@ -455,6 +463,11 @@ class ReconciliationFinalizeService
                 $fromStatus = $lot->status;
                 $fromLocationType = $lot->current_location_type;
                 $fromLocationId = $lot->current_location_id;
+
+                $restoredQuantity = min($restoredQuantity, max(0, (int) $lot->quantity_consigned));
+                if ($restoredQuantity === 0) {
+                    continue;
+                }
 
                 $lot->quantity_available += $restoredQuantity;
                 $lot->quantity_consigned -= $restoredQuantity;

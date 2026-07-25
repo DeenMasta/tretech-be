@@ -63,6 +63,12 @@ class SupplierReturnCompleteService
                 $fromLocationType = $lot->current_location_type;
                 $fromLocationId = $lot->current_location_id;
 
+                if ($item->quantity > $lot->quantity_available) {
+                    throw new BusinessLogicException(
+                        "Cannot return {$item->quantity} unit(s) — only {$lot->quantity_available} available for lot [{$lot->lot_number}]."
+                    );
+                }
+
                 $lot->quantity_available -= $item->quantity;
 
                 if ($lot->isFullyDepleted()) {

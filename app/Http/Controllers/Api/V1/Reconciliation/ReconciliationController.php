@@ -6,8 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Reconciliation\FinalizeReconciliationRequest;
 use App\Http\Requests\Api\V1\Reconciliation\ReopenReconciliationRequest;
 use App\Http\Requests\Api\V1\Reconciliation\StoreReconciliationRequest;
+use App\Http\Requests\Api\V1\Reconciliation\UpdateReconciliationItemRemarksRequest;
+use App\Http\Requests\Api\V1\Reconciliation\UpdateReconciliationSetInstrumentResultRemarksRequest;
+use App\Http\Resources\Api\V1\Reconciliation\ReconciliationItemResource;
 use App\Http\Resources\Api\V1\Reconciliation\ReconciliationResource;
 use App\Models\Reconciliation;
+use App\Models\ReconciliationItem;
+use App\Models\ReconciliationSetInstrumentResult;
 use App\Services\Reconciliation\ReconciliationFinalizeService;
 use App\Services\Reconciliation\ReconciliationReopenService;
 use App\Services\Reconciliation\ReconciliationService;
@@ -89,6 +94,39 @@ class ReconciliationController extends Controller
             new ReconciliationResource($finalized),
             'Reconciliation finalized successfully'
         );
+    }
+
+    public function updateItemRemarks(UpdateReconciliationItemRemarksRequest $request, Reconciliation $reconciliation, ReconciliationItem $reconciliationItem): JsonResponse
+    {
+        $item = $this->reconciliationService->updateItemRemarks(
+            $reconciliation,
+            $reconciliationItem,
+            $request->validated(),
+            $request->user()
+        );
+
+        return $this->successResponse(new ReconciliationItemResource($item), 'Item remarks updated successfully');
+    }
+
+    public function updateSetComponentRemarks(
+        UpdateReconciliationSetInstrumentResultRemarksRequest $request,
+        Reconciliation $reconciliation,
+        ReconciliationItem $reconciliationItem,
+        ReconciliationSetInstrumentResult $component
+    ): JsonResponse {
+        $component = $this->reconciliationService->updateSetComponentRemarks(
+            $reconciliation,
+            $reconciliationItem,
+            $component,
+            $request->validated(),
+            $request->user()
+        );
+
+        return $this->successResponse([
+            'id' => $component->id,
+            'product_id' => $component->product_id,
+            'remarks' => $component->remarks,
+        ], 'Set component remarks updated successfully');
     }
 
     public function reopen(ReopenReconciliationRequest $request, Reconciliation $reconciliation): JsonResponse

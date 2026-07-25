@@ -203,7 +203,7 @@ class ReturnSessionService
                             ->where('lot_id', $lot->id)
                             ->where('holding_reason', 'Pending inspection after return')
                             ->delete();
-                    } elseif ($movement->movement_type === 'used') {
+                    } elseif (in_array($movement->movement_type, ['used', 'damaged', 'missing'], true)) {
                         $lot->quantity_consigned += $movement->quantity;
                     }
 

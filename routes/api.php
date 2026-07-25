@@ -305,6 +305,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:returns.view');
         Route::post('/{returnSession}/scan', [ReturnSessionController::class, 'scan'])
             ->middleware('permission:returns.create');
+        Route::patch('/{returnSession}/items/{returnSessionItem}', [ReturnSessionController::class, 'updateItemRemarks'])
+            ->middleware('permission:returns.create');
         Route::delete('/{returnSession}/items/{returnSessionItem}', [ReturnSessionController::class, 'removeItem'])
             ->middleware('permission:returns.create');
         Route::post('/{returnSession}/complete', [ReturnSessionController::class, 'complete'])
@@ -326,6 +328,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/{reconciliation}/print', [ReconciliationController::class, 'print'])
             ->middleware('permission:returns.view');
         Route::post('/{reconciliation}/finalize', [ReconciliationController::class, 'finalize'])
+            ->middleware('permission:returns.finalize');
+        Route::patch('/{reconciliation}/items/{reconciliationItem}', [ReconciliationController::class, 'updateItemRemarks'])
+            ->middleware('permission:returns.finalize');
+        Route::patch('/{reconciliation}/items/{reconciliationItem}/components/{component}', [ReconciliationController::class, 'updateSetComponentRemarks'])
             ->middleware('permission:returns.finalize');
         Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
             ->middleware('permission:returns.reopen_reconciliation');

@@ -601,6 +601,7 @@ composer test
 ```
 
 - Useful docs already in repository:
+  - `doc/INVENTORY_ANALYSIS.md`
   - `doc/POSTMAN_API_TESTING_GUIDE.md`
   - `doc/API_RESPONSE_STANDARD.md`
   - `doc/EXCEPTION_HANDLING.md`

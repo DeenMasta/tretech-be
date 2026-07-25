@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\ReturnSession;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ReturnSession\ScanReturnItemRequest;
 use App\Http\Requests\Api\V1\ReturnSession\StoreReturnSessionRequest;
+use App\Http\Requests\Api\V1\ReturnSession\UpdateReturnSessionItemRemarksRequest;
 use App\Http\Resources\Api\V1\ReturnSession\ReturnSessionItemResource;
 use App\Http\Resources\Api\V1\ReturnSession\ReturnSessionResource;
 use App\Models\ReturnSession;
@@ -80,6 +81,18 @@ class ReturnSessionController extends Controller
         $this->returnScanService->removeItem($returnSession, $returnSessionItem, $request->user());
 
         return $this->successResponse(null, 'Item removed from return session successfully');
+    }
+
+    public function updateItemRemarks(UpdateReturnSessionItemRemarksRequest $request, ReturnSession $returnSession, ReturnSessionItem $returnSessionItem): JsonResponse
+    {
+        $item = $this->returnScanService->updateItemRemarks(
+            $returnSession,
+            $returnSessionItem,
+            $request->validated(),
+            $request->user()
+        );
+
+        return $this->successResponse(new ReturnSessionItemResource($item), 'Item remarks updated successfully');
     }
 
     public function complete(Request $request, ReturnSession $returnSession): JsonResponse

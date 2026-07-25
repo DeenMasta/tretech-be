@@ -4,6 +4,8 @@ namespace App\Services\Reconciliation;
 
 use App\Enums\AuditAction;
 use App\Exceptions\BusinessLogicException;
+use App\Models\Lot;
+use App\Models\LotMovement;
 use App\Models\Reconciliation;
 use App\Models\ReconciliationItem;
 use App\Models\User;
@@ -20,7 +22,9 @@ class ReconciliationReopenService
     /**
      * Reopen a finalized reconciliation.
      *
-     * - Reverts used lots back to `supplied` so they remain under the consignment.
+     * - Reverts every reconciliation movement so each lot returns to its
+     *   pre-finalization balance, status, and location.
+     * - Removes the reversed movements so re-finalization starts from a clean slate.
      * - Deletes all reconciliation items so finalization can recompute cleanly.
      * - Clears completion timestamps; stores reopen reason/actor/timestamp.
      */
@@ -39,19 +43,41 @@ class ReconciliationReopenService
             }
 
             // ----------------------------------------------------------------
-            // 1. Revert used lots back to `supplied`
-            //    (They still belong to the consignment pending re-finalization)
+            // 1. Reverse every movement produced by finalization. Reverse order
+            //    is essential when one lot has several outcomes (for example,
+            //    partially returned and partially used).
             // ----------------------------------------------------------------
-            $usedItems = ReconciliationItem::query()
-                ->with('lot')
-                ->where('reconciliation_id', $locked->id)
-                ->where('result', 'used')
+            $movements = LotMovement::query()
+                ->where('reference_type', Reconciliation::class)
+                ->where('reference_id', $locked->id)
+                ->orderByDesc('id')
+                ->lockForUpdate()
                 ->get();
 
-            foreach ($usedItems as $item) {
-                if ($item->lot) {
-                    $item->lot->fill(['status' => 'supplied'])->save();
+            foreach ($movements as $movement) {
+                /** @var Lot|null $lot */
+                $lot = Lot::query()->lockForUpdate()->find($movement->lot_id);
+
+                if ($lot) {
+                    match ($movement->movement_type) {
+                        'returned' => $lot->fill([
+                            'quantity_available' => $lot->quantity_available - $movement->quantity,
+                            'quantity_consigned' => $lot->quantity_consigned + $movement->quantity,
+                        ]),
+                        'used', 'damaged', 'missing' => $lot->fill([
+                            'quantity_consigned' => $lot->quantity_consigned + $movement->quantity,
+                        ]),
+                        default => null,
+                    };
+
+                    $lot->fill([
+                        'status'                => $movement->from_status,
+                        'current_location_type' => $movement->from_location_type,
+                        'current_location_id'   => $movement->from_location_id,
+                    ])->save();
                 }
+
+                $movement->delete();
             }
 
             // ----------------------------------------------------------------

@@ -170,6 +170,153 @@ class ReturnAndReconciliationTest extends FeatureTestCase
         ]);
     }
 
+    public function test_can_update_return_session_item_remarks(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.create']);
+        $client = $this->createClient();
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-20250201-REMARKS',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-20250201-REMARKS',
+            'pic_user_id' => $user->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
+        ]);
+        $item = ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+            'remarks' => 'Initial remark',
+        ]);
+
+        $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
+            'remarks' => 'Returned with sealed packaging',
+        ])->assertOk()
+            ->assertJsonPath('data.remarks', 'Returned with sealed packaging');
+
+        $this->assertDatabaseHas('return_session_items', [
+            'id' => $item->id,
+            'remarks' => 'Returned with sealed packaging',
+        ]);
+
+        $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
+            'remarks' => '   ',
+        ])->assertOk()
+            ->assertJsonPath('data.remarks', null);
+
+        $this->assertDatabaseHas('return_session_items', [
+            'id' => $item->id,
+            'remarks' => null,
+        ]);
+    }
+
+    public function test_cannot_update_return_session_item_remarks_after_completion(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.create']);
+        $client = $this->createClient();
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-20250201-READONLY',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-20250201-READONLY',
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+        ]);
+        $item = ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+        ]);
+
+        $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
+            'remarks' => 'Should not save',
+        ])->assertStatus(400);
+    }
+
+    public function test_can_update_used_reconciliation_item_remarks(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
+        $client = $this->createClient();
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-20250201-USAGE-REMARKS',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-20250201-USAGE-REMARKS',
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+        ]);
+        $reconciliation = Reconciliation::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_id' => $returnSession->id,
+            'reconciliation_no' => 'TRC25-USAGE-REMARKS',
+            'pic_user_id' => $user->id,
+            'status' => 'finalized',
+        ]);
+        $lot = $this->createLot($product, $supplier, 'used');
+        $item = \App\Models\ReconciliationItem::query()->create([
+            'reconciliation_id' => $reconciliation->id,
+            'lot_id' => $lot->id,
+            'result' => 'used',
+        ]);
+
+        $this->patchJson("/api/v1/reconciliations/{$reconciliation->id}/items/{$item->id}", [
+            'remarks' => 'Opened and used during surgery',
+        ])->assertOk()
+            ->assertJsonPath('data.remarks', 'Opened and used during surgery');
+
+        $this->assertDatabaseHas('reconciliation_items', [
+            'id' => $item->id,
+            'remarks' => 'Opened and used during surgery',
+        ]);
+
+        $component = \App\Models\ReconciliationSetInstrumentResult::query()->create([
+            'reconciliation_item_id' => $item->id,
+            'product_id' => $product->id,
+            'expected_quantity' => 1,
+            'returned_quantity' => 0,
+            'used_quantity' => 1,
+            'missing_quantity' => 0,
+            'damaged_quantity' => 0,
+            'result' => 'used',
+        ]);
+
+        $this->patchJson("/api/v1/reconciliations/{$reconciliation->id}/items/{$item->id}/components/{$component->id}", [
+            'remarks' => 'Used component: reamer head',
+        ])->assertOk()
+            ->assertJsonPath('data.remarks', 'Used component: reamer head');
+
+        $this->assertDatabaseHas('reconciliation_set_instrument_results', [
+            'id' => $component->id,
+            'remarks' => 'Used component: reamer head',
+        ]);
+    }
+
     // -------------------------------------------------------------------------
     // Complete return session
     // -------------------------------------------------------------------------
@@ -210,12 +357,18 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'lot_id'               => $lot->id,
             'returned_at'          => now(),
             'returned_by_user_id'  => $user->id,
+            'remarks'              => 'Returned sealed',
         ]);
 
         $response = $this->postJson("/api/v1/return-sessions/{$returnSession->id}/complete");
 
         $response->assertOk()
             ->assertJsonPath('data.status', 'completed');
+
+        $this->assertDatabaseHas('reconciliation_items', [
+            'lot_id' => $lot->id,
+            'remarks' => 'Returned sealed',
+        ]);
     }
 
     // =========================================================================

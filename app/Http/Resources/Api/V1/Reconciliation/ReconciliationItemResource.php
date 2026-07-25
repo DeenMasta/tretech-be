@@ -46,6 +46,7 @@ class ReconciliationItemResource extends JsonResource
             'remarks'            => $this->remarks,
             'instrument_results' => $this->whenLoaded('setInstrumentResults', function () {
                 return $this->setInstrumentResults->map(fn ($item) => [
+                    'id'                => $item->id,
                     'product_id'        => $item->product_id,
                     'expected_quantity' => $item->expected_quantity,
                     'returned_quantity' => $item->returned_quantity,
@@ -53,6 +54,7 @@ class ReconciliationItemResource extends JsonResource
                     'missing_quantity'  => $item->missing_quantity,
                     'damaged_quantity'  => $item->damaged_quantity,
                     'result'            => $item->result,
+                    'remarks'           => $item->remarks,
                     'product'           => $item->relationLoaded('product') ? [
                         'id'           => $item->product?->id,
                         'product_name' => $item->product?->product_name,
