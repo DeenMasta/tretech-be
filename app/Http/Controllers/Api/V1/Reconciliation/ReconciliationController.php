@@ -10,6 +10,8 @@ use App\Http\Requests\Api\V1\Reconciliation\UpdateReconciliationItemRemarksReque
 use App\Http\Requests\Api\V1\Reconciliation\UpdateReconciliationSetInstrumentResultRemarksRequest;
 use App\Http\Resources\Api\V1\Reconciliation\ReconciliationItemResource;
 use App\Http\Resources\Api\V1\Reconciliation\ReconciliationResource;
+use App\Models\Consignment;
+use App\Models\LotMovement;
 use App\Models\Reconciliation;
 use App\Models\ReconciliationItem;
 use App\Models\ReconciliationSetInstrumentResult;
@@ -162,8 +164,28 @@ class ReconciliationController extends Controller
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ]);
 
+        // A generic set may draw one component from multiple FIFO lots. Use
+        // the original consignment movements so the reconciliation note shows
+        // the exact component lot number(s) that were supplied.
+        $componentLotNumbers = LotMovement::query()
+            ->with('lot:id,product_id,lot_number')
+            ->where('reference_type', Consignment::class)
+            ->where('reference_id', $reconciliation->consignment_id)
+            ->where('movement_type', 'consigned')
+            ->where('remarks', 'like', 'Set component consigned via%')
+            ->get()
+            ->groupBy(fn (LotMovement $movement) => $movement->lot?->product_id)
+            ->map(fn ($movements) => $movements
+                ->pluck('lot.lot_number')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all())
+            ->all();
+
         $pdf = Pdf::loadView('exports.reconciliation-note', [
             'reconciliation' => $reconciliation,
+            'componentLotNumbers' => $componentLotNumbers,
             'printedBy' => $request->user(),
         ])->setPaper('a4', 'portrait');
 

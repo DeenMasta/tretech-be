@@ -305,7 +305,7 @@
                             <td>{{ $subItem->product?->ref_num ?? '-' }}</td>
                             <td>{{ $subItem->product?->product_name ?? '-' }}</td>
                             <td class="center">{{ $subItem->quantity * ($setItem->proposed_quantity ?? 1) }}</td>
-                            <td>-</td>
+                            <td>{{ implode(', ', $componentLotNumbers[$subItem->product_id] ?? []) ?: '-' }}</td>
                             <td class="center">{{ $subItem->quantity * ($setItem->quantity ?? 1) }}</td>
                             <td class="center">{!! $qtyIn !!}</td>
                             <td>{{ $setItem->remarks ?? '' }}</td>

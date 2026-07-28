@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\Consignment\StoreConsignmentRequest;
 use App\Http\Requests\Api\V1\Consignment\UpdateConsignmentRequest;
 use App\Http\Resources\Api\V1\Consignment\ConsignmentResource;
 use App\Models\Consignment;
+use App\Models\LotMovement;
 use App\Services\Audit\AuditLogService;
 use App\Services\Consignment\ConsignmentConfirmService;
 use App\Services\Consignment\ConsignmentPostConfirmEditService;
@@ -161,8 +162,27 @@ class ConsignmentController extends Controller
             'returnSession.returnSessionItems.setInstrumentItems',
         ]);
 
+        // Generic instrument sets are supplied from their individual component
+        // lots. Keep the lot traceability visible on the consignment note.
+        $componentLotNumbers = LotMovement::query()
+            ->with('lot:id,product_id,lot_number')
+            ->where('reference_type', Consignment::class)
+            ->where('reference_id', $consignment->id)
+            ->where('movement_type', 'consigned')
+            ->where('remarks', 'like', 'Set component consigned via%')
+            ->get()
+            ->groupBy(fn (LotMovement $movement) => $movement->lot?->product_id)
+            ->map(fn ($movements) => $movements
+                ->pluck('lot.lot_number')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all())
+            ->all();
+
         $pdf = Pdf::loadView('exports.consignment-note', [
             'consignment' => $consignment,
+            'componentLotNumbers' => $componentLotNumbers,
             'printedBy' => $request->user(),
             'surgeon'   => $consignment->surgeon_name ?? $request->query('surgeon', ''),
             'dateCase'  => $consignment->case_date ? $consignment->case_date->format('Y-m-d') : $request->query('date_case', ''),

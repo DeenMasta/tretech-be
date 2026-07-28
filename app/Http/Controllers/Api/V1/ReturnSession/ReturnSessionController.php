@@ -8,6 +8,8 @@ use App\Http\Requests\Api\V1\ReturnSession\StoreReturnSessionRequest;
 use App\Http\Requests\Api\V1\ReturnSession\UpdateReturnSessionItemRemarksRequest;
 use App\Http\Resources\Api\V1\ReturnSession\ReturnSessionItemResource;
 use App\Http\Resources\Api\V1\ReturnSession\ReturnSessionResource;
+use App\Models\Consignment;
+use App\Models\LotMovement;
 use App\Models\ReturnSession;
 use App\Models\ReturnSessionItem;
 use App\Services\Return\ReturnScanService;
@@ -136,9 +138,26 @@ class ReturnSessionController extends Controller
             abort(404, 'No reconciliation report generated for this return session yet.');
         }
 
+        $componentLotNumbers = LotMovement::query()
+            ->with('lot:id,product_id,lot_number')
+            ->where('reference_type', Consignment::class)
+            ->where('reference_id', $returnSession->reconciliation->consignment_id)
+            ->where('movement_type', 'consigned')
+            ->where('remarks', 'like', 'Set component consigned via%')
+            ->get()
+            ->groupBy(fn (LotMovement $movement) => $movement->lot?->product_id)
+            ->map(fn ($movements) => $movements
+                ->pluck('lot.lot_number')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all())
+            ->all();
+
         // We use the existing reconciliation-note view, but pass the embedded reconciliation
         $pdf = Pdf::loadView('exports.reconciliation-note', [
             'reconciliation' => $returnSession->reconciliation,
+            'componentLotNumbers' => $componentLotNumbers,
             'printedBy' => $request->user(),
         ])->setPaper('a4', 'portrait');
 

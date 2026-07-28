@@ -283,7 +283,7 @@
                             <td class="center">{{ $setNo++ }}</td>
                             <td>{{ $result->product?->ref_num ?? '-' }}</td>
                             <td>{{ $result->product?->product_name ?? '-' }}</td>
-                            <td>-</td>
+                            <td>{{ implode(', ', $componentLotNumbers[$result->product_id] ?? []) ?: ($setItem->lot?->lot_number ?? '-') }}</td>
                             <td class="center">{{ $result->expected_quantity }}</td>
                             <td class="center">{{ $result->used_quantity }}</td>
                             <td class="center">{{ $result->returned_quantity }}</td>
