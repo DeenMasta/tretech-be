@@ -66,6 +66,7 @@ class ReturnSessionController extends Controller
             'reconciliation.reconciliationItems.instrumentSet:id,set_name',
             'reconciliation.reconciliationItems.product:id,ref_num,product_name',
             'reconciliation.reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
+            'reconciliation.componentConsignmentMovements.lot:id,product_id,lot_number',
         ])->loadCount('returnSessionItems');
 
         return $this->successResponse(new ReturnSessionResource($returnSession), 'Return session fetched successfully');

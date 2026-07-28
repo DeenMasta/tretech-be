@@ -39,12 +39,16 @@ class ConsignmentItemResource extends JsonResource
                 }
 
                 $items = [];
+                $componentLotNumbersByProduct = $this->getAttribute('component_lot_numbers_by_product') ?? [];
                 if ($this->instrumentSet->relationLoaded('instrumentSetItems')) {
                     foreach ($this->instrumentSet->instrumentSetItems as $inst) {
                         $items[] = [
                             'id'           => $inst->id,
+                            'product_id'   => $inst->product_id,
                             'product_name' => $inst->product?->product_name ?? 'Unknown',
+                            'ref_num'      => $inst->product?->ref_num,
                             'quantity'     => $inst->quantity,
+                            'lot_numbers'  => $componentLotNumbersByProduct[$inst->product_id] ?? [],
                         ];
                     }
                 }

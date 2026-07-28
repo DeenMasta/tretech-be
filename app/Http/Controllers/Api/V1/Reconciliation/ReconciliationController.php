@@ -80,6 +80,7 @@ class ReconciliationController extends Controller
             'reconciliationItems.lot.instrumentSet:id,set_code,set_name',
             'reconciliationItems.instrumentSet:id,set_code,set_name',
             'reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
+            'componentConsignmentMovements.lot:id,product_id,lot_number',
         ])->loadCount('reconciliationItems');
 
         return $this->successResponse(

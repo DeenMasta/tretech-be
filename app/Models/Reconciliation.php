@@ -50,4 +50,16 @@ class Reconciliation extends Model
     {
         return $this->hasMany('App\\Models\\ReconciliationItem');
     }
+
+    /**
+     * Component lots consumed while supplying generic instrument sets for this
+     * reconciliation's consignment.
+     */
+    public function componentConsignmentMovements(): HasMany
+    {
+        return $this->hasMany('App\\Models\\LotMovement', 'reference_id', 'consignment_id')
+            ->where('reference_type', Consignment::class)
+            ->where('movement_type', 'consigned')
+            ->where('remarks', 'like', 'Set component consigned via%');
+    }
 }

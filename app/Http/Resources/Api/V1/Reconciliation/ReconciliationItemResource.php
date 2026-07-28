@@ -55,6 +55,7 @@ class ReconciliationItemResource extends JsonResource
                     'damaged_quantity'  => $item->damaged_quantity,
                     'result'            => $item->result,
                     'remarks'           => $item->remarks,
+                    'lot_numbers'       => $item->getAttribute('lot_numbers') ?? [],
                     'product'           => $item->relationLoaded('product') ? [
                         'id'           => $item->product?->id,
                         'product_name' => $item->product?->product_name,

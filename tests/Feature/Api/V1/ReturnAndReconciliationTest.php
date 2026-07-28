@@ -601,7 +601,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_reconciliation_finalize_restores_returned_generic_set_components_to_inventory(): void
     {
-        $user = $this->makeUserWithPermissions(['returns.finalize']);
+        $user = $this->makeUserWithPermissions(['consignments.view', 'returns.finalize', 'returns.view']);
         $client = $this->createClient();
         $supplier = $this->createSupplier();
         $product = $this->createProduct();
@@ -707,6 +707,18 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'reference_id' => $reconciliation->id,
             'quantity' => 2,
         ]);
+
+        $this->getJson("/api/v1/reconciliations/{$reconciliation->id}")
+            ->assertOk()
+            ->assertJsonPath('data.items.0.instrument_results.0.lot_numbers.0', 'COMP-RESTOCK-01');
+
+        $this->getJson("/api/v1/return-sessions/{$returnSession->id}")
+            ->assertOk()
+            ->assertJsonPath('data.reconciliation.items.0.instrument_results.0.lot_numbers.0', 'COMP-RESTOCK-01');
+
+        $this->getJson("/api/v1/consignments/{$consignment->id}")
+            ->assertOk()
+            ->assertJsonPath('data.items.0.instrument_set.components.0.lot_numbers.0', 'COMP-RESTOCK-01');
     }
 
     public function test_cannot_finalize_reconciliation_with_no_consigned_lots(): void

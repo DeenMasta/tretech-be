@@ -12,6 +12,20 @@ class ReconciliationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $componentLotNumbersByProduct = [];
+
+        if ($this->relationLoaded('componentConsignmentMovements')) {
+            $componentLotNumbersByProduct = $this->componentConsignmentMovements
+                ->groupBy(fn ($movement) => $movement->lot?->product_id)
+                ->map(fn ($movements) => $movements
+                    ->pluck('lot.lot_number')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all())
+                ->all();
+        }
+
         // Compute summary from loaded items
         $summary = null;
         if ($this->relationLoaded('reconciliationItems')) {
@@ -23,6 +37,28 @@ class ReconciliationResource extends JsonResource
                 'total_returned'  => $returned,
                 'total_used'      => $used,
             ];
+
+            foreach ($items as $reconciliationItem) {
+                if (!$reconciliationItem->relationLoaded('setInstrumentResults')) {
+                    continue;
+                }
+
+                $parentLotNumber = $reconciliationItem->relationLoaded('lot')
+                    ? $reconciliationItem->lot?->lot_number
+                    : null;
+
+                foreach ($reconciliationItem->setInstrumentResults as $component) {
+                    $lotNumbers = $componentLotNumbersByProduct[$component->product_id] ?? [];
+
+                    // Physical set instances have one set lot rather than a
+                    // dedicated lot for every component.
+                    if ($lotNumbers === [] && $parentLotNumber) {
+                        $lotNumbers = [$parentLotNumber];
+                    }
+
+                    $component->setAttribute('lot_numbers', $lotNumbers);
+                }
+            }
         }
 
         return [
