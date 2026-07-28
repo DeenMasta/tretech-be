@@ -3,10 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Client;
+use App\Models\InstrumentSet;
 use App\Models\Product;
 use App\Models\Supplier;
-use App\Models\InstrumentSet;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class SampleMasterDataSeeder extends Seeder
 {
@@ -200,7 +201,7 @@ class SampleMasterDataSeeder extends Seeder
                 'category' => 'General Surgery',
                 'uom' => 'pcs',
                 'requires_expiry' => false,
-                'requires_lot' => false, // often metal instruments don't track lot tightly in inventory until set level
+                'requires_lot' => true,
                 'is_active' => true,
             ],
         ];
@@ -308,7 +309,7 @@ class SampleMasterDataSeeder extends Seeder
 
             foreach ($instruments as $instrumentData) {
                 // 1. Ensure the product exists
-                $refNum = $instrumentData['code'] ?? ('INST-AUTO-' . strtoupper(substr(md5($instrumentData['name']), 0, 6)));
+                $refNum = $instrumentData['code'] ?? ('INST-AUTO-'.strtoupper(substr(md5($instrumentData['name']), 0, 6)));
 
                 $product = Product::query()->firstOrCreate(
                     ['ref_num' => $refNum],
@@ -318,13 +319,19 @@ class SampleMasterDataSeeder extends Seeder
                         'category' => 'Instrument Set Component',
                         'uom' => 'pcs',
                         'requires_expiry' => false,
-                        'requires_lot' => false,
+                        'requires_lot' => true,
                         'is_active' => true,
                     ]
                 );
 
+                // Existing component products must also follow the lot-tracking
+                // rule when this idempotent seed is run again.
+                if (! $product->requires_lot) {
+                    $product->update(['requires_lot' => true]);
+                }
+
                 // 2. Link it in instrument_set_items
-                \Illuminate\Support\Facades\DB::table('instrument_set_items')->updateOrInsert(
+                DB::table('instrument_set_items')->updateOrInsert(
                     [
                         'instrument_set_id' => $set->id,
                         'product_id' => $product->id,

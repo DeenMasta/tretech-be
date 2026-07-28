@@ -203,6 +203,34 @@ class MasterDataEndpointsTest extends TestCase
         ]);
     }
 
+    public function test_instrument_products_always_require_lot_tracking(): void
+    {
+        $user = $this->makeUserWithPermissions(['products.create', 'products.edit']);
+        Sanctum::actingAs($user);
+
+        $created = $this->postJson('/api/v1/master-data/products', [
+            'ref_num' => 'INS-LOT-001',
+            'product_name' => 'Lot-tracked Forceps',
+            'product_type' => 'Instrument',
+            'uom' => 'pcs',
+            'requires_lot' => false,
+            'is_active' => true,
+        ])->assertCreated()
+            ->assertJsonPath('data.requires_lot', true);
+
+        $productId = (int) $created->json('data.id');
+
+        $this->patchJson("/api/v1/master-data/products/{$productId}", [
+            'requires_lot' => false,
+        ])->assertOk()
+            ->assertJsonPath('data.requires_lot', true);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'requires_lot' => true,
+        ]);
+    }
+
     public function test_store_endpoints_for_other_master_data_modules_are_reachable_with_permissions(): void
     {
         $user = $this->makeUserWithPermissions([
@@ -269,7 +297,7 @@ class MasterDataEndpointsTest extends TestCase
             'category' => 'surgical',
             'uom' => 'pcs',
             'requires_expiry' => false,
-            'requires_lot' => false,
+            'requires_lot' => true,
             'is_active' => true,
         ]);
 
@@ -280,7 +308,7 @@ class MasterDataEndpointsTest extends TestCase
             'category' => 'surgical',
             'uom' => 'pcs',
             'requires_expiry' => false,
-            'requires_lot' => false,
+            'requires_lot' => true,
             'is_active' => true,
         ]);
 
@@ -331,13 +359,13 @@ class MasterDataEndpointsTest extends TestCase
     }
 
     /**
-     * @param array<int, string> $permissionCodes
+     * @param  array<int, string>  $permissionCodes
      */
     private function makeUserWithPermissions(array $permissionCodes): User
     {
         $role = Role::query()->create([
-            'role_code' => 'test_role_' . str()->lower(str()->random(10)),
-            'role_name' => 'Test Role ' . str()->random(5),
+            'role_code' => 'test_role_'.str()->lower(str()->random(10)),
+            'role_name' => 'Test Role '.str()->random(5),
         ]);
 
         if ($permissionCodes !== []) {
@@ -352,7 +380,7 @@ class MasterDataEndpointsTest extends TestCase
         return User::query()->create([
             'role_id' => $role->id,
             'full_name' => 'Feature Tester',
-            'email' => 'tester_' . str()->lower(str()->random(8)) . '@example.test',
+            'email' => 'tester_'.str()->lower(str()->random(8)).'@example.test',
             'password_hash' => 'Password123!',
             'is_active' => true,
         ]);

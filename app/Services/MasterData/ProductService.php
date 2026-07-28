@@ -8,7 +8,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class ProductService
 {
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      */
     public function paginate(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
@@ -48,19 +48,19 @@ class ProductService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function create(array $data): Product
     {
-        return Product::query()->create($data);
+        return Product::query()->create($this->enforceInstrumentLotTracking($data));
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function update(Product $product, array $data): Product
     {
-        $product->fill($data)->save();
+        $product->fill($this->enforceInstrumentLotTracking($data, $product))->save();
 
         return $product->refresh();
     }
@@ -68,5 +68,23 @@ class ProductService
     public function delete(Product $product): void
     {
         $product->delete();
+    }
+
+    /**
+     * Instruments must always retain lot tracking, including when a product is
+     * updated without resubmitting its product type.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function enforceInstrumentLotTracking(array $data, ?Product $product = null): array
+    {
+        $productType = $data['product_type'] ?? $product?->product_type;
+
+        if (is_string($productType) && strcasecmp(trim($productType), 'instrument') === 0) {
+            $data['requires_lot'] = true;
+        }
+
+        return $data;
     }
 }
