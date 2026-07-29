@@ -61,10 +61,6 @@ class ConsignmentResource extends JsonResource
             }),
             'last_post_confirm_edit_reason' => $this->last_post_confirm_edit_reason,
             'items_count' => $this->whenCounted('consignmentItems'),
-            'lot_numbers' => $this->when(
-                $this->getAttribute('lot_numbers') !== null,
-                fn () => $this->getAttribute('lot_numbers')
-            ),
             'items'       => $this->whenLoaded('consignmentItems', fn () =>
                 ConsignmentItemResource::collection($this->consignmentItems)
             ),

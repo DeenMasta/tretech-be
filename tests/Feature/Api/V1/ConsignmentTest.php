@@ -4,7 +4,10 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Consignment;
 use App\Models\ConsignmentItem;
+use App\Models\InstrumentSet;
+use App\Models\InstrumentSetItem;
 use App\Models\Lot;
+use App\Models\LotMovement;
 use Laravel\Sanctum\Sanctum;
 
 class ConsignmentTest extends FeatureTestCase
@@ -48,35 +51,6 @@ class ConsignmentTest extends FeatureTestCase
             ->assertJsonStructure(['data', 'pagination' => ['total']]);
 
         $this->assertGreaterThanOrEqual(1, $response->json('pagination.total'));
-    }
-
-    public function test_consignment_list_includes_lot_numbers(): void
-    {
-        $user     = $this->makeUserWithPermissions(['consignments.view']);
-        $client   = $this->createClient();
-        $product  = $this->createProduct();
-        $supplier = $this->createSupplier();
-        Sanctum::actingAs($user);
-
-        $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
-            'consignment_no' => 'CN-20250101-0003',
-            'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'draft',
-        ]);
-        $lot = $this->createLot($product, $supplier, 'available', 'LOT-LIST-001');
-
-        ConsignmentItem::query()->create([
-            'consignment_id'    => $consignment->id,
-            'lot_id'            => $lot->id,
-            'issued_at'         => now(),
-            'issued_by_user_id' => $user->id,
-        ]);
-
-        $this->getJson('/api/v1/consignments')
-            ->assertOk()
-            ->assertJsonPath('data.0.lot_numbers.0', 'LOT-LIST-001');
     }
 
     // -------------------------------------------------------------------------
@@ -300,6 +274,55 @@ class ConsignmentTest extends FeatureTestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('consignment_items', ['id' => $item->id]);
+    }
+
+    public function test_consignment_item_list_includes_set_component_lot_numbers(): void
+    {
+        $user     = $this->makeUserWithPermissions(['consignments.view']);
+        $client   = $this->createClient();
+        $product  = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id'      => $client->id,
+            'consignment_no' => 'CN-20250101-0031',
+            'consignment_at' => now(),
+            'pic_user_id'    => $user->id,
+            'status'         => 'confirmed',
+        ]);
+        $set = InstrumentSet::query()->create([
+            'set_code' => 'SET-LIST-001',
+            'set_name' => 'Set list test',
+            'is_active' => true,
+        ]);
+        InstrumentSetItem::query()->create([
+            'instrument_set_id' => $set->id,
+            'product_id'        => $product->id,
+            'quantity'          => 1,
+        ]);
+        $lot = $this->createLot($product, $supplier, 'depleted', 'SET-COMP-LOT-001');
+
+        ConsignmentItem::query()->create([
+            'consignment_id'    => $consignment->id,
+            'entry_kind'        => 'set',
+            'instrument_set_id' => $set->id,
+            'issued_at'         => now(),
+            'issued_by_user_id' => $user->id,
+        ]);
+        LotMovement::query()->create([
+            'lot_id'               => $lot->id,
+            'movement_type'        => 'consigned',
+            'reference_type'       => Consignment::class,
+            'reference_id'         => $consignment->id,
+            'performed_at'         => now(),
+            'performed_by_user_id' => $user->id,
+            'remarks'              => "Set component consigned via {$consignment->consignment_no} (set: {$set->set_name})",
+        ]);
+
+        $this->getJson("/api/v1/consignments/{$consignment->id}/items")
+            ->assertOk()
+            ->assertJsonPath('data.0.instrument_set.components.0.lot_numbers.0', 'SET-COMP-LOT-001');
     }
 
     // -------------------------------------------------------------------------
