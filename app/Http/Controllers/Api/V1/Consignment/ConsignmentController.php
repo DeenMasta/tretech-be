@@ -38,6 +38,19 @@ class ConsignmentController extends Controller
             $perPage
         );
 
+        $paginator->getCollection()->each(function (Consignment $consignment): void {
+            $consignment->setAttribute(
+                'lot_numbers',
+                $consignment->consignmentItems
+                    ->pluck('lot.lot_number')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+            $consignment->unsetRelation('consignmentItems');
+        });
+
         return $this->paginatedResponse(
             items: ConsignmentResource::collection($paginator->items())->resolve(),
             total: $paginator->total(),

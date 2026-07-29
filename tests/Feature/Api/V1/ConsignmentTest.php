@@ -50,6 +50,35 @@ class ConsignmentTest extends FeatureTestCase
         $this->assertGreaterThanOrEqual(1, $response->json('pagination.total'));
     }
 
+    public function test_consignment_list_includes_lot_numbers(): void
+    {
+        $user     = $this->makeUserWithPermissions(['consignments.view']);
+        $client   = $this->createClient();
+        $product  = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id'      => $client->id,
+            'consignment_no' => 'CN-20250101-0003',
+            'consignment_at' => now(),
+            'pic_user_id'    => $user->id,
+            'status'         => 'draft',
+        ]);
+        $lot = $this->createLot($product, $supplier, 'available', 'LOT-LIST-001');
+
+        ConsignmentItem::query()->create([
+            'consignment_id'    => $consignment->id,
+            'lot_id'            => $lot->id,
+            'issued_at'         => now(),
+            'issued_by_user_id' => $user->id,
+        ]);
+
+        $this->getJson('/api/v1/consignments')
+            ->assertOk()
+            ->assertJsonPath('data.0.lot_numbers.0', 'LOT-LIST-001');
+    }
+
     // -------------------------------------------------------------------------
     // Store
     // -------------------------------------------------------------------------

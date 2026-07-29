@@ -21,7 +21,11 @@ class ConsignmentService
         $hasReturnSession = $filters['has_return_session'] ?? null;
 
         return Consignment::query()
-            ->with(['client:id,client_name', 'picUser:id,full_name'])
+            ->with([
+                'client:id,client_name',
+                'picUser:id,full_name',
+                'consignmentItems.lot:id,lot_number',
+            ])
             ->withCount('consignmentItems')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where('consignment_no', 'like', "%{$search}%");
