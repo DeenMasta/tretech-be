@@ -12,17 +12,8 @@ class ConsignmentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        if ($this->relationLoaded('componentConsignmentMovements') && $this->relationLoaded('consignmentItems')) {
-            $componentLotNumbersByProduct = $this->componentConsignmentMovements
-                ->groupBy(fn ($movement) => $movement->lot?->product_id)
-                ->map(fn ($movements) => $movements
-                    ->pluck('lot.lot_number')
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all())
-                ->all();
-
+        if ($this->relationLoaded('consignmentItems')) {
+            $componentLotNumbersByProduct = $this->getAttribute('component_lot_numbers_by_product') ?? [];
             foreach ($this->consignmentItems as $item) {
                 $item->setAttribute('component_lot_numbers_by_product', $componentLotNumbersByProduct);
             }

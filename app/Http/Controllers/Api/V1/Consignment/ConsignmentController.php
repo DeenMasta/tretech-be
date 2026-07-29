@@ -77,8 +77,9 @@ class ConsignmentController extends Controller
             'lastPostConfirmEditByUser:id,full_name',
             'consignmentItems.lot.product:id,ref_num,product_name,product_type',
             'consignmentItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
-            'componentConsignmentMovements.lot:id,product_id,lot_number',
         ])->loadCount('consignmentItems');
+
+        $consignment->setAttribute('component_lot_numbers_by_product', $this->componentLotNumbers($consignment));
 
         return $this->successResponse(new ConsignmentResource($consignment), 'Consignment fetched successfully');
     }
@@ -134,8 +135,9 @@ class ConsignmentController extends Controller
             'picUser:id,full_name',
             'consignmentItems.lot.product:id,ref_num,product_name',
             'consignmentItems.instrumentSet.instrumentSetItems.product:id,ref_num,product_name',
-            'componentConsignmentMovements.lot:id,product_id,lot_number',
         ])->loadCount('consignmentItems');
+
+        $consignment->setAttribute('component_lot_numbers_by_product', $this->componentLotNumbers($consignment));
 
         return $this->successResponse(new ConsignmentResource($consignment), 'Consignment review fetched successfully');
     }
@@ -168,7 +170,28 @@ class ConsignmentController extends Controller
 
         // Generic instrument sets are supplied from their individual component
         // lots. Keep the lot traceability visible on the consignment note.
-        $componentLotNumbers = LotMovement::query()
+        $componentLotNumbers = $this->componentLotNumbers($consignment);
+
+        $pdf = Pdf::loadView('exports.consignment-note', [
+            'consignment' => $consignment,
+            'componentLotNumbers' => $componentLotNumbers,
+            'printedBy' => $request->user(),
+            'surgeon'   => $consignment->surgeon_name ?? $request->query('surgeon', ''),
+            'dateCase'  => $consignment->case_date ? $consignment->case_date->format('Y-m-d') : $request->query('date_case', ''),
+            'case'      => $consignment->case_name ?? $request->query('case', ''),
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = sprintf('consignment_%s_%s.pdf', $consignment->consignment_no, now()->format('Ymd_His'));
+
+        return $pdf->download($fileName);
+    }
+
+    /**
+     * @return array<int, array<int, string>>
+     */
+    private function componentLotNumbers(Consignment $consignment): array
+    {
+        return LotMovement::query()
             ->with('lot:id,product_id,lot_number')
             ->where('reference_type', Consignment::class)
             ->where('reference_id', $consignment->id)
@@ -183,18 +206,5 @@ class ConsignmentController extends Controller
                 ->values()
                 ->all())
             ->all();
-
-        $pdf = Pdf::loadView('exports.consignment-note', [
-            'consignment' => $consignment,
-            'componentLotNumbers' => $componentLotNumbers,
-            'printedBy' => $request->user(),
-            'surgeon'   => $consignment->surgeon_name ?? $request->query('surgeon', ''),
-            'dateCase'  => $consignment->case_date ? $consignment->case_date->format('Y-m-d') : $request->query('date_case', ''),
-            'case'      => $consignment->case_name ?? $request->query('case', ''),
-        ])->setPaper('a4', 'portrait');
-
-        $fileName = sprintf('consignment_%s_%s.pdf', $consignment->consignment_no, now()->format('Ymd_His'));
-
-        return $pdf->download($fileName);
     }
 }
