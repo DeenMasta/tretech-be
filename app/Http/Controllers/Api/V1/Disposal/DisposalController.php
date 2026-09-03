@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Disposal;
 
 use App\Enums\AuditAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Disposal\ReopenDisposalRequest;
 use App\Http\Requests\Api\V1\Disposal\StoreDisposalItemRequest;
 use App\Http\Requests\Api\V1\Disposal\StoreDisposalRequest;
 use App\Http\Requests\Api\V1\Disposal\UpdateDisposalRequest;
@@ -14,6 +15,7 @@ use App\Models\DisposalItem;
 use App\Services\Audit\AuditLogService;
 use App\Services\Disposal\DisposalCompleteService;
 use App\Services\Disposal\DisposalItemService;
+use App\Services\Disposal\DisposalReopenService;
 use App\Services\Disposal\DisposalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,7 @@ class DisposalController extends Controller
         private readonly DisposalService         $disposalService,
         private readonly DisposalItemService     $disposalItemService,
         private readonly DisposalCompleteService $disposalCompleteService,
+        private readonly DisposalReopenService   $disposalReopenService,
         private readonly AuditLogService         $auditLogService,
     ) {
     }
@@ -180,6 +183,27 @@ class DisposalController extends Controller
         return $this->successResponse(
             new DisposalResource($completed),
             'Disposal completed successfully'
+        );
+    }
+
+    public function reopen(ReopenDisposalRequest $request, Disposal $disposal): JsonResponse
+    {
+        $reopened = $this->disposalReopenService->reopen(
+            $disposal,
+            $request->validated('reopen_reason'),
+            $request->user(),
+        );
+
+        $reopened->load([
+            'picUser:id,full_name',
+            'completedByUser:id,full_name',
+            'disposalItems.lot.product:id,ref_num,product_name',
+            'disposalItems.lot.supplier:id,supplier_name',
+        ])->loadCount('disposalItems');
+
+        return $this->successResponse(
+            new DisposalResource($reopened),
+            'Disposal reopened successfully'
         );
     }
 }

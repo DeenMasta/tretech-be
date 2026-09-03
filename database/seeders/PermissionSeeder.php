@@ -70,8 +70,10 @@ class PermissionSeeder extends Seeder
             // Disposal & Returns
             'Disposal & Returns' => [
                 ['code' => 'disposals.create', 'name' => 'Dispose Units'],
+                ['code' => 'disposals.reopen_completed', 'name' => 'Reopen Completed Disposals'],
                 ['code' => 'supplier_returns.view', 'name' => 'View Supplier Returns'],
                 ['code' => 'supplier_returns.create', 'name' => 'Return Units to Supplier'],
+                ['code' => 'supplier_returns.reopen_completed', 'name' => 'Reopen Completed Supplier Returns'],
                 ['code' => 'disposals.view', 'name' => 'View Disposal/Return History'],
             ],
 
@@ -135,7 +137,7 @@ class PermissionSeeder extends Seeder
                 'qr_labels.print', 'qr_labels.reprint', 'qr_labels.view_jobs',
                 'consignments.create', 'consignments.view', 'consignments.confirm', 'consignments.edit_draft', 'consignments.edit_confirmed',
                 'returns.create', 'returns.view', 'returns.finalize', 'returns.reopen_reconciliation',
-                'disposals.create', 'supplier_returns.view', 'supplier_returns.create', 'disposals.view',
+                'disposals.create', 'disposals.reopen_completed', 'supplier_returns.view', 'supplier_returns.create', 'supplier_returns.reopen_completed', 'disposals.view',
                 'holding_area.view', 'holding_area.assign_lot',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
                 'audit.view_logs', 'audit.export_logs',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\SupplierReturn;
 
 use App\Enums\AuditAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\SupplierReturn\ReopenSupplierReturnRequest;
 use App\Http\Requests\Api\V1\SupplierReturn\StoreSupplierReturnItemRequest;
 use App\Http\Requests\Api\V1\SupplierReturn\StoreSupplierReturnRequest;
 use App\Http\Requests\Api\V1\SupplierReturn\UpdateSupplierReturnRequest;
@@ -14,6 +15,7 @@ use App\Models\SupplierReturnItem;
 use App\Services\Audit\AuditLogService;
 use App\Services\SupplierReturn\SupplierReturnCompleteService;
 use App\Services\SupplierReturn\SupplierReturnItemService;
+use App\Services\SupplierReturn\SupplierReturnReopenService;
 use App\Services\SupplierReturn\SupplierReturnService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,7 @@ class SupplierReturnController extends Controller
         private readonly SupplierReturnService         $supplierReturnService,
         private readonly SupplierReturnItemService     $supplierReturnItemService,
         private readonly SupplierReturnCompleteService $supplierReturnCompleteService,
+        private readonly SupplierReturnReopenService   $supplierReturnReopenService,
         private readonly AuditLogService               $auditLogService,
     ) {
     }
@@ -189,6 +192,28 @@ class SupplierReturnController extends Controller
         return $this->successResponse(
             new SupplierReturnResource($completed),
             'Supplier return completed successfully'
+        );
+    }
+
+    public function reopen(ReopenSupplierReturnRequest $request, SupplierReturn $supplierReturn): JsonResponse
+    {
+        $reopened = $this->supplierReturnReopenService->reopen(
+            $supplierReturn,
+            $request->validated('reopen_reason'),
+            $request->user(),
+        );
+
+        $reopened->load([
+            'supplier:id,supplier_name',
+            'picUser:id,full_name',
+            'completedByUser:id,full_name',
+            'supplierReturnItems.lot.product:id,ref_num,product_name',
+            'supplierReturnItems.lot.supplier:id,supplier_name',
+        ])->loadCount('supplierReturnItems');
+
+        return $this->successResponse(
+            new SupplierReturnResource($reopened),
+            'Supplier return reopened successfully'
         );
     }
 }

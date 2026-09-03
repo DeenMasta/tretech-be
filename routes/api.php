@@ -330,9 +330,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/{reconciliation}/finalize', [ReconciliationController::class, 'finalize'])
             ->middleware('permission:returns.finalize');
         Route::patch('/{reconciliation}/items/{reconciliationItem}', [ReconciliationController::class, 'updateItemRemarks'])
-            ->middleware('permission:returns.finalize');
+            ->middleware('permission:returns.reopen_reconciliation');
         Route::patch('/{reconciliation}/items/{reconciliationItem}/components/{component}', [ReconciliationController::class, 'updateSetComponentRemarks'])
-            ->middleware('permission:returns.finalize');
+            ->middleware('permission:returns.reopen_reconciliation');
         Route::post('/{reconciliation}/reopen', [ReconciliationController::class, 'reopen'])
             ->middleware('permission:returns.reopen_reconciliation');
     });
@@ -372,6 +372,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:disposals.create');
         Route::post('/{disposal}/complete', [DisposalController::class, 'complete'])
             ->middleware('permission:disposals.create');
+        Route::post('/{disposal}/reopen', [DisposalController::class, 'reopen'])
+            ->middleware('permission:disposals.reopen_completed');
     });
 
     // =========================================================================
@@ -411,6 +413,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:supplier_returns.create');
         Route::post('/{supplierReturn}/complete', [SupplierReturnController::class, 'complete'])
             ->middleware('permission:supplier_returns.create');
+        Route::post('/{supplierReturn}/reopen', [SupplierReturnController::class, 'reopen'])
+            ->middleware('permission:supplier_returns.reopen_completed');
     });
 
     // WEEK 3 — Holding Area

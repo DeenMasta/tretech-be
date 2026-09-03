@@ -91,6 +91,7 @@ class AuditAction
     const RECONCILIATION_ITEM_UPDATED = 'reconciliation.item_updated';
     const RECONCILIATION_SET_COMPONENT_UPDATED = 'reconciliation.set_component_updated';
     const INSTRUMENT_SET_UPDATED   = 'instrument_set.updated';
+
     const INSTRUMENT_SET_DELETED   = 'instrument_set.deleted';
 
     // -------------------------------------------------------------------------
@@ -101,6 +102,7 @@ class AuditAction
     const DISPOSAL_ITEM_ADDED   = 'disposal.item_added';
     const DISPOSAL_ITEM_REMOVED = 'disposal.item_removed';
     const DISPOSAL_COMPLETED    = 'disposal.completed';
+    const DISPOSAL_REOPENED     = 'disposal.reopened';
 
     // -------------------------------------------------------------------------
     // Supplier Return
@@ -110,6 +112,7 @@ class AuditAction
     const SUPPLIER_RETURN_ITEM_ADDED   = 'supplier_return.item_added';
     const SUPPLIER_RETURN_ITEM_REMOVED = 'supplier_return.item_removed';
     const SUPPLIER_RETURN_COMPLETED    = 'supplier_return.completed';
+    const SUPPLIER_RETURN_REOPENED     = 'supplier_return.reopened';
     const SUPPLIER_RETURN_DELETED      = 'supplier_return.deleted';
 
 }

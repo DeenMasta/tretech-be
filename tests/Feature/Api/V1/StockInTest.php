@@ -9,6 +9,7 @@ use App\Models\LotHolding;
 use App\Models\Product;
 use App\Models\StockIn;
 use App\Models\StockInItem;
+use App\Models\Supplier;
 use Laravel\Sanctum\Sanctum;
 
 class StockInTest extends FeatureTestCase
@@ -555,5 +556,184 @@ class StockInTest extends FeatureTestCase
         $this->getJson("/api/v1/stock-in-sessions/{$session->id}/review")
             ->assertOk()
             ->assertJsonPath('success', true);
+    }
+
+    // -------------------------------------------------------------------------
+    // Finalized item corrections
+    // -------------------------------------------------------------------------
+
+    public function test_only_user_with_post_confirmation_correction_permission_can_edit_finalized_item(): void
+    {
+        $user = $this->makeUserWithPermissions(['stock_in.edit_draft']);
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct();
+        Sanctum::actingAs($user);
+
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-20250101-0601',
+            'do_number' => 'DO-0601',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'finalized',
+        ]);
+        $lot = $this->createCorrectionLot($product, $supplier, 'LOT-CORRECT-001', 4);
+        $item = $this->createFinalizedProductItem($session, $product, $lot, 4);
+
+        $this->patchJson("/api/v1/stock-in-sessions/{$session->id}/items/{$item->id}/correct", [
+            'quantity' => 5,
+            'admin_reason' => 'Correct the delivery count.',
+        ])->assertForbidden();
+    }
+
+    public function test_admin_quantity_correction_updates_finalized_product_item_and_related_lot(): void
+    {
+        $user = $this->makeUserWithPermissions(['stock_in.correct_confirmed']);
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct();
+        Sanctum::actingAs($user);
+
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-20250101-0602',
+            'do_number' => 'DO-0602',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'finalized',
+        ]);
+        $lot = $this->createCorrectionLot($product, $supplier, 'LOT-CORRECT-002', 4);
+        $item = $this->createFinalizedProductItem($session, $product, $lot, 4);
+
+        $this->patchJson("/api/v1/stock-in-sessions/{$session->id}/items/{$item->id}/correct", [
+            'quantity' => 7,
+            'admin_reason' => 'Three units were omitted from the receiving count.',
+        ])->assertOk()
+            ->assertJsonPath('data.quantity', 7);
+
+        $this->assertDatabaseHas('stock_in_items', ['id' => $item->id, 'quantity' => 7]);
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'quantity' => 7,
+            'quantity_available' => 7,
+        ]);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lot->id,
+            'movement_type' => 'stock_in_correction_increase',
+            'reference_type' => StockInItem::class,
+            'reference_id' => $item->id,
+            'quantity' => 3,
+        ]);
+    }
+
+    public function test_admin_quantity_correction_updates_every_component_lot_for_finalized_instrument_set(): void
+    {
+        $finalizeUser = $this->makeUserWithPermissions(['stock_in.confirm']);
+        $adminUser = $this->makeUserWithPermissions(['stock_in.correct_confirmed']);
+        $supplier = $this->createSupplier();
+        $productA = $this->createProduct('INST-A', 'Instrument');
+        $productB = $this->createProduct('INST-B', 'Instrument');
+
+        $set = InstrumentSet::query()->create([
+            'set_code' => 'CORRECT-SET',
+            'set_name' => 'Correction Test Set',
+            'is_active' => true,
+        ]);
+        $componentA = InstrumentSetItem::query()->create([
+            'instrument_set_id' => $set->id,
+            'product_id' => $productA->id,
+            'quantity' => 2,
+        ]);
+        $componentB = InstrumentSetItem::query()->create([
+            'instrument_set_id' => $set->id,
+            'product_id' => $productB->id,
+            'quantity' => 3,
+        ]);
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-20250101-0603',
+            'do_number' => 'DO-0603',
+            'stock_in_at' => now(),
+            'pic_user_id' => $finalizeUser->id,
+            'status' => 'draft',
+        ]);
+        $item = StockInItem::query()->create([
+            'stock_in_id' => $session->id,
+            'entry_kind' => StockInItem::ENTRY_KIND_SET,
+            'instrument_set_id' => $set->id,
+            'component_lots' => [
+                [
+                    'instrument_set_item_id' => $componentA->id,
+                    'lot_number' => 'SET-CORRECT-A',
+                    'generate_lot_number' => false,
+                ],
+                [
+                    'instrument_set_item_id' => $componentB->id,
+                    'lot_number' => 'SET-CORRECT-B',
+                    'generate_lot_number' => false,
+                ],
+            ],
+            'quantity' => 2,
+        ]);
+
+        Sanctum::actingAs($finalizeUser);
+        $this->postJson("/api/v1/stock-in-sessions/{$session->id}/finalize")->assertOk();
+
+        Sanctum::actingAs($adminUser);
+        $this->patchJson("/api/v1/stock-in-sessions/{$session->id}/items/{$item->id}/correct", [
+            'quantity' => 3,
+            'admin_reason' => 'One additional set was received from the supplier.',
+        ])->assertOk()
+            ->assertJsonPath('data.quantity', 3);
+
+        $lotA = Lot::query()->where('lot_number', 'SET-CORRECT-A')->firstOrFail();
+        $lotB = Lot::query()->where('lot_number', 'SET-CORRECT-B')->firstOrFail();
+
+        $this->assertSame(6, $lotA->quantity);
+        $this->assertSame(6, $lotA->quantity_available);
+        $this->assertSame(9, $lotB->quantity);
+        $this->assertSame(9, $lotB->quantity_available);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lotA->id,
+            'movement_type' => 'stock_in_correction_increase',
+            'reference_id' => $item->id,
+            'quantity' => 2,
+        ]);
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lotB->id,
+            'movement_type' => 'stock_in_correction_increase',
+            'reference_id' => $item->id,
+            'quantity' => 3,
+        ]);
+    }
+
+    private function createCorrectionLot(Product $product, Supplier $supplier, string $lotNumber, int $quantity): Lot
+    {
+        return Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => $lotNumber,
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => '2027-01-01',
+            'status' => 'available',
+            'current_location_type' => 'warehouse',
+            'received_at' => now(),
+            'quantity' => $quantity,
+            'quantity_available' => $quantity,
+            'quantity_consigned' => 0,
+        ]);
+    }
+
+    private function createFinalizedProductItem(StockIn $session, Product $product, Lot $lot, int $quantity): StockInItem
+    {
+        return StockInItem::query()->create([
+            'stock_in_id' => $session->id,
+            'entry_kind' => StockInItem::ENTRY_KIND_PRODUCT,
+            'product_id' => $product->id,
+            'lot_id' => $lot->id,
+            'scanned_lot_number' => $lot->lot_number,
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => '2027-01-01',
+            'quantity' => $quantity,
+        ]);
     }
 }

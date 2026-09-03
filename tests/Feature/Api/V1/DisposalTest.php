@@ -4,6 +4,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Disposal;
 use App\Models\DisposalItem;
+use App\Models\LotMovement;
 use Laravel\Sanctum\Sanctum;
 
 class DisposalTest extends FeatureTestCase
@@ -121,6 +122,7 @@ class DisposalTest extends FeatureTestCase
 
         $response = $this->postJson("/api/v1/disposals/{$disposal->id}/items", [
             'lot_id'            => $lot->id,
+            'quantity'          => 1,
             'disposal_category' => 'expired',
             'reason_text'       => 'Expired stock past expiry date',
         ]);
@@ -153,6 +155,7 @@ class DisposalTest extends FeatureTestCase
 
         $this->postJson("/api/v1/disposals/{$disposal->id}/items", [
             'lot_id'            => $lot->id,
+            'quantity'          => 1,
             'disposal_category' => 'damaged',
             // missing reason_text
         ])->assertStatus(422);
@@ -176,6 +179,7 @@ class DisposalTest extends FeatureTestCase
 
         $this->postJson("/api/v1/disposals/{$disposal->id}/items", [
             'lot_id'            => $lot->id,
+            'quantity'          => 1,
             'disposal_category' => 'unknown_category',
             'reason_text'       => 'Some reason',
         ])->assertStatus(422);
@@ -282,8 +286,125 @@ class DisposalTest extends FeatureTestCase
 
         $this->postJson("/api/v1/disposals/{$disposal->id}/items", [
             'lot_id'            => $disposedLot->id,
+            'quantity'          => 1,
             'disposal_category' => 'other',
             'reason_text'       => 'Re-disposal attempt',
         ])->assertStatus(400);
+    }
+
+    // -------------------------------------------------------------------------
+    // Admin post-completion correction
+    // -------------------------------------------------------------------------
+
+    public function test_authorized_user_can_reopen_completed_disposal_and_restore_lot_inventory(): void
+    {
+        $user = $this->makeUserWithPermissions([
+            'disposals.create',
+            'disposals.reopen_completed',
+        ]);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $lot = $this->createLot($product, $supplier, 'available');
+        $lot->update(['quantity' => 4, 'quantity_available' => 4]);
+
+        $disposal = Disposal::query()->create([
+            'disposal_no' => 'DSP-20250301-REOPEN',
+            'disposed_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        DisposalItem::query()->create([
+            'disposal_id' => $disposal->id,
+            'lot_id' => $lot->id,
+            'quantity' => 4,
+            'disposal_category' => 'expired',
+            'reason_text' => 'Past expiry date',
+        ]);
+
+        $this->postJson("/api/v1/disposals/{$disposal->id}/complete")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed');
+
+        $this->postJson("/api/v1/disposals/{$disposal->id}/reopen", [
+            'reopen_reason' => 'The received quantity was entered incorrectly.',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'draft');
+
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'quantity_available' => 4,
+            'status' => 'available',
+        ]);
+        $this->assertDatabaseMissing('lot_movements', [
+            'reference_type' => Disposal::class,
+            'reference_id' => $disposal->id,
+            'movement_type' => 'disposed',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Disposal::class,
+            'auditable_id' => $disposal->id,
+            'action_type' => 'disposal.reopened',
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_reopening_disposal_is_rejected_when_a_lot_has_later_inventory_activity(): void
+    {
+        $user = $this->makeUserWithPermissions([
+            'disposals.create',
+            'disposals.reopen_completed',
+        ]);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $lot = $this->createLot($product, $supplier, 'available');
+        $lot->update(['quantity' => 2, 'quantity_available' => 2]);
+        $disposal = Disposal::query()->create([
+            'disposal_no' => 'DSP-20250301-LATER-MOVEMENT',
+            'disposed_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        DisposalItem::query()->create([
+            'disposal_id' => $disposal->id,
+            'lot_id' => $lot->id,
+            'quantity' => 2,
+            'disposal_category' => 'expired',
+            'reason_text' => 'Past expiry date',
+        ]);
+
+        $this->postJson("/api/v1/disposals/{$disposal->id}/complete")->assertOk();
+
+        LotMovement::query()->create([
+            'lot_id' => $lot->id,
+            'movement_type' => 'manual_adjustment',
+            'reference_type' => 'test',
+            'from_status' => 'disposed',
+            'to_status' => 'disposed',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'remarks' => 'Simulated newer inventory activity',
+            'quantity' => 1,
+        ]);
+
+        $this->postJson("/api/v1/disposals/{$disposal->id}/reopen", [
+            'reopen_reason' => 'Need to correct this disposal.',
+        ])
+            ->assertStatus(400)
+            ->assertJsonPath('message', 'This disposal cannot be reopened because a related lot has later inventory activity.');
+
+        $this->assertDatabaseHas('disposals', [
+            'id' => $disposal->id,
+            'status' => 'completed',
+        ]);
+        $this->assertDatabaseHas('lots', [
+            'id' => $lot->id,
+            'quantity_available' => 0,
+            'status' => 'disposed',
+        ]);
     }
 }

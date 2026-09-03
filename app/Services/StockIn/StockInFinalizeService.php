@@ -210,6 +210,8 @@ class StockInFinalizeService
 
         $setQty = $item->quantity ?? 1;
         $createdLots = new Collection;
+        $resolvedComponentLots = [];
+        $firstComponentLotId = null;
         $componentLotsBySetItemId = collect($item->component_lots ?? [])
             ->keyBy(fn (array $componentLot) => (int) ($componentLot['instrument_set_item_id'] ?? 0));
 
@@ -265,10 +267,17 @@ class StockInFinalizeService
                 ]);
             }
 
-            // Link the first component lot back to the stock-in item (for reference)
-            if ($createdLots->isEmpty()) {
-                $item->fill(['lot_id' => $lot->id])->save();
+            if ($firstComponentLotId === null) {
+                $firstComponentLotId = $lot->id;
             }
+
+            $resolvedComponentLots[] = [
+                'instrument_set_item_id' => $setItem->id,
+                'lot_number' => $lotNumber,
+                'generate_lot_number' => $isSystemGenerated,
+                'lot_id' => $lot->id,
+                'quantity_per_set' => $setItem->quantity,
+            ];
 
             LotMovement::query()->create([
                 'lot_id' => $lot->id,
@@ -289,6 +298,11 @@ class StockInFinalizeService
 
             $createdLots->push($lot);
         }
+
+        $item->fill([
+            'lot_id' => $firstComponentLotId,
+            'component_lots' => $resolvedComponentLots,
+        ])->save();
 
         return $createdLots;
     }
