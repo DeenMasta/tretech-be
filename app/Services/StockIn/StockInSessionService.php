@@ -25,7 +25,20 @@ class StockInSessionService
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('session_no', 'like', "%{$search}%")
-                        ->orWhere('do_number', 'like', "%{$search}%");
+                        ->orWhere('do_number', 'like', "%{$search}%")
+                        ->orWhereHas('stockInItems', function ($itemQuery) use ($search) {
+                            $itemQuery->where('scanned_lot_number', 'like', "%{$search}%")
+                                ->orWhere('component_lots', 'like', "%{$search}%")
+                                ->orWhereHas('lot', fn ($lotQuery) => $lotQuery->where('lot_number', 'like', "%{$search}%"))
+                                ->orWhereHas('product', function ($productQuery) use ($search) {
+                                    $productQuery->where('product_name', 'like', "%{$search}%")
+                                        ->orWhere('ref_num', 'like', "%{$search}%");
+                                })
+                                ->orWhereHas('instrumentSet.instrumentSetItems.product', function ($productQuery) use ($search) {
+                                    $productQuery->where('product_name', 'like', "%{$search}%")
+                                        ->orWhere('ref_num', 'like', "%{$search}%");
+                                });
+                        });
                 });
             })
             ->when($status !== '', fn ($query) => $query->where('status', $status))

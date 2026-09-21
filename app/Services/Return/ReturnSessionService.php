@@ -30,6 +30,7 @@ class ReturnSessionService
      */
     public function paginate(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
+        $search        = (string) ($filters['search'] ?? '');
         $status        = (string) ($filters['status'] ?? '');
         $consignmentId = $filters['consignment_id'] ?? null;
         $fromDate      = $filters['from_date'] ?? null;
@@ -41,6 +42,26 @@ class ReturnSessionService
                 'picUser:id,full_name',
             ])
             ->withCount('returnSessionItems')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery->where('return_session_no', 'like', "%{$search}%")
+                        ->orWhereHas('returnSessionItems.lot', function ($lotQuery) use ($search) {
+                            $lotQuery->where('lot_number', 'like', "%{$search}%")
+                                ->orWhereHas('product', function ($productQuery) use ($search) {
+                                    $productQuery->where('product_name', 'like', "%{$search}%")
+                                        ->orWhere('ref_num', 'like', "%{$search}%");
+                                });
+                        })
+                        ->orWhereHas('returnSessionItems.product', function ($productQuery) use ($search) {
+                            $productQuery->where('product_name', 'like', "%{$search}%")
+                                ->orWhere('ref_num', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('returnSessionItems.setInstrumentItems.product', function ($productQuery) use ($search) {
+                            $productQuery->where('product_name', 'like', "%{$search}%")
+                                ->orWhere('ref_num', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($consignmentId !== null, fn ($q) => $q->where('consignment_id', (int) $consignmentId))
             ->when($fromDate !== null, fn ($q) => $q->whereDate('started_at', '>=', $fromDate))

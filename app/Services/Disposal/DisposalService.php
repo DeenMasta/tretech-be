@@ -22,7 +22,18 @@ class DisposalService
         return Disposal::query()
             ->with(['picUser:id,full_name', 'completedByUser:id,full_name'])
             ->withCount('disposalItems')
-            ->when($search !== '', fn ($q) => $q->where('disposal_no', 'like', "%{$search}%"))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery->where('disposal_no', 'like', "%{$search}%")
+                        ->orWhereHas('disposalItems.lot', function ($lotQuery) use ($search) {
+                            $lotQuery->where('lot_number', 'like', "%{$search}%")
+                                ->orWhereHas('product', function ($productQuery) use ($search) {
+                                    $productQuery->where('product_name', 'like', "%{$search}%")
+                                        ->orWhere('ref_num', 'like', "%{$search}%");
+                                });
+                        });
+                });
+            })
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($fromDate !== null, fn ($q) => $q->whereDate('disposed_at', '>=', $fromDate))
             ->when($toDate !== null, fn ($q) => $q->whereDate('disposed_at', '<=', $toDate))

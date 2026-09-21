@@ -24,7 +24,21 @@ class ConsignmentService
             ->with(['client:id,client_name', 'picUser:id,full_name'])
             ->withCount('consignmentItems')
             ->when($search !== '', function ($query) use ($search) {
-                $query->where('consignment_no', 'like', "%{$search}%");
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery->where('consignment_no', 'like', "%{$search}%")
+                        ->orWhereHas('consignmentItems.lot', function ($lotQuery) use ($search) {
+                            $lotQuery->where('lot_number', 'like', "%{$search}%")
+                                ->orWhereHas('product', function ($productQuery) use ($search) {
+                                    $productQuery->where('product_name', 'like', "%{$search}%")
+                                        ->orWhere('ref_num', 'like', "%{$search}%");
+                                });
+                        })
+                        ->orWhereHas('consignmentItems.instrumentSet.instrumentSetItems.product', function ($productQuery) use ($search) {
+                            $productQuery->where('product_name', 'like', "%{$search}%")
+                                ->orWhere('ref_num', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('componentConsignmentMovements.lot', fn ($lotQuery) => $lotQuery->where('lot_number', 'like', "%{$search}%"));
+                });
             })
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($clientId !== null, fn ($q) => $q->where('client_id', (int) $clientId))

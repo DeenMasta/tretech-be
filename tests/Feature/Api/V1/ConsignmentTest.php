@@ -53,6 +53,38 @@ class ConsignmentTest extends FeatureTestCase
         $this->assertGreaterThanOrEqual(1, $response->json('pagination.total'));
     }
 
+    public function test_user_can_search_consignments_by_lot_product_name_or_reference_number(): void
+    {
+        $user = $this->makeUserWithPermissions(['consignments.view']);
+        $client = $this->createClient();
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct('REF-CONSIGNMENT-SEARCH');
+        $product->update(['product_name' => 'Searchable Consignment Product']);
+        $lot = $this->createLot($product, $supplier, 'available', 'LOT-CONSIGNMENT-SEARCH');
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-SEARCH-001',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        ConsignmentItem::query()->create([
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'issued_at' => now(),
+            'issued_by_user_id' => $user->id,
+        ]);
+
+        foreach (['LOT-CONSIGNMENT', 'Searchable', 'REF-CONSIGNMENT'] as $search) {
+            $this->getJson("/api/v1/consignments?search={$search}")
+                ->assertOk()
+                ->assertJsonPath('pagination.total', 1)
+                ->assertJsonPath('data.0.id', $consignment->id);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Store
     // -------------------------------------------------------------------------

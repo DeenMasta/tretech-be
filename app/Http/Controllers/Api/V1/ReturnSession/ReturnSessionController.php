@@ -32,7 +32,7 @@ class ReturnSessionController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
 
         $paginator = $this->returnSessionService->paginate(
-            $request->only(['status', 'consignment_id', 'from_date', 'to_date']),
+            $request->only(['search', 'status', 'consignment_id', 'from_date', 'to_date']),
             $perPage
         );
 

@@ -39,6 +39,45 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             ->assertStatus(403);
     }
 
+    public function test_user_can_search_return_sessions_by_lot_product_name_or_reference_number(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.view']);
+        $client = $this->createClient();
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct('REF-RETURN-SEARCH');
+        $product->update(['product_name' => 'Searchable Return Product']);
+        $lot = $this->createLot($product, $supplier, 'available', 'LOT-RETURN-SEARCH');
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-RETURN-SEARCH-001',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-SEARCH-001',
+            'pic_user_id' => $user->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
+        ]);
+        ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lot->id,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+        ]);
+
+        foreach (['LOT-RETURN', 'Searchable', 'REF-RETURN'] as $search) {
+            $this->getJson("/api/v1/return-sessions?search={$search}")
+                ->assertOk()
+                ->assertJsonPath('pagination.total', 1)
+                ->assertJsonPath('data.0.id', $returnSession->id);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Store (create return session)
     // -------------------------------------------------------------------------

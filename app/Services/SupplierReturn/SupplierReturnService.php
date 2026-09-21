@@ -29,7 +29,19 @@ class SupplierReturnService
         return SupplierReturn::query()
             ->with(['supplier:id,supplier_name', 'picUser:id,full_name', 'completedByUser:id,full_name'])
             ->withCount('supplierReturnItems')
-            ->when($search !== '', fn ($q) => $q->where('supplier_return_no', 'like', "%{$search}%"))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery->where('supplier_return_no', 'like', "%{$search}%")
+                        ->orWhere('reference_no', 'like', "%{$search}%")
+                        ->orWhereHas('supplierReturnItems.lot', function ($lotQuery) use ($search) {
+                            $lotQuery->where('lot_number', 'like', "%{$search}%")
+                                ->orWhereHas('product', function ($productQuery) use ($search) {
+                                    $productQuery->where('product_name', 'like', "%{$search}%")
+                                        ->orWhere('ref_num', 'like', "%{$search}%");
+                                });
+                        });
+                });
+            })
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($supplierId !== null, fn ($q) => $q->where('supplier_id', (int) $supplierId))
             ->when($fromDate !== null, fn ($q) => $q->whereDate('returned_at', '>=', $fromDate))

@@ -48,6 +48,37 @@ class DisposalTest extends FeatureTestCase
         $this->assertGreaterThanOrEqual(1, $response->json('pagination.total'));
     }
 
+    public function test_user_can_search_disposals_by_lot_product_name_or_reference_number(): void
+    {
+        $user = $this->makeUserWithPermissions(['disposals.view']);
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct('REF-DISPOSAL-SEARCH');
+        $product->update(['product_name' => 'Searchable Disposal Product']);
+        $lot = $this->createLot($product, $supplier, 'available', 'LOT-DISPOSAL-SEARCH');
+        Sanctum::actingAs($user);
+
+        $disposal = Disposal::query()->create([
+            'disposal_no' => 'DSP-SEARCH-001',
+            'disposed_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        DisposalItem::query()->create([
+            'disposal_id' => $disposal->id,
+            'lot_id' => $lot->id,
+            'quantity' => 1,
+            'disposal_category' => 'damaged',
+            'reason_text' => 'Search test fixture',
+        ]);
+
+        foreach (['LOT-DISPOSAL', 'Searchable', 'REF-DISPOSAL'] as $search) {
+            $this->getJson("/api/v1/disposals?search={$search}")
+                ->assertOk()
+                ->assertJsonPath('pagination.total', 1)
+                ->assertJsonPath('data.0.id', $disposal->id);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Store
     // -------------------------------------------------------------------------

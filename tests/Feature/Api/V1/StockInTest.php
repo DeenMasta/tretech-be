@@ -56,6 +56,79 @@ class StockInTest extends FeatureTestCase
         $this->assertGreaterThanOrEqual(1, $response->json('pagination.total'));
     }
 
+    public function test_user_can_search_stock_in_sessions_by_lot_number(): void
+    {
+        $user = $this->makeUserWithPermissions(['stock_in.view']);
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct();
+        Sanctum::actingAs($user);
+
+        $matchingSession = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-LOT-SEARCH-001',
+            'do_number' => 'DO-LOT-SEARCH-001',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        StockInItem::query()->create([
+            'stock_in_id' => $matchingSession->id,
+            'product_id' => $product->id,
+            'scanned_lot_number' => 'LOT-SEARCH-ABC-123',
+        ]);
+
+        $nonMatchingSession = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-LOT-SEARCH-002',
+            'do_number' => 'DO-LOT-SEARCH-002',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        StockInItem::query()->create([
+            'stock_in_id' => $nonMatchingSession->id,
+            'product_id' => $product->id,
+            'scanned_lot_number' => 'LOT-OTHER-456',
+        ]);
+
+        $this->getJson('/api/v1/stock-in-sessions?search=SEARCH-ABC')
+            ->assertOk()
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.id', $matchingSession->id);
+    }
+
+    public function test_user_can_search_stock_in_sessions_by_product_name_or_reference_number(): void
+    {
+        $user = $this->makeUserWithPermissions(['stock_in.view']);
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct('REF-SEARCH-ABC');
+        $product->update(['product_name' => 'Searchable Surgical Needle']);
+        Sanctum::actingAs($user);
+
+        $session = StockIn::query()->create([
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-PRODUCT-SEARCH-001',
+            'do_number' => 'DO-PRODUCT-SEARCH-001',
+            'stock_in_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        StockInItem::query()->create([
+            'stock_in_id' => $session->id,
+            'product_id' => $product->id,
+        ]);
+
+        $this->getJson('/api/v1/stock-in-sessions?search=Surgical')
+            ->assertOk()
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.id', $session->id);
+
+        $this->getJson('/api/v1/stock-in-sessions?search=REF-SEARCH')
+            ->assertOk()
+            ->assertJsonPath('pagination.total', 1)
+            ->assertJsonPath('data.0.id', $session->id);
+    }
+
     // -------------------------------------------------------------------------
     // Store (create session)
     // -------------------------------------------------------------------------

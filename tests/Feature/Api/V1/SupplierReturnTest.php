@@ -8,6 +8,37 @@ use Laravel\Sanctum\Sanctum;
 
 class SupplierReturnTest extends FeatureTestCase
 {
+    public function test_user_can_search_supplier_returns_by_lot_product_name_or_reference_number(): void
+    {
+        $user = $this->makeUserWithPermissions(['supplier_returns.view']);
+        $supplier = $this->createSupplier();
+        $product = $this->createProduct('REF-SUPPLIER-RETURN-SEARCH');
+        $product->update(['product_name' => 'Searchable Supplier Return Product']);
+        $lot = $this->createLot($product, $supplier, 'available', 'LOT-SUPPLIER-RETURN-SEARCH');
+        Sanctum::actingAs($user);
+
+        $supplierReturn = SupplierReturn::query()->create([
+            'supplier_id' => $supplier->id,
+            'supplier_return_no' => 'SRT-SEARCH-001',
+            'returned_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
+        ]);
+        SupplierReturnItem::query()->create([
+            'supplier_return_id' => $supplierReturn->id,
+            'lot_id' => $lot->id,
+            'quantity' => 1,
+            'return_reason' => 'Search test fixture',
+        ]);
+
+        foreach (['LOT-SUPPLIER', 'Searchable', 'REF-SUPPLIER'] as $search) {
+            $this->getJson("/api/v1/supplier-returns?search={$search}")
+                ->assertOk()
+                ->assertJsonPath('pagination.total', 1)
+                ->assertJsonPath('data.0.id', $supplierReturn->id);
+        }
+    }
+
     public function test_authorized_user_can_reopen_completed_supplier_return_and_restore_lot_inventory(): void
     {
         $user = $this->makeUserWithPermissions([
