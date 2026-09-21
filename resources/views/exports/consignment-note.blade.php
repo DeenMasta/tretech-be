@@ -252,7 +252,6 @@
                 <th style="width:42px;">Proposed<br>Qty</th>
                 <th style="width:70px;">Lot No</th>
                 <th style="width:36px;">Qty<br>Out</th>
-                <th style="width:36px;">Qty<br>In</th>
                 <th style="width:70px;">Remarks</th>
             </tr>
         </thead>
@@ -272,34 +271,22 @@
 
             @if(!$hasSets && !$hasLots)
                 <tr class="empty-row">
-                    <td colspan="8">No items in this consignment.</td>
+                    <td colspan="7">No items in this consignment.</td>
                 </tr>
             @endif
 
             {{-- 1. Sets --}}
             @foreach($setItems as $setItem)
                 <tr>
-                    <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                    <td colspan="7" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
                         {{ $setItem->instrumentSet?->set_name }}
                     </td>
                 </tr>
                 
-                @php 
-                    $setNo = 1; 
-                    $rsi = $consignment->returnSession?->returnSessionItems->where('instrument_set_id', $setItem->instrument_set_id)->first();
-                @endphp
+                @php $setNo = 1; @endphp
                 
                 @if($setItem->instrumentSet && $setItem->instrumentSet->relationLoaded('instrumentSetItems'))
                     @foreach($setItem->instrumentSet->instrumentSetItems as $subItem)
-                        @php
-                            $qtyIn = 0;
-                            if ($rsi) {
-                                $rsSubItem = $rsi->setInstrumentItems->where('product_id', $subItem->product_id)->first();
-                                if ($rsSubItem) {
-                                    $qtyIn = $rsSubItem->returned_quantity;
-                                }
-                            }
-                        @endphp
                         <tr>
                             <td class="center">{{ $setNo++ }}</td>
                             <td>{{ $subItem->product?->ref_num ?? '-' }}</td>
@@ -307,7 +294,6 @@
                             <td class="center">{{ $subItem->quantity * ($setItem->proposed_quantity ?? 1) }}</td>
                             <td>{{ implode(', ', $componentLotNumbers[$subItem->product_id] ?? []) ?: '-' }}</td>
                             <td class="center">{{ $subItem->quantity * ($setItem->quantity ?? 1) }}</td>
-                            <td class="center">{!! $qtyIn !!}</td>
                             <td>{{ $setItem->remarks ?? '' }}</td>
                         </tr>
                     @endforeach
@@ -316,7 +302,7 @@
                 {{-- If the set itself is somehow empty --}}
                 @if($setNo === 1)
                     <tr>
-                        <td colspan="8" class="center" style="color: #888; font-style: italic;">No instruments listed in this set.</td>
+                        <td colspan="7" class="center" style="color: #888; font-style: italic;">No instruments listed in this set.</td>
                     </tr>
                 @endif
             @endforeach
@@ -324,19 +310,12 @@
             {{-- 2. A la carte instruments --}}
             @if($instrumentItems->isNotEmpty())
                 <tr>
-                    <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                    <td colspan="7" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
                         Instruments
                     </td>
                 </tr>
                 @php $instrumentNo = 1; @endphp
                 @foreach($instrumentItems as $item)
-                    @php
-                        $qtyIn = 0;
-                        $rsi = $consignment->returnSession?->returnSessionItems->where('lot_id', $item->lot_id)->first();
-                        if ($rsi) {
-                            $qtyIn = $rsi->quantity;
-                        }
-                    @endphp
                     <tr>
                         <td class="center">{{ $instrumentNo++ }}</td>
                         <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
@@ -344,7 +323,6 @@
                         <td class="center">{{ $item->proposed_quantity ?? 1 }}</td>
                         <td>{{ $item->lot?->lot_number ?? ' ' }}</td>
                         <td class="center">{{ $item->quantity ?? 1 }}</td>
-                        <td class="center">{!! $qtyIn !!}</td>
                         <td>{{ $item->remarks ?? '' }}</td>
                     </tr>
                 @endforeach
@@ -353,19 +331,12 @@
             {{-- 3. Implants --}}
             @if($implantItems->isNotEmpty())
                 <tr>
-                    <td colspan="8" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
+                    <td colspan="7" style="background-color: #f0f0f0; font-weight: bold; text-align: left; padding-left: 10px;">
                         Implants
                     </td>
                 </tr>
                 @php $implantNo = 1; @endphp
                 @foreach($implantItems as $item)
-                    @php
-                        $qtyIn = 0;
-                        $rsi = $consignment->returnSession?->returnSessionItems->where('lot_id', $item->lot_id)->first();
-                        if ($rsi) {
-                            $qtyIn = $rsi->quantity;
-                        }
-                    @endphp
                     <tr>
                         <td class="center">{{ $implantNo++ }}</td>
                         <td>{{ $item->lot?->product?->ref_num ?? '-' }}</td>
@@ -373,7 +344,6 @@
                         <td class="center">{{ $item->proposed_quantity ?? 1 }}</td>
                         <td>{{ $item->lot?->lot_number ?? ' ' }}</td>
                         <td class="center">{{ $item->quantity ?? 1 }}</td>
-                        <td class="center">{!! $qtyIn !!}</td>
                         <td>{{ $item->remarks ?? '' }}</td>
                     </tr>
                 @endforeach
