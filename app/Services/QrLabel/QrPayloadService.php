@@ -123,7 +123,7 @@ class QrPayloadService
 
     /**
      * Build a TSPL command string for a 50x30 mm Bluetooth sticker printer.
-     * The layout keeps the company details and compresses the QR/text blocks.
+     * The layout matches the standard 50x30 mm label template.
      */
     public function buildTsplPayload(string $qrPayload, Lot $lot): string
     {
@@ -139,21 +139,19 @@ class QrPayloadService
             // If regeneration fails, fall back to the stored value.
         }
 
-        $qrPrintSettings = $this->qrPrintSettings($qrPayload);
-
         $lines = [
             'SIZE 50 mm, 30 mm',
             'GAP 2 mm, 0 mm',
             'DIRECTION 1',
             'CLS',
-            "QRCODE 17,28,{$qrPrintSettings['ecc']},2,A,0,M2,S1,\"{$qrPrintSettings['payload']}\"",
-            'TEXT 115,15,"0",0,1,1,"TREMED Surgical Solution"',
-            'TEXT 115,31,"0",0,1,1,"No 6-1, Block A,"',
-            'TEXT 115,47,"0",0,1,1,"Zenith Corporate Park,"',
-            'TEXT 115,63,"0",0,1,1,"Jalan SS 7/26, 47301"',
-            'TEXT 115,79,"0",0,1,1,"Petaling Jaya, Selangor"',
-            'TEXT 115,95,"0",0,1,1,"Tel: +603 7886 1704"',
-            'TEXT 115,111,"0",0,1,1,"enquiries@tremedsurgical.com"',
+            "QRCODE 8,8,H,3,A,0,M2,S1,\"{$qrPayload}\"",
+            'TEXT 140,15,"0",0,1,1,"TREMED Surgical Solution"',
+            'TEXT 140,31,"0",0,1,1,"No 6-1, Block A,"',
+            'TEXT 140,47,"0",0,1,1,"Zenith Corporate Park,"',
+            'TEXT 140,63,"0",0,1,1,"Jalan SS 7/26, 47301"',
+            'TEXT 140,79,"0",0,1,1,"Petaling Jaya, Selangor"',
+            'TEXT 140,95,"0",0,1,1,"Tel: 0126338787"',
+            'TEXT 140,111,"0",0,1,1,"www.tremedsurgical.com"',
         ];
 
         if ($lot->product_id !== null) {
@@ -187,61 +185,6 @@ class QrPayloadService
         $lines[] = 'PRINT 1,1';
 
         return implode("\r\n", $lines);
-    }
-
-    /**
-     * Keep auto-encoded QR payloads in the Version 6 footprint when possible.
-     * TSPL otherwise selects the smallest QR version, making near-boundary labels
-     * visibly smaller or larger even when cell width stays at 3 dots.
-     *
-     * @return array{payload:string,ecc:string}
-     */
-    private function qrPrintSettings(string $payload): array
-    {
-        $length = strlen($payload);
-
-        if ($length <= 58) {
-            return [
-                'payload' => $this->padQrPayload($payload, 45),
-                'ecc' => 'H',
-            ];
-        }
-
-        if ($length <= 74) {
-            return [
-                'payload' => $this->padQrPayload($payload, 61),
-                'ecc' => 'Q',
-            ];
-        }
-
-        if ($length <= 106) {
-            return [
-                'payload' => $this->padQrPayload($payload, 85),
-                'ecc' => 'M',
-            ];
-        }
-
-        return [
-            'payload' => $payload,
-            'ecc' => 'L',
-        ];
-    }
-
-    /**
-     * PAD is an optional QR segment. It preserves REF/LOT/MFG/EXP semantics
-     * while preventing the printer from falling into the next smaller version.
-     */
-    private function padQrPayload(string $payload, int $minimumLength): string
-    {
-        $paddingNeeded = $minimumLength - strlen($payload);
-        if ($paddingNeeded <= 0) {
-            return $payload;
-        }
-
-        // A valid optional segment is at least six bytes: ;PAD=0.
-        $paddingLength = max(1, $paddingNeeded - 5);
-
-        return $payload . ';PAD=' . str_repeat('0', $paddingLength);
     }
 
     /**

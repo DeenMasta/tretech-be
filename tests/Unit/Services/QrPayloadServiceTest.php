@@ -236,7 +236,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
     }
 
     #[Test]
-    public function build_tspl_payload_keeps_long_lot_qr_at_the_standard_physical_size(): void
+    public function build_tspl_payload_uses_the_standard_qr_layout_for_long_lots(): void
     {
         $product = $this->makeProduct('80011D', 'Stockinette With Coban');
         $lot = $this->makeProductLot($product, '123456789012345679801234', '2026-07-16', '2026-11-29');
@@ -244,14 +244,16 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $tspl = $this->service->buildTsplPayload('', $lot);
 
         $this->assertStringContainsString(
-            'QRCODE 8,8,Q,3,A,0,M2,S1,"V=1;REF=80011D;LOT=123456789012345679801234;MFG=2026-07-16;EXP=2026-11-29"',
+            'QRCODE 8,8,H,3,A,0,M2,S1,"V=1;REF=80011D;LOT=123456789012345679801234;MFG=2026-07-16;EXP=2026-11-29"',
             $tspl
         );
-        $this->assertStringNotContainsString('QRCODE 8,8,H,4', $tspl);
+        $this->assertStringNotContainsString('QRCODE 17,28,', $tspl);
+        $this->assertStringContainsString('TEXT 140,15,"0",0,1,1,"TREMED Surgical Solution"', $tspl);
+        $this->assertStringContainsString('TEXT 140,111,"0",0,1,1,"www.tremedsurgical.com"', $tspl);
     }
 
     #[Test]
-    public function build_tspl_payload_pads_a_transition_payload_to_prevent_a_smaller_qr(): void
+    public function build_tspl_payload_does_not_change_a_standard_qr_payload(): void
     {
         $product = $this->makeProduct('MC405C', 'Ablator Plasma');
         $lot = $this->makeProductLot($product, 'A26022810C', '2026-06-18', '2029-01-31');
@@ -259,7 +261,7 @@ class QrPayloadServiceTest extends \Tests\TestCase
         $tspl = $this->service->buildTsplPayload('', $lot);
 
         $this->assertStringContainsString(
-            'QRCODE 8,8,Q,3,A,0,M2,S1,"V=1;REF=MC405C;LOT=A26022810C;MFG=2026-06-18;EXP=2029-01-31;PAD=0"',
+            'QRCODE 8,8,H,3,A,0,M2,S1,"V=1;REF=MC405C;LOT=A26022810C;MFG=2026-06-18;EXP=2029-01-31"',
             $tspl
         );
     }
