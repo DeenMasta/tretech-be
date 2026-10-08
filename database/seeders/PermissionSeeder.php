@@ -83,6 +83,16 @@ class PermissionSeeder extends Seeder
                 ['code' => 'holding_area.assign_lot', 'name' => 'Assign Lot Number'],
             ],
 
+            'Stock Audit' => [
+                ['code' => 'stock_audits.view', 'name' => 'View Stock Audits'],
+                ['code' => 'stock_audits.create', 'name' => 'Create Stock Audits'],
+                ['code' => 'stock_audits.count', 'name' => 'Count Stock'],
+                ['code' => 'stock_audits.review', 'name' => 'Review Stock Audits'],
+                ['code' => 'stock_audits.complete', 'name' => 'Complete Stock Audits'],
+                ['code' => 'stock_audits.cancel', 'name' => 'Cancel Stock Audits'],
+                ['code' => 'stock_audits.export', 'name' => 'Export Stock Audits'],
+            ],
+
             // Reporting & Analytics
             'Reporting & Analytics' => [
                 ['code' => 'reports.view', 'name' => 'View Reports'],
@@ -139,6 +149,7 @@ class PermissionSeeder extends Seeder
                 'returns.create', 'returns.view', 'returns.finalize', 'returns.reopen_reconciliation',
                 'disposals.create', 'disposals.reopen_completed', 'supplier_returns.view', 'supplier_returns.create', 'supplier_returns.reopen_completed', 'disposals.view',
                 'holding_area.view', 'holding_area.assign_lot',
+                'stock_audits.view', 'stock_audits.create', 'stock_audits.count', 'stock_audits.review', 'stock_audits.complete', 'stock_audits.cancel', 'stock_audits.export',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
                 'audit.view_logs', 'audit.export_logs',
                 'system.configure', 'system.manage_users', 'system.manage_roles',
@@ -156,6 +167,7 @@ class PermissionSeeder extends Seeder
                 'returns.create', 'returns.view', 'returns.finalize',
                 'disposals.create', 'supplier_returns.view', 'supplier_returns.create', 'disposals.view',
                 'holding_area.view', 'holding_area.assign_lot',
+                'stock_audits.view', 'stock_audits.create', 'stock_audits.count', 'stock_audits.review', 'stock_audits.export',
                 'reports.view', 'reports.stock_analytics', 'reports.consignments', 'reports.returns_analysis', 'reports.disposal', 'reports.expiry', 'reports.export',
             ],
         ];

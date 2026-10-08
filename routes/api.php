@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\QrLabel\QrLabelController;
 use App\Http\Controllers\Api\V1\Reconciliation\ReconciliationController;
 use App\Http\Controllers\Api\V1\Reporting\ReportController;
 use App\Http\Controllers\Api\V1\ReturnSession\ReturnSessionController;
+use App\Http\Controllers\Api\V1\StockAudit\StockAuditController;
 use App\Http\Controllers\Api\V1\StockIn\StockInItemController;
 use App\Http\Controllers\Api\V1\StockIn\StockInSessionController;
 use App\Http\Controllers\Api\V1\SupplierReturn\SupplierReturnController;
@@ -75,6 +76,25 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/dashboard/summary', [DashboardController::class, 'summary'])
         ->middleware(['auth:sanctum', 'permission:dashboard.view']);
+
+    Route::prefix('stock-audits')->middleware('auth:sanctum')->group(function () {
+        Route::get('/', [StockAuditController::class, 'index'])->middleware('permission:stock_audits.view');
+        Route::post('/', [StockAuditController::class, 'store'])->middleware('permission:stock_audits.create');
+        Route::get('/{stockAudit}', [StockAuditController::class, 'show'])->middleware('permission:stock_audits.view');
+        Route::patch('/{stockAudit}', [StockAuditController::class, 'update'])->middleware('permission:stock_audits.create');
+        Route::post('/{stockAudit}/start', [StockAuditController::class, 'start'])->middleware('permission:stock_audits.create');
+        Route::get('/{stockAudit}/items', [StockAuditController::class, 'items'])->middleware('permission:stock_audits.view');
+        Route::post('/{stockAudit}/lookup', [StockAuditController::class, 'lookup'])->middleware('permission:stock_audits.count');
+        Route::put('/{stockAudit}/counts', [StockAuditController::class, 'bulkCount'])->middleware('permission:stock_audits.count');
+        Route::put('/{stockAudit}/items/{stockAuditItem}/count', [StockAuditController::class, 'count'])->middleware('permission:stock_audits.count');
+        Route::post('/{stockAudit}/submit', [StockAuditController::class, 'submit'])->middleware('permission:stock_audits.review');
+        Route::get('/{stockAudit}/conflicts', [StockAuditController::class, 'conflicts'])->middleware('permission:stock_audits.review');
+        Route::post('/{stockAudit}/refresh-conflicts', [StockAuditController::class, 'refreshConflicts'])->middleware('permission:stock_audits.review');
+        Route::post('/{stockAudit}/complete', [StockAuditController::class, 'complete'])->middleware('permission:stock_audits.complete');
+        Route::post('/{stockAudit}/cancel', [StockAuditController::class, 'cancel'])->middleware('permission:stock_audits.cancel');
+        Route::get('/{stockAudit}/report', [StockAuditController::class, 'report'])->middleware('permission:stock_audits.view');
+        Route::post('/{stockAudit}/export', [StockAuditController::class, 'export'])->middleware('permission:stock_audits.export');
+    });
 
     Route::prefix('master-data')->middleware('auth:sanctum')->group(function () {
         Route::get('users', [UserController::class, 'index'])->middleware('permission:system.manage_users');

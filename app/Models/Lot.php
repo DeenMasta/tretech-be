@@ -110,4 +110,9 @@ class Lot extends Model
     {
         return $this->hasOne('App\\Models\\LotHolding');
     }
+
+    public function stockAuditItems(): HasMany
+    {
+        return $this->hasMany(StockAuditItem::class);
+    }
 }

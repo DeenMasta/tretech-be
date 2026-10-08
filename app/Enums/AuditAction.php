@@ -115,4 +115,17 @@ class AuditAction
     const SUPPLIER_RETURN_REOPENED     = 'supplier_return.reopened';
     const SUPPLIER_RETURN_DELETED      = 'supplier_return.deleted';
 
+    // -------------------------------------------------------------------------
+    // Stock Audit
+    // -------------------------------------------------------------------------
+    const STOCK_AUDIT_CREATED = 'stock_audit.created';
+    const STOCK_AUDIT_UPDATED = 'stock_audit.updated';
+    const STOCK_AUDIT_STARTED = 'stock_audit.started';
+    const STOCK_AUDIT_ITEM_COUNTED = 'stock_audit.item_counted';
+    const STOCK_AUDIT_SUBMITTED = 'stock_audit.submitted';
+    const STOCK_AUDIT_CONFLICTS_REFRESHED = 'stock_audit.conflicts_refreshed';
+    const STOCK_AUDIT_COMPLETED = 'stock_audit.completed';
+    const STOCK_AUDIT_CANCELLED = 'stock_audit.cancelled';
+    const STOCK_AUDIT_EXPORTED = 'stock_audit.exported';
+
 }

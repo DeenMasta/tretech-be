@@ -5,6 +5,7 @@ namespace App\Services\Reporting;
 use App\Exports\ConsignmentExport;
 use App\Exports\DisposalExport;
 use App\Exports\ExpiryExport;
+use App\Exports\StockAuditExport;
 use App\Exports\StockInExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -23,12 +24,13 @@ class ExportService
         'returns-analysis'=> [ConsignmentExport::class,  'reports.returns-analysis','Returns Analysis Report'],
         'disposals'       => [DisposalExport::class,     'reports.disposals',       'Disposal & Loss Report'],
         'expiry'          => [ExpiryExport::class,       'reports.expiry',          'Expiry Dashboard Report'],
+        'stock-audit'     => [StockAuditExport::class,   'reports.stock-audit',     'Stock Audit Report'],
     ];
 
     /**
      * Generate and stream a download response.
      *
-     * @param  string  $type    One of: stock-in, consignments, returns-analysis, disposals, expiry
+     * @param  string  $type    One of: stock-in, consignments, returns-analysis, disposals, expiry, stock-audit
      * @param  string  $format  One of: csv, xlsx, pdf
      * @param  array   $rows    Flat associative array rows (header keys = column headers)
      * @param  array   $summary Optional summary data for PDF header
