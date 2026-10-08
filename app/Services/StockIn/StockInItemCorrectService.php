@@ -17,8 +17,7 @@ class StockInItemCorrectService
 {
     public function __construct(
         private readonly AuditLogService $auditLogService
-    ) {
-    }
+    ) {}
 
     /**
      * Admin-only correction of immutable fields on a finalized stock-in item.
@@ -31,7 +30,7 @@ class StockInItemCorrectService
      *
      * The StockInItem's `scanned_lot_number` is updated in sync with the Lot.
      *
-     * @param array<string, mixed> $data  Must include 'admin_reason' plus at least one correctable field.
+     * @param  array<string, mixed>  $data  Must include 'admin_reason' plus at least one correctable field.
      */
     public function correct(StockIn $stockIn, StockInItem $item, array $data, User $actor): StockInItem
     {
@@ -79,7 +78,7 @@ class StockInItemCorrectService
                 ->all();
 
             $itemChanges = [];
-            $lotChanges  = [];
+            $lotChanges = [];
 
             if (array_key_exists('lot_number', $data)) {
                 $newLotNumber = trim((string) $data['lot_number']);
@@ -92,21 +91,21 @@ class StockInItemCorrectService
                         );
                     }
                     $itemChanges['scanned_lot_number'] = $newLotNumber;
-                    $lotChanges['lot_number']          = $newLotNumber;
+                    $lotChanges['lot_number'] = $newLotNumber;
                 }
             }
 
             if (array_key_exists('manufacturing_date', $data)) {
                 if ($item->manufacturing_date?->toDateString() !== $data['manufacturing_date']) {
                     $itemChanges['manufacturing_date'] = $data['manufacturing_date'];
-                    $lotChanges['manufacturing_date']  = $data['manufacturing_date'];
+                    $lotChanges['manufacturing_date'] = $data['manufacturing_date'];
                 }
             }
 
             if (array_key_exists('expiry_date', $data)) {
                 if ($item->expiry_date?->toDateString() !== $data['expiry_date']) {
                     $itemChanges['expiry_date'] = $data['expiry_date'];
-                    $lotChanges['expiry_date']  = $data['expiry_date'];
+                    $lotChanges['expiry_date'] = $data['expiry_date'];
                 }
             }
 
@@ -160,7 +159,11 @@ class StockInItemCorrectService
                 $relatedLot->quantity += $quantityAdjustment;
                 $relatedLot->quantity_available += $quantityAdjustment;
 
-                if ($quantityAdjustment > 0 && $relatedLot->status === 'depleted') {
+                if (
+                    $quantityAdjustment > 0
+                    && $relatedLot->quantity_available > 0
+                    && ! in_array($relatedLot->status, ['available', 'holding'], true)
+                ) {
                     $relatedLot->status = 'available';
                     $relatedLot->current_location_type = 'warehouse';
                     $relatedLot->current_location_id = null;
@@ -206,10 +209,10 @@ class StockInItemCorrectService
             // ----------------------------------------------------------------
             $this->auditLogService->logModelAction(
                 auditableType: StockInItem::class,
-                auditableId:   $item->id,
-                actionType:    AuditAction::STOCK_IN_ITEM_UPDATED,
-                actor:         $actor,
-                description:   sprintf(
+                auditableId: $item->id,
+                actionType: AuditAction::STOCK_IN_ITEM_UPDATED,
+                actor: $actor,
+                description: sprintf(
                     'Admin correction on stock-in item %d (session %s). Reason: %s',
                     $item->id,
                     $stockIn->session_no,
@@ -217,14 +220,14 @@ class StockInItemCorrectService
                 ),
                 before: [
                     'stock_in_item' => $itemBefore,
-                    'lots'          => $lotsBefore,
+                    'lots' => $lotsBefore,
                 ],
                 after: [
                     'stock_in_item' => $item->toArray(),
-                    'lots'          => $lots
+                    'lots' => $lots
                         ->mapWithKeys(fn (Lot $relatedLot) => [$relatedLot->id => $relatedLot->toArray()])
                         ->all(),
-                    'admin_reason'  => $data['admin_reason'],
+                    'admin_reason' => $data['admin_reason'],
                 ],
             );
 

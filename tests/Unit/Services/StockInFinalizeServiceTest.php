@@ -4,7 +4,6 @@ namespace Tests\Unit\Services;
 
 use App\Exceptions\BusinessLogicException;
 use App\Models\Lot;
-use App\Models\LotMovement;
 use App\Models\Product;
 use App\Models\StockIn;
 use App\Models\StockInItem;
@@ -16,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 class StockInFinalizeServiceTest extends ServiceTestCase
 {
     private StockInFinalizeService $service;
+
     private User $actor;
 
     protected function setUp(): void
@@ -23,7 +23,7 @@ class StockInFinalizeServiceTest extends ServiceTestCase
         parent::setUp();
 
         $this->service = app(StockInFinalizeService::class);
-        $this->actor   = $this->makeActor('actor@stockin.test');
+        $this->actor = $this->makeActor('actor@stockin.test');
     }
 
     #[Test]
@@ -31,7 +31,7 @@ class StockInFinalizeServiceTest extends ServiceTestCase
     {
         $session = $this->makeDraftSession();
         $product = $this->makeProduct();
-        $this->makeItem($session, $product, 'LOT-001', 'BATCH-A', '2027-12-31', missingLot: false);
+        $this->makeItem($session, $product, 'LOT-001', '2026-01-01', '2027-12-31', missingLot: false);
 
         $result = $this->service->finalize($session, $this->actor);
 
@@ -45,9 +45,58 @@ class StockInFinalizeServiceTest extends ServiceTestCase
         $this->assertFalse($lot->is_system_generated_lot);
 
         $this->assertDatabaseHas('lot_movements', [
-            'lot_id'        => $lot->id,
+            'lot_id' => $lot->id,
             'movement_type' => 'stock_in',
-            'to_status'     => 'available',
+            'to_status' => 'available',
+        ]);
+    }
+
+    #[Test]
+    public function finalize_makes_an_existing_depleted_product_lot_available_again(): void
+    {
+        $session = $this->makeDraftSession();
+        $product = $this->makeProduct();
+        $item = $this->makeItem(
+            $session,
+            $product,
+            'LOT-REPLENISH',
+            '2026-05-22',
+            '2029-05-21',
+            missingLot: false,
+            quantity: 13
+        );
+
+        $lot = Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $session->supplier_id,
+            'lot_number' => 'LOT-REPLENISH',
+            'is_system_generated_lot' => false,
+            'manufacturing_date' => '2026-05-22',
+            'expiry_date' => '2029-05-21',
+            'status' => 'depleted',
+            'current_location_type' => 'client',
+            'current_location_id' => 17,
+            'received_at' => now(),
+            'quantity' => 5,
+            'quantity_available' => 0,
+            'quantity_consigned' => 4,
+        ]);
+
+        $this->service->finalize($session, $this->actor);
+
+        $lot->refresh();
+        $this->assertSame('available', $lot->status);
+        $this->assertSame(18, $lot->quantity);
+        $this->assertSame(13, $lot->quantity_available);
+        $this->assertSame(4, $lot->quantity_consigned);
+        $this->assertSame($lot->id, $item->refresh()->lot_id);
+
+        $this->assertDatabaseHas('lot_movements', [
+            'lot_id' => $lot->id,
+            'movement_type' => 'stock_in',
+            'reference_id' => $session->id,
+            'to_status' => 'available',
+            'quantity' => 13,
         ]);
     }
 
@@ -56,7 +105,7 @@ class StockInFinalizeServiceTest extends ServiceTestCase
     {
         $session = $this->makeDraftSession();
         $product = $this->makeProduct();
-        $this->makeItem($session, $product, null, 'BATCH-B', '2027-12-31', missingLot: true);
+        $this->makeItem($session, $product, null, '2026-01-02', '2027-12-31', missingLot: true);
 
         $result = $this->service->finalize($session, $this->actor);
 
@@ -67,9 +116,9 @@ class StockInFinalizeServiceTest extends ServiceTestCase
 
         $this->assertDatabaseHas('lot_holdings', ['lot_id' => $lot->id]);
         $this->assertDatabaseHas('lot_movements', [
-            'lot_id'        => $lot->id,
+            'lot_id' => $lot->id,
             'movement_type' => 'stock_in',
-            'to_status'     => 'holding',
+            'to_status' => 'holding',
         ]);
     }
 
@@ -78,8 +127,8 @@ class StockInFinalizeServiceTest extends ServiceTestCase
     {
         $session = $this->makeDraftSession();
         $product = $this->makeProduct();
-        $this->makeItem($session, $product, 'LOT-A1', 'BATCH-1', '2027-01-01', missingLot: false);
-        $this->makeItem($session, $product, 'LOT-A2', 'BATCH-2', '2027-06-01', missingLot: false);
+        $this->makeItem($session, $product, 'LOT-A1', '2026-02-01', '2027-01-01', missingLot: false);
+        $this->makeItem($session, $product, 'LOT-A2', '2026-02-02', '2027-06-01', missingLot: false);
 
         $result = $this->service->finalize($session, $this->actor);
 
@@ -116,7 +165,7 @@ class StockInFinalizeServiceTest extends ServiceTestCase
     {
         $session = $this->makeDraftSession();
         $product = $this->makeProduct();
-        $this->makeItem($session, $product, 'LOT-X1', 'BATCH-X1', null, missingLot: false);
+        $this->makeItem($session, $product, 'LOT-X1', '2026-03-01', null, missingLot: false);
 
         $result = $this->service->finalize($session, $this->actor);
 
@@ -128,7 +177,7 @@ class StockInFinalizeServiceTest extends ServiceTestCase
     {
         $session = $this->makeDraftSession();
         $product = $this->makeProduct();
-        $this->makeItem($session, $product, 'LOT-PJ1', 'BATCH-PJ', '2027-12-31', missingLot: false);
+        $this->makeItem($session, $product, 'LOT-PJ1', '2026-04-01', '2027-12-31', missingLot: false);
 
         $result = $this->service->finalize($session, $this->actor);
 
@@ -144,31 +193,31 @@ class StockInFinalizeServiceTest extends ServiceTestCase
     private function makeDraftSession(): StockIn
     {
         $supplier = Supplier::query()->create([
-            'supplier_name' => 'Supplier ' . str()->random(4),
-            'is_active'     => true,
+            'supplier_name' => 'Supplier '.str()->random(4),
+            'is_active' => true,
         ]);
 
         return StockIn::query()->create([
-            'supplier_id'   => $supplier->id,
-            'session_no'    => 'SI-' . str()->upper(str()->random(6)),
-            'do_number'     => 'DO-' . str()->upper(str()->random(6)),
-            'stock_in_at'   => now(),
-            'pic_user_id'   => $this->actor->id,
-            'status'        => 'draft',
+            'supplier_id' => $supplier->id,
+            'session_no' => 'SI-'.str()->upper(str()->random(6)),
+            'do_number' => 'DO-'.str()->upper(str()->random(6)),
+            'stock_in_at' => now(),
+            'pic_user_id' => $this->actor->id,
+            'status' => 'draft',
         ]);
     }
 
     private function makeProduct(): Product
     {
         return Product::query()->create([
-            'ref_num'         => 'REF-' . str()->upper(str()->random(6)),
-            'product_name'    => 'Product ' . str()->random(4),
-            'product_type'    => 'consumable',
-            'category'        => 'general',
-            'uom'             => 'pcs',
+            'ref_num' => 'REF-'.str()->upper(str()->random(6)),
+            'product_name' => 'Product '.str()->random(4),
+            'product_type' => 'consumable',
+            'category' => 'general',
+            'uom' => 'pcs',
             'requires_expiry' => true,
-            'requires_lot'    => true,
-            'is_active'       => true,
+            'requires_lot' => true,
+            'is_active' => true,
         ]);
     }
 
@@ -176,19 +225,21 @@ class StockInFinalizeServiceTest extends ServiceTestCase
         StockIn $session,
         Product $product,
         ?string $lotNumber,
-        ?string $batch,
+        ?string $manufacturingDate,
         ?string $expiry,
-        bool $missingLot
+        bool $missingLot,
+        int $quantity = 1
     ): StockInItem {
         return StockInItem::query()->create([
-            'stock_in_id'        => $session->id,
-            'product_id'         => $product->id,
+            'stock_in_id' => $session->id,
+            'product_id' => $product->id,
             'scanned_lot_number' => $lotNumber,
-            'manufacturing_date'=> $batch,
-            'expiry_date'        => $expiry,
-            'lot_entry_mode'     => $lotNumber ? 'scan' : 'manual',
-            'expiry_entry_mode'  => $expiry ? 'scan' : 'none',
-            'missing_lot_flag'   => $missingLot,
+            'manufacturing_date' => $manufacturingDate,
+            'expiry_date' => $expiry,
+            'lot_entry_mode' => $lotNumber ? 'scan' : 'manual',
+            'expiry_entry_mode' => $expiry ? 'scan' : 'none',
+            'missing_lot_flag' => $missingLot,
+            'quantity' => $quantity,
         ]);
     }
 }

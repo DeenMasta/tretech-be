@@ -129,6 +129,14 @@ class StockInFinalizeService
         if ($lot) {
             $lot->quantity += $qty;
             $lot->quantity_available += $qty;
+
+            // Receiving more stock into an existing batch makes that batch
+            // available again. Holding lots stay isolated until their missing
+            // lot details are resolved through the holding-area workflow.
+            if ($lot->quantity_available > 0 && ! in_array($lot->status, ['available', 'holding'], true)) {
+                $lot->status = 'available';
+            }
+
             $lot->save();
         } else {
             $lot = Lot::query()->create([
@@ -239,7 +247,7 @@ class StockInFinalizeService
                 $lot->quantity += $componentQty;
                 $lot->quantity_available += $componentQty;
 
-                if ($lot->status === 'depleted') {
+                if ($lot->quantity_available > 0 && ! in_array($lot->status, ['available', 'holding'], true)) {
                     $lot->status = 'available';
                 }
 
