@@ -12,21 +12,21 @@ use App\Services\Reporting\ReturnsAnalysisService;
 use App\Services\Reporting\StockInReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
     public function __construct(
-        private readonly StockInReportService     $stockInReport,
+        private readonly StockInReportService $stockInReport,
         private readonly ConsignmentReportService $consignmentReport,
-        private readonly ReturnsAnalysisService   $returnsAnalysis,
-        private readonly DisposalReportService    $disposalReport,
-        private readonly ExpiryDashboardService   $expiryDashboard,
-        private readonly InventoryReportService   $inventoryReport,
-        private readonly ExportService            $exportService,
-    ) {
-    }
+        private readonly ReturnsAnalysisService $returnsAnalysis,
+        private readonly DisposalReportService $disposalReport,
+        private readonly ExpiryDashboardService $expiryDashboard,
+        private readonly InventoryReportService $inventoryReport,
+        private readonly ExportService $exportService,
+    ) {}
 
     // -----------------------------------------------------------------------
     // GET /api/v1/reports/stock-in
@@ -34,7 +34,7 @@ class ReportController extends Controller
     public function stockIn(Request $request): JsonResponse
     {
         $filters = $request->only(['from_date', 'to_date', 'supplier_id', 'product_id']);
-        $result  = $this->stockInReport->getReport($filters);
+        $result = $this->stockInReport->getReport($filters);
 
         return $this->successResponse($result, 'Stock-in report generated successfully');
     }
@@ -45,7 +45,7 @@ class ReportController extends Controller
     public function consignments(Request $request): JsonResponse
     {
         $filters = $request->only(['from_date', 'to_date', 'client_id', 'product_id', 'status']);
-        $result  = $this->consignmentReport->getReport($filters);
+        $result = $this->consignmentReport->getReport($filters);
 
         return $this->successResponse($result, 'Consignment report generated successfully');
     }
@@ -56,7 +56,7 @@ class ReportController extends Controller
     public function returnsAnalysis(Request $request): JsonResponse
     {
         $filters = $request->only(['from_date', 'to_date', 'client_id']);
-        $result  = $this->returnsAnalysis->getReport($filters);
+        $result = $this->returnsAnalysis->getReport($filters);
 
         return $this->successResponse($result, 'Returns analysis report generated successfully');
     }
@@ -67,7 +67,7 @@ class ReportController extends Controller
     public function disposals(Request $request): JsonResponse
     {
         $filters = $request->only(['from_date', 'to_date', 'supplier_id', 'product_id', 'disposal_category']);
-        $result  = $this->disposalReport->getReport($filters);
+        $result = $this->disposalReport->getReport($filters);
 
         return $this->successResponse($result, 'Disposal report generated successfully');
     }
@@ -78,7 +78,7 @@ class ReportController extends Controller
     public function expiry(Request $request): JsonResponse
     {
         $filters = $request->only(['supplier_id', 'product_id', 'window']);
-        $result  = $this->expiryDashboard->getReport($filters);
+        $result = $this->expiryDashboard->getReport($filters);
 
         return $this->successResponse($result, 'Expiry dashboard generated successfully');
     }
@@ -96,18 +96,18 @@ class ReportController extends Controller
     // POST /api/v1/reports/{type}/export
     // Params (body or query): format=csv|xlsx|pdf  + any report-specific filters
     // -----------------------------------------------------------------------
-    public function export(Request $request, string $type): BinaryFileResponse|StreamedResponse|\Illuminate\Http\Response
+    public function export(Request $request, string $type): BinaryFileResponse|StreamedResponse|Response
     {
         $allowedTypes = ['stock-in', 'consignments', 'returns-analysis', 'disposals', 'expiry', 'inventory'];
 
-        if (!in_array($type, $allowedTypes, true)) {
+        if (! in_array($type, $allowedTypes, true)) {
             abort(404, "Report type '{$type}' not found.");
         }
 
         $format = strtolower($request->input('format', 'xlsx'));
 
-        if (!in_array($format, ExportService::FORMATS, true)) {
-            abort(422, "Unsupported format '{$format}'. Allowed: " . implode(', ', ExportService::FORMATS));
+        if (! in_array($format, ExportService::FORMATS, true)) {
+            abort(422, "Unsupported format '{$format}'. Allowed: ".implode(', ', ExportService::FORMATS));
         }
 
         // Resolve rows from the correct service
@@ -116,12 +116,12 @@ class ReportController extends Controller
             : $request->except(['format']);
 
         [$rows, $summary] = match ($type) {
-            'stock-in'         => [$this->stockInReport->getExportRows($filters),      $this->stockInReport->getReport($filters)['summary']],
-            'consignments'     => [$this->consignmentReport->getExportRows($filters),  $this->consignmentReport->getReport($filters)['summary']],
+            'stock-in' => [$this->stockInReport->getExportRows($filters),      $this->stockInReport->getReport($filters)['summary']],
+            'consignments' => [$this->consignmentReport->getExportRows($filters),  $this->consignmentReport->getReport($filters)['summary']],
             'returns-analysis' => [$this->returnsAnalysis->getExportRows($filters),    $this->returnsAnalysis->getReport($filters)['summary']],
-            'disposals'        => [$this->disposalReport->getExportRows($filters),     $this->disposalReport->getReport($filters)['summary']],
-            'expiry'           => [$this->expiryDashboard->getExportRows($filters),    $this->expiryDashboard->getReport($filters)['summary'] ?? []],
-            'inventory'        => [$this->inventoryReport->getExportRows($filters),    $this->inventoryReport->getSummary($filters)],
+            'disposals' => [$this->disposalReport->getExportRows($filters),     $this->disposalReport->getReport($filters)['summary']],
+            'expiry' => [$this->expiryDashboard->getExportRows($filters),    $this->expiryDashboard->getReport($filters)['summary'] ?? []],
+            'inventory' => [$this->inventoryReport->getExportRows($filters),    $this->inventoryReport->getSummary($filters)],
         };
 
         return $this->exportService->download($type, $format, $rows, $summary);
@@ -138,7 +138,7 @@ class ReportController extends Controller
             'statuses' => ['nullable', 'array'],
             'statuses.*' => ['distinct', 'in:received,available,consigned,returned,used,disposed'],
             'columns' => ['nullable', 'array', 'min:1'],
-            'columns.*' => ['distinct', 'in:lot_number,item,supplier,received,available,consigned,returned,used,disposed'],
+            'columns.*' => ['distinct', 'in:lot_number,supplier,received,available,consigned,returned,used,disposed'],
             'expiry_from' => ['nullable', 'date_format:Y-m-d'],
             'expiry_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:expiry_from'],
             'search' => ['nullable', 'string', 'max:255'],

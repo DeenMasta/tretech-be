@@ -10,8 +10,7 @@ use Illuminate\Support\Facades\DB;
 class InventoryReportService
 {
     private const EXPORT_COLUMNS = [
-        'lot_number' => 'Lot number',
-        'item' => 'Item',
+        'lot_number' => 'Lot number / Item',
         'supplier' => 'Supplier',
         'received' => 'Received',
         'available' => 'Available',
@@ -22,8 +21,8 @@ class InventoryReportService
     ];
 
     /**
-     * Current inventory balances by lot. Historical balances cannot be safely
-     * reconstructed from the movement ledger, so this reads the lot balances.
+     * Current inventory balances grouped by master product, with the matching
+     * lot balances included beneath each product summary.
      *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
@@ -32,13 +31,24 @@ class InventoryReportService
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 25), 100));
         $page = max(1, (int) ($filters['page'] ?? 1));
-        $paginator = $this->withMovementQuantities($this->filteredLots($filters))
-            ->orderByDesc('lots.id')
-            ->paginate($perPage, ['lots.*'], 'page', $page);
+        $paginator = $this->productGroups($filters)
+            ->orderBy('report_products.product_name')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        $productIds = $paginator->getCollection()->pluck('product_id')->all();
+        $lotsByProduct = $productIds === []
+            ? collect()
+            : $this->withMovementQuantities($this->filteredLots($filters))
+                ->whereIn('lots.product_id', $productIds)
+                ->orderBy('lots.lot_number')
+                ->get()
+                ->groupBy('product_id');
 
         return [
             'summary' => $this->summary($filters),
-            'data' => $this->formatRows($paginator->getCollection()),
+            'data' => $paginator->getCollection()
+                ->map(fn (Lot $product) => $this->formatProductGroup($product, $lotsByProduct->get($product->product_id, collect())))
+                ->all(),
             'pagination' => [
                 'total' => $paginator->total(),
                 'per_page' => $paginator->perPage(),
@@ -52,33 +62,31 @@ class InventoryReportService
     public function getExportRows(array $filters = []): array
     {
         $columns = $filters['columns'] ?? array_keys(self::EXPORT_COLUMNS);
+        $products = $this->productGroups($filters)
+            ->orderBy('report_products.product_name')
+            ->get();
+        $productIds = $products->pluck('product_id')->all();
+        $lotsByProduct = $productIds === []
+            ? collect()
+            : $this->withMovementQuantities($this->filteredLots($filters))
+                ->whereIn('lots.product_id', $productIds)
+                ->orderBy('lots.lot_number')
+                ->get()
+                ->groupBy('product_id');
 
-        return $this->withMovementQuantities($this->filteredLots($filters))
-            ->orderByDesc('lots.id')
-            ->get()
-            ->map(function (Lot $lot): array {
-                $row = $this->formatRow($lot);
+        return $products
+            ->flatMap(function (Lot $product) use ($lotsByProduct): array {
+                $productGroup = $this->formatProductGroup($product, $lotsByProduct->get($product->product_id, collect()));
+                $productName = trim(implode(' - ', array_filter([$productGroup['item_code'], $productGroup['item_name']])));
+                $rows = [$this->exportRow($productGroup, $productName, 'All suppliers', true)];
 
-                return [
-                    'lot_number' => $row['lot_number'],
-                    'item' => trim(implode(' - ', array_filter([$row['item_code'], $row['item_name']]))),
-                    'supplier' => $row['supplier_name'],
-                    'received' => $row['quantity_received'],
-                    'available' => $row['quantity_available'],
-                    'consigned' => $row['quantity_consigned'],
-                    'returned' => $row['quantity_returned'],
-                    'used' => $row['quantity_used'],
-                    'disposed' => $row['quantity_disposed'],
-                ];
-            })
-            ->map(function (array $row) use ($columns): array {
-                $selected = [];
-                foreach ($columns as $column) {
-                    $selected[self::EXPORT_COLUMNS[$column]] = $row[$column];
+                foreach ($productGroup['lots'] as $lot) {
+                    $rows[] = $this->exportRow($lot, $lot['lot_number'], $lot['supplier_name']);
                 }
 
-                return $selected;
+                return $rows;
             })
+            ->map(fn (array $row): array => $this->selectedExportColumns($row, $columns))
             ->all();
     }
 
@@ -143,6 +151,19 @@ class InventoryReportService
     }
 
     /** @param array<string, mixed> $filters */
+    private function productGroups(array $filters): Builder
+    {
+        return $this->filteredLots($filters)
+            ->join('products as report_products', 'lots.product_id', '=', 'report_products.id')
+            ->select([
+                'lots.product_id',
+                'report_products.ref_num as item_code',
+                'report_products.product_name as item_name',
+            ])
+            ->groupBy('lots.product_id', 'report_products.ref_num', 'report_products.product_name');
+    }
+
+    /** @param array<string, mixed> $filters */
     private function summary(array $filters): array
     {
         $totals = (clone $this->filteredLots($filters))
@@ -202,5 +223,56 @@ class InventoryReportService
             'quantity_used' => (int) ($lot->quantity_used ?? 0),
             'quantity_disposed' => (int) ($lot->quantity_disposed ?? 0),
         ];
+    }
+
+    /** @param iterable<Lot> $lots */
+    private function formatProductGroup(Lot $product, iterable $lots): array
+    {
+        $lotRows = $this->formatRows($lots);
+
+        return [
+            'id' => 'product-'.$product->product_id,
+            'product_id' => (int) $product->product_id,
+            'item_code' => $product->item_code,
+            'item_name' => $product->item_name,
+            'quantity_received' => array_sum(array_column($lotRows, 'quantity_received')),
+            'quantity_available' => array_sum(array_column($lotRows, 'quantity_available')),
+            'quantity_consigned' => array_sum(array_column($lotRows, 'quantity_consigned')),
+            'quantity_returned' => array_sum(array_column($lotRows, 'quantity_returned')),
+            'quantity_used' => array_sum(array_column($lotRows, 'quantity_used')),
+            'quantity_disposed' => array_sum(array_column($lotRows, 'quantity_disposed')),
+            'lots' => $lotRows,
+            'is_product_summary' => true,
+        ];
+    }
+
+    /** @param array<string, int|string|null> $row */
+    private function exportRow(array $row, string $lotNumber, ?string $supplier, bool $isProductTotal = false): array
+    {
+        return [
+            'lot_number' => $lotNumber,
+            'supplier' => $supplier,
+            'received' => $row['quantity_received'],
+            'available' => $row['quantity_available'],
+            'consigned' => $row['quantity_consigned'],
+            'returned' => $row['quantity_returned'],
+            'used' => $row['quantity_used'],
+            'disposed' => $row['quantity_disposed'],
+            '__product_total' => $isProductTotal,
+        ];
+    }
+
+    /** @param array<string, int|string|null> $row
+     * @param  array<int, string>  $columns
+     */
+    private function selectedExportColumns(array $row, array $columns): array
+    {
+        $selected = [];
+        foreach ($columns as $column) {
+            $selected[self::EXPORT_COLUMNS[$column]] = $row[$column];
+        }
+        $selected['__product_total'] = $row['__product_total'];
+
+        return $selected;
     }
 }

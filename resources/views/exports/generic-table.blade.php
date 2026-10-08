@@ -84,6 +84,7 @@
         }
         table.items td.center { text-align: center; }
         table.items tbody tr:nth-child(even) td { background-color: #fafafa; }
+        table.items tbody tr.product-total td { background-color: #cfcfcf; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -158,8 +159,9 @@
         </thead>
         <tbody>
             @foreach($rows as $row)
-            <tr>
-                @foreach(array_values($row) as $cell)
+            <tr class="{{ !empty($row['__product_total']) ? 'product-total' : '' }}">
+                @foreach($row as $column => $cell)
+                @continue($column === '__product_total')
                 <td>{{ $cell }}</td>
                 @endforeach
             </tr>

@@ -2,11 +2,12 @@
 
 namespace Tests\Feature\Api\V1;
 
-use App\Models\Consignment;
-use App\Models\ConsignmentItem;
 use App\Models\Disposal;
 use App\Models\DisposalItem;
+use App\Models\Lot;
 use App\Models\LotMovement;
+use App\Models\StockIn;
+use App\Models\StockInItem;
 use App\Services\Reporting\ExportService;
 use Laravel\Sanctum\Sanctum;
 
@@ -53,27 +54,27 @@ class ReportingTest extends FeatureTestCase
 
     public function test_stock_in_report_includes_finalized_sessions(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
+        $user = $this->makeUserWithPermissions(['reports.view']);
         $supplier = $this->createSupplier();
-        $product  = $this->createProduct();
+        $product = $this->createProduct();
         Sanctum::actingAs($user);
 
         // Stock-in report is session-based; create a StockIn with an item
         $lot = $this->createLot($product, $supplier, 'available');
-        $stockIn = \App\Models\StockIn::query()->create([
-            'session_no'  => 'SI-TEST-001',
-            'do_number'   => 'DO-TEST-001',
+        $stockIn = StockIn::query()->create([
+            'session_no' => 'SI-TEST-001',
+            'do_number' => 'DO-TEST-001',
             'supplier_id' => $supplier->id,
             'stock_in_at' => now(),
             'pic_user_id' => $user->id,
-            'status'      => 'completed',
+            'status' => 'completed',
         ]);
-        \App\Models\StockInItem::query()->create([
-            'stock_in_id'        => $stockIn->id,
-            'lot_id'             => $lot->id,
-            'product_id'         => $product->id,
+        StockInItem::query()->create([
+            'stock_in_id' => $stockIn->id,
+            'lot_id' => $lot->id,
+            'product_id' => $product->id,
             'scanned_lot_number' => $lot->lot_number,
-            'quantity'           => 10,
+            'quantity' => 10,
         ]);
 
         $response = $this->getJson('/api/v1/reports/stock-in');
@@ -132,25 +133,25 @@ class ReportingTest extends FeatureTestCase
 
     public function test_disposals_report_includes_completed_disposals(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         $disposal = Disposal::query()->create([
-            'disposal_no'  => 'DSP-REPORT-001',
-            'disposed_at'  => now(),
-            'pic_user_id'  => $user->id,
-            'status'       => 'completed',
+            'disposal_no' => 'DSP-REPORT-001',
+            'disposed_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
             'completed_at' => now(),
         ]);
 
         $lot = $this->createLot($product, $supplier, 'disposed');
         DisposalItem::query()->create([
-            'disposal_id'       => $disposal->id,
-            'lot_id'            => $lot->id,
+            'disposal_id' => $disposal->id,
+            'lot_id' => $lot->id,
             'disposal_category' => 'expired',
-            'reason_text'       => 'Expired',
+            'reason_text' => 'Expired',
         ]);
 
         $response = $this->getJson('/api/v1/reports/disposals');
@@ -177,21 +178,21 @@ class ReportingTest extends FeatureTestCase
 
     public function test_expiry_report_buckets_lots_expiring_within_30_days(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         // Create a lot expiring in 10 days
-        \App\Models\Lot::query()->create([
-            'product_id'            => $product->id,
-            'supplier_id'           => $supplier->id,
-            'lot_number'            => 'LOT-EXPIRY-SOON',
-            'manufacturing_date'   => '2026-01-01',
-            'expiry_date'           => now()->addDays(10)->toDateString(),
-            'status'                => 'available',
+        Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'LOT-EXPIRY-SOON',
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => now()->addDays(10)->toDateString(),
+            'status' => 'available',
             'current_location_type' => 'warehouse',
-            'received_at'           => now(),
+            'received_at' => now(),
         ]);
 
         $response = $this->getJson('/api/v1/reports/expiry');
@@ -247,7 +248,7 @@ class ReportingTest extends FeatureTestCase
             'quantity' => 1,
         ]);
 
-        $response = $this->getJson('/api/v1/reports/inventory?product_id=' . $product->id . '&per_page=1');
+        $response = $this->getJson('/api/v1/reports/inventory?product_id='.$product->id.'&per_page=1');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -285,13 +286,16 @@ class ReportingTest extends FeatureTestCase
             'quantity' => 1,
         ]);
 
-        $response = $this->getJson('/api/v1/reports/inventory?product_id=' . $product->id . '&statuses[]=consigned&statuses[]=disposed');
+        $response = $this->getJson('/api/v1/reports/inventory?product_id='.$product->id.'&statuses[]=consigned&statuses[]=disposed');
 
-        $response->assertOk()->assertJsonPath('data.pagination.total', 2);
-        $lotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
-        $this->assertContains('LOT-MULTI-AVAILABLE', $lotNumbers);
-        $this->assertContains('LOT-MULTI-CONSIGNED', $lotNumbers);
-        $this->assertNotContains('LOT-MULTI-HOLDING', $lotNumbers);
+        $response->assertOk()
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.data.0.product_id', $product->id)
+            ->assertJsonPath('data.data.0.quantity_received', 7)
+            ->assertJsonPath('data.data.0.quantity_available', 4)
+            ->assertJsonPath('data.data.0.quantity_consigned', 3)
+            ->assertJsonPath('data.data.0.quantity_disposed', 1)
+            ->assertJsonCount(2, 'data.data.0.lots');
     }
 
     public function test_inventory_report_defaults_to_consumables_and_implants(): void
@@ -309,12 +313,37 @@ class ReportingTest extends FeatureTestCase
         $this->getJson('/api/v1/reports/inventory')
             ->assertOk()
             ->assertJsonPath('data.summary.total_lots', 2)
-            ->assertJsonMissing(['lot_number' => 'LOT-INSTRUMENT']);
+            ->assertJsonCount(2, 'data.data');
 
         $this->getJson('/api/v1/reports/inventory?product_types[]=implant')
             ->assertOk()
             ->assertJsonPath('data.summary.total_lots', 1)
-            ->assertJsonPath('data.data.0.lot_number', 'LOT-IMPLANT');
+            ->assertJsonPath('data.data.0.product_id', $implant->id);
+    }
+
+    public function test_inventory_report_groups_lots_beneath_their_product_summary(): void
+    {
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $firstLot = $this->createLot($product, $supplier, 'available', 'LOT-GROUP-ONE');
+        $firstLot->update(['quantity' => 10, 'quantity_available' => 7, 'quantity_consigned' => 2]);
+        $secondLot = $this->createLot($product, $supplier, 'available', 'LOT-GROUP-TWO');
+        $secondLot->update(['quantity' => 5, 'quantity_available' => 5, 'quantity_consigned' => 0]);
+
+        $response = $this->getJson('/api/v1/reports/inventory?product_id='.$product->id);
+
+        $response->assertOk()
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.data.0.product_id', $product->id)
+            ->assertJsonPath('data.data.0.quantity_received', 15)
+            ->assertJsonPath('data.data.0.quantity_available', 12)
+            ->assertJsonPath('data.data.0.quantity_consigned', 2)
+            ->assertJsonCount(2, 'data.data.0.lots')
+            ->assertJsonPath('data.data.0.lots.0.lot_number', 'LOT-GROUP-ONE')
+            ->assertJsonPath('data.data.0.lots.1.lot_number', 'LOT-GROUP-TWO');
     }
 
     // =========================================================================
@@ -340,7 +369,7 @@ class ReportingTest extends FeatureTestCase
         // CSV download should return 200 with content-disposition or streamed response
         $response->assertStatus(200);
         $contentType = $response->headers->get('Content-Type', '');
-        $this->assertStringContainsStringIgnoringCase('csv', $contentType . ' ' . $response->headers->get('Content-Disposition', ''));
+        $this->assertStringContainsStringIgnoringCase('csv', $contentType.' '.$response->headers->get('Content-Disposition', ''));
     }
 
     public function test_can_export_inventory_report_as_csv(): void
@@ -359,10 +388,13 @@ class ReportingTest extends FeatureTestCase
 
         $response->assertStatus(200);
         $contentType = $response->headers->get('Content-Type', '');
-        $this->assertStringContainsStringIgnoringCase('csv', $contentType . ' ' . $response->headers->get('Content-Disposition', ''));
+        $this->assertStringContainsStringIgnoringCase('csv', $contentType.' '.$response->headers->get('Content-Disposition', ''));
         $csv = $response->streamedContent();
-        $this->assertStringContainsString('"Lot number","Received","Used"', $csv);
+        $this->assertStringContainsString('"Lot number / Item","Received","Used"', $csv);
+        $this->assertStringContainsString('Test Product', $csv);
+        $this->assertStringContainsString('"LOT-SELECTED-COLUMNS"', $csv);
         $this->assertStringNotContainsString('Supplier', $csv);
+        $this->assertStringNotContainsString('__row_type', $csv);
     }
 
     public function test_inventory_pdf_export_accepts_more_than_two_hundred_rows(): void
@@ -400,25 +432,25 @@ class ReportingTest extends FeatureTestCase
 
     public function test_stock_in_report_excludes_lots_before_from_date(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         // Lot received long in the past
-        \App\Models\Lot::query()->create([
-            'product_id'            => $product->id,
-            'supplier_id'           => $supplier->id,
-            'lot_number'            => 'LOT-OLD-FILTER',
-            'manufacturing_date'   => '2026-01-01',
-            'expiry_date'           => '2028-01-01',
-            'status'                => 'available',
+        Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'LOT-OLD-FILTER',
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => '2028-01-01',
+            'status' => 'available',
             'current_location_type' => 'warehouse',
-            'received_at'           => '2020-01-01',
+            'received_at' => '2020-01-01',
         ]);
 
         // Filter: only from yesterday onwards — should exclude the old lot
-        $response = $this->getJson('/api/v1/reports/stock-in?from_date=' . now()->subDay()->toDateString());
+        $response = $this->getJson('/api/v1/reports/stock-in?from_date='.now()->subDay()->toDateString());
 
         $response->assertOk()
             ->assertJsonPath('success', true);
@@ -430,25 +462,25 @@ class ReportingTest extends FeatureTestCase
 
     public function test_stock_in_report_respects_to_date_filter(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         // Lot received in the future (simulate a future date)
-        \App\Models\Lot::query()->create([
-            'product_id'            => $product->id,
-            'supplier_id'           => $supplier->id,
-            'lot_number'            => 'LOT-FUTURE-FILTER',
-            'manufacturing_date'   => '2026-01-01',
-            'expiry_date'           => '2029-01-01',
-            'status'                => 'available',
+        Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'LOT-FUTURE-FILTER',
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => '2029-01-01',
+            'status' => 'available',
             'current_location_type' => 'warehouse',
-            'received_at'           => now()->addDays(30),
+            'received_at' => now()->addDays(30),
         ]);
 
         // Filter: only up to yesterday — should exclude the future lot
-        $response = $this->getJson('/api/v1/reports/stock-in?to_date=' . now()->subDay()->toDateString());
+        $response = $this->getJson('/api/v1/reports/stock-in?to_date='.now()->subDay()->toDateString());
 
         $response->assertOk();
 
@@ -458,45 +490,45 @@ class ReportingTest extends FeatureTestCase
 
     public function test_stock_in_report_filters_by_supplier(): void
     {
-        $user      = $this->makeUserWithPermissions(['reports.view']);
-        $product   = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier1 = $this->createSupplier();
         $supplier2 = $this->createSupplier();
         Sanctum::actingAs($user);
 
         $lot1 = $this->createLot($product, $supplier1, 'available', 'LOT-SUP1-001');
         $lot2 = $this->createLot($product, $supplier2, 'available', 'LOT-SUP2-001');
-        
-        $stockIn = \App\Models\StockIn::query()->create([
-            'session_no'  => 'SI-TEST-002',
-            'do_number'   => 'DO-TEST-002',
+
+        $stockIn = StockIn::query()->create([
+            'session_no' => 'SI-TEST-002',
+            'do_number' => 'DO-TEST-002',
             'supplier_id' => $supplier1->id,
             'stock_in_at' => now(),
             'pic_user_id' => $user->id,
-            'status'      => 'completed',
+            'status' => 'completed',
         ]);
-        \App\Models\StockInItem::query()->create([
-            'stock_in_id'        => $stockIn->id,
-            'lot_id'             => $lot1->id,
-            'product_id'         => $product->id,
+        StockInItem::query()->create([
+            'stock_in_id' => $stockIn->id,
+            'lot_id' => $lot1->id,
+            'product_id' => $product->id,
             'scanned_lot_number' => $lot1->lot_number,
-            'quantity'           => 10,
+            'quantity' => 10,
         ]);
-        
-        $stockIn2 = \App\Models\StockIn::query()->create([
-            'session_no'  => 'SI-TEST-003',
-            'do_number'   => 'DO-TEST-003',
+
+        $stockIn2 = StockIn::query()->create([
+            'session_no' => 'SI-TEST-003',
+            'do_number' => 'DO-TEST-003',
             'supplier_id' => $supplier2->id,
             'stock_in_at' => now(),
             'pic_user_id' => $user->id,
-            'status'      => 'completed',
+            'status' => 'completed',
         ]);
-        \App\Models\StockInItem::query()->create([
-            'stock_in_id'        => $stockIn2->id,
-            'lot_id'             => $lot2->id,
-            'product_id'         => $product->id,
+        StockInItem::query()->create([
+            'stock_in_id' => $stockIn2->id,
+            'lot_id' => $lot2->id,
+            'product_id' => $product->id,
             'scanned_lot_number' => $lot2->lot_number,
-            'quantity'           => 10,
+            'quantity' => 10,
         ]);
 
         $response = $this->getJson("/api/v1/reports/stock-in?supplier_id={$supplier1->id}");
@@ -521,38 +553,38 @@ class ReportingTest extends FeatureTestCase
 
     public function test_disposal_report_filters_by_category(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         // Create two completed disposals with different categories
         $disposalExpired = Disposal::query()->create([
-            'disposal_no'  => 'DSP-CAT-EXPIRED',
-            'disposed_at'  => now(),
-            'pic_user_id'  => $user->id,
-            'status'       => 'completed',
+            'disposal_no' => 'DSP-CAT-EXPIRED',
+            'disposed_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
             'completed_at' => now(),
         ]);
         DisposalItem::query()->create([
-            'disposal_id'       => $disposalExpired->id,
-            'lot_id'            => $this->createLot($product, $supplier, 'disposed')->id,
+            'disposal_id' => $disposalExpired->id,
+            'lot_id' => $this->createLot($product, $supplier, 'disposed')->id,
             'disposal_category' => 'expired',
-            'reason_text'       => 'Past expiry',
+            'reason_text' => 'Past expiry',
         ]);
 
         $disposalDamaged = Disposal::query()->create([
-            'disposal_no'  => 'DSP-CAT-DAMAGED',
-            'disposed_at'  => now(),
-            'pic_user_id'  => $user->id,
-            'status'       => 'completed',
+            'disposal_no' => 'DSP-CAT-DAMAGED',
+            'disposed_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
             'completed_at' => now(),
         ]);
         DisposalItem::query()->create([
-            'disposal_id'       => $disposalDamaged->id,
-            'lot_id'            => $this->createLot($product, $supplier, 'disposed')->id,
+            'disposal_id' => $disposalDamaged->id,
+            'lot_id' => $this->createLot($product, $supplier, 'disposed')->id,
             'disposal_category' => 'damaged',
-            'reason_text'       => 'Physical damage',
+            'reason_text' => 'Physical damage',
         ]);
 
         // Filter by 'expired' category only
@@ -568,7 +600,7 @@ class ReportingTest extends FeatureTestCase
             ->unique()
             ->values()
             ->all();
-            
+
         $this->assertNotEmpty($categories);
         $this->assertNotContains('damaged', $categories);
     }
@@ -579,33 +611,33 @@ class ReportingTest extends FeatureTestCase
 
     public function test_expiry_report_window_filters_results(): void
     {
-        $user     = $this->makeUserWithPermissions(['reports.view']);
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         // Lot expiring in 10 days — should appear in window=30 response
-        \App\Models\Lot::query()->create([
-            'product_id'            => $product->id,
-            'supplier_id'           => $supplier->id,
-            'lot_number'            => 'LOT-WIN-10DAYS',
-            'manufacturing_date'   => '2026-01-01',
-            'expiry_date'           => now()->addDays(10)->toDateString(),
-            'status'                => 'available',
+        Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'LOT-WIN-10DAYS',
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => now()->addDays(10)->toDateString(),
+            'status' => 'available',
             'current_location_type' => 'warehouse',
-            'received_at'           => now(),
+            'received_at' => now(),
         ]);
 
         // Lot expiring in 45 days — should NOT appear in window=30 response
-        \App\Models\Lot::query()->create([
-            'product_id'            => $product->id,
-            'supplier_id'           => $supplier->id,
-            'lot_number'            => 'LOT-WIN-45DAYS',
-            'manufacturing_date'   => '2026-01-01',
-            'expiry_date'           => now()->addDays(45)->toDateString(),
-            'status'                => 'available',
+        Lot::query()->create([
+            'product_id' => $product->id,
+            'supplier_id' => $supplier->id,
+            'lot_number' => 'LOT-WIN-45DAYS',
+            'manufacturing_date' => '2026-01-01',
+            'expiry_date' => now()->addDays(45)->toDateString(),
+            'status' => 'available',
             'current_location_type' => 'warehouse',
-            'received_at'           => now(),
+            'received_at' => now(),
         ]);
 
         $response = $this->getJson('/api/v1/reports/expiry?window=30');

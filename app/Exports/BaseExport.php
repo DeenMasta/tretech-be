@@ -13,9 +13,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  */
 class BaseExport implements FromArray, WithHeadings, WithStyles
 {
-    public function __construct(protected array $rows)
-    {
-    }
+    public function __construct(protected array $rows) {}
 
     public function array(): array
     {
