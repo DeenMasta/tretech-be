@@ -5,6 +5,7 @@ namespace App\Services\Reporting;
 use App\Exports\ConsignmentExport;
 use App\Exports\DisposalExport;
 use App\Exports\ExpiryExport;
+use App\Exports\InventoryReportExport;
 use App\Exports\StockAuditExport;
 use App\Exports\StockInExport;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,6 +25,7 @@ class ExportService
         'returns-analysis'=> [ConsignmentExport::class,  'reports.returns-analysis','Returns Analysis Report'],
         'disposals'       => [DisposalExport::class,     'reports.disposals',       'Disposal & Loss Report'],
         'expiry'          => [ExpiryExport::class,       'reports.expiry',          'Expiry Dashboard Report'],
+        'inventory'       => [InventoryReportExport::class, 'reports.inventory',      'Inventory Report'],
         'stock-audit'     => [StockAuditExport::class,   'reports.stock-audit',     'Stock Audit Report'],
     ];
 

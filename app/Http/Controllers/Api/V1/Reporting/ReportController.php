@@ -7,6 +7,7 @@ use App\Services\Reporting\ConsignmentReportService;
 use App\Services\Reporting\DisposalReportService;
 use App\Services\Reporting\ExpiryDashboardService;
 use App\Services\Reporting\ExportService;
+use App\Services\Reporting\InventoryReportService;
 use App\Services\Reporting\ReturnsAnalysisService;
 use App\Services\Reporting\StockInReportService;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,7 @@ class ReportController extends Controller
         private readonly ReturnsAnalysisService   $returnsAnalysis,
         private readonly DisposalReportService    $disposalReport,
         private readonly ExpiryDashboardService   $expiryDashboard,
+        private readonly InventoryReportService   $inventoryReport,
         private readonly ExportService            $exportService,
     ) {
     }
@@ -81,13 +83,22 @@ class ReportController extends Controller
         return $this->successResponse($result, 'Expiry dashboard generated successfully');
     }
 
+    // GET /api/v1/reports/inventory
+    public function inventory(Request $request): JsonResponse
+    {
+        return $this->successResponse(
+            $this->inventoryReport->getReport($this->inventoryFilters($request)),
+            'Inventory report generated successfully'
+        );
+    }
+
     // -----------------------------------------------------------------------
     // POST /api/v1/reports/{type}/export
     // Params (body or query): format=csv|xlsx|pdf  + any report-specific filters
     // -----------------------------------------------------------------------
     public function export(Request $request, string $type): BinaryFileResponse|StreamedResponse|\Illuminate\Http\Response
     {
-        $allowedTypes = ['stock-in', 'consignments', 'returns-analysis', 'disposals', 'expiry'];
+        $allowedTypes = ['stock-in', 'consignments', 'returns-analysis', 'disposals', 'expiry', 'inventory'];
 
         if (!in_array($type, $allowedTypes, true)) {
             abort(404, "Report type '{$type}' not found.");
@@ -100,7 +111,9 @@ class ReportController extends Controller
         }
 
         // Resolve rows from the correct service
-        $filters = $request->except(['format']);
+        $filters = $type === 'inventory'
+            ? $this->inventoryFilters($request)
+            : $request->except(['format']);
 
         [$rows, $summary] = match ($type) {
             'stock-in'         => [$this->stockInReport->getExportRows($filters),      $this->stockInReport->getReport($filters)['summary']],
@@ -108,8 +121,29 @@ class ReportController extends Controller
             'returns-analysis' => [$this->returnsAnalysis->getExportRows($filters),    $this->returnsAnalysis->getReport($filters)['summary']],
             'disposals'        => [$this->disposalReport->getExportRows($filters),     $this->disposalReport->getReport($filters)['summary']],
             'expiry'           => [$this->expiryDashboard->getExportRows($filters),    $this->expiryDashboard->getReport($filters)['summary'] ?? []],
+            'inventory'        => [$this->inventoryReport->getExportRows($filters),    $this->inventoryReport->getSummary($filters)],
         };
 
         return $this->exportService->download($type, $format, $rows, $summary);
+    }
+
+    /** @return array<string, mixed> */
+    private function inventoryFilters(Request $request): array
+    {
+        return $request->validate([
+            'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'product_types' => ['nullable', 'array', 'min:1'],
+            'product_types.*' => ['in:consumable,implant'],
+            'statuses' => ['nullable', 'array'],
+            'statuses.*' => ['distinct', 'in:received,available,consigned,returned,used,disposed'],
+            'columns' => ['nullable', 'array', 'min:1'],
+            'columns.*' => ['distinct', 'in:lot_number,item,supplier,received,available,consigned,returned,used,disposed'],
+            'expiry_from' => ['nullable', 'date_format:Y-m-d'],
+            'expiry_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:expiry_from'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
     }
 }

@@ -468,6 +468,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:reports.view');
         Route::get('/expiry', [ReportController::class, 'expiry'])
             ->middleware('permission:reports.view');
+        Route::get('/inventory', [ReportController::class, 'inventory'])
+            ->middleware('permission:reports.view');
         Route::post('/{type}/export', [ReportController::class, 'export'])
             ->middleware('permission:reports.export');
     });

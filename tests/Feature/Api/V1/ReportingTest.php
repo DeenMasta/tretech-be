@@ -6,6 +6,8 @@ use App\Models\Consignment;
 use App\Models\ConsignmentItem;
 use App\Models\Disposal;
 use App\Models\DisposalItem;
+use App\Models\LotMovement;
+use App\Services\Reporting\ExportService;
 use Laravel\Sanctum\Sanctum;
 
 class ReportingTest extends FeatureTestCase
@@ -21,6 +23,7 @@ class ReportingTest extends FeatureTestCase
         $this->getJson('/api/v1/reports/returns-analysis')->assertStatus(401);
         $this->getJson('/api/v1/reports/disposals')->assertStatus(401);
         $this->getJson('/api/v1/reports/expiry')->assertStatus(401);
+        $this->getJson('/api/v1/reports/inventory')->assertStatus(401);
     }
 
     public function test_user_without_permission_cannot_access_reports(): void
@@ -29,6 +32,7 @@ class ReportingTest extends FeatureTestCase
 
         $this->getJson('/api/v1/reports/stock-in')->assertStatus(403);
         $this->getJson('/api/v1/reports/consignments')->assertStatus(403);
+        $this->getJson('/api/v1/reports/inventory')->assertStatus(403);
     }
 
     // =========================================================================
@@ -200,6 +204,120 @@ class ReportingTest extends FeatureTestCase
     }
 
     // =========================================================================
+    // Inventory report
+    // =========================================================================
+
+    public function test_inventory_report_returns_current_balances_and_pagination(): void
+    {
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $available = $this->createLot($product, $supplier, 'available', 'LOT-INVENTORY-AVAILABLE');
+        $available->update(['quantity' => 10, 'quantity_available' => 7, 'quantity_consigned' => 2]);
+        $holding = $this->createLot($product, $supplier, 'holding', 'LOT-INVENTORY-HOLDING');
+        $holding->update(['quantity' => 3, 'quantity_available' => 3, 'quantity_consigned' => 0]);
+        LotMovement::query()->create([
+            'lot_id' => $available->id,
+            'movement_type' => 'consigned',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 3,
+        ]);
+        LotMovement::query()->create([
+            'lot_id' => $available->id,
+            'movement_type' => 'returned',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 1,
+        ]);
+        LotMovement::query()->create([
+            'lot_id' => $available->id,
+            'movement_type' => 'used',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 2,
+        ]);
+        LotMovement::query()->create([
+            'lot_id' => $available->id,
+            'movement_type' => 'disposed',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 1,
+        ]);
+
+        $response = $this->getJson('/api/v1/reports/inventory?product_id=' . $product->id . '&per_page=1');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.summary.total_lots', 1)
+            ->assertJsonPath('data.summary.received', 10)
+            ->assertJsonPath('data.summary.available', 7)
+            ->assertJsonPath('data.summary.consigned', 2)
+            ->assertJsonPath('data.summary.returned', 1)
+            ->assertJsonPath('data.summary.used', 2)
+            ->assertJsonPath('data.summary.disposed', 1)
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.pagination.per_page', 1)
+            ->assertJsonCount(1, 'data.data');
+    }
+
+    public function test_inventory_report_accepts_multiple_status_filters(): void
+    {
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $available = $this->createLot($product, $supplier, 'available', 'LOT-MULTI-AVAILABLE');
+        $available->update(['quantity' => 4, 'quantity_available' => 4, 'quantity_consigned' => 0]);
+        $holding = $this->createLot($product, $supplier, 'holding', 'LOT-MULTI-HOLDING');
+        $holding->update(['quantity' => 2, 'quantity_available' => 2, 'quantity_consigned' => 0]);
+        $consigned = $this->createLot($product, $supplier, 'supplied', 'LOT-MULTI-CONSIGNED');
+        $consigned->update(['quantity' => 3, 'quantity_available' => 0, 'quantity_consigned' => 3]);
+
+        LotMovement::query()->create([
+            'lot_id' => $available->id,
+            'movement_type' => 'disposed',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 1,
+        ]);
+
+        $response = $this->getJson('/api/v1/reports/inventory?product_id=' . $product->id . '&statuses[]=consigned&statuses[]=disposed');
+
+        $response->assertOk()->assertJsonPath('data.pagination.total', 2);
+        $lotNumbers = collect($response->json('data.data'))->pluck('lot_number')->all();
+        $this->assertContains('LOT-MULTI-AVAILABLE', $lotNumbers);
+        $this->assertContains('LOT-MULTI-CONSIGNED', $lotNumbers);
+        $this->assertNotContains('LOT-MULTI-HOLDING', $lotNumbers);
+    }
+
+    public function test_inventory_report_defaults_to_consumables_and_implants(): void
+    {
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $supplier = $this->createSupplier();
+        $consumable = $this->createProduct(productType: 'consumable');
+        $implant = $this->createProduct(productType: 'implant');
+        $other = $this->createProduct(productType: 'instrument');
+        $this->createLot($consumable, $supplier, lotNumber: 'LOT-CONSUMABLE');
+        $this->createLot($implant, $supplier, lotNumber: 'LOT-IMPLANT');
+        $this->createLot($other, $supplier, lotNumber: 'LOT-INSTRUMENT');
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/reports/inventory')
+            ->assertOk()
+            ->assertJsonPath('data.summary.total_lots', 2)
+            ->assertJsonMissing(['lot_number' => 'LOT-INSTRUMENT']);
+
+        $this->getJson('/api/v1/reports/inventory?product_types[]=implant')
+            ->assertOk()
+            ->assertJsonPath('data.summary.total_lots', 1)
+            ->assertJsonPath('data.data.0.lot_number', 'LOT-IMPLANT');
+    }
+
+    // =========================================================================
     // Export endpoints
     // =========================================================================
 
@@ -223,6 +341,39 @@ class ReportingTest extends FeatureTestCase
         $response->assertStatus(200);
         $contentType = $response->headers->get('Content-Type', '');
         $this->assertStringContainsStringIgnoringCase('csv', $contentType . ' ' . $response->headers->get('Content-Disposition', ''));
+    }
+
+    public function test_can_export_inventory_report_as_csv(): void
+    {
+        $user = $this->makeUserWithPermissions(['reports.export']);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        $this->createLot($product, $supplier, 'available', 'LOT-SELECTED-COLUMNS');
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/v1/reports/inventory/export', [
+            'format' => 'csv',
+            'product_id' => $product->id,
+            'columns' => ['lot_number', 'received', 'used'],
+        ]);
+
+        $response->assertStatus(200);
+        $contentType = $response->headers->get('Content-Type', '');
+        $this->assertStringContainsStringIgnoringCase('csv', $contentType . ' ' . $response->headers->get('Content-Disposition', ''));
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('"Lot number","Received","Used"', $csv);
+        $this->assertStringNotContainsString('Supplier', $csv);
+    }
+
+    public function test_inventory_pdf_export_accepts_more_than_two_hundred_rows(): void
+    {
+        $response = app(ExportService::class)->download(
+            'inventory',
+            'pdf',
+            array_fill(0, 201, ['Lot Number' => 'LOT-TEST'])
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
     }
 
     public function test_export_with_invalid_format_returns_422(): void
