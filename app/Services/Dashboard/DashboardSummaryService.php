@@ -10,11 +10,14 @@ use App\Models\Reconciliation;
 use App\Models\ReturnSession;
 use App\Models\StockIn;
 use App\Models\SupplierReturn;
+use App\Services\Inventory\InventoryService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DashboardSummaryService
 {
+    public function __construct(private readonly InventoryService $inventoryService) {}
+
     /**
      * Build the dashboard payload from real lot lifecycle data
      * and actual operations sub-module states.
@@ -30,45 +33,28 @@ class DashboardSummaryService
         [$dateFrom, $dateTo] = $this->normalizeDateRange($filters);
 
         return [
-            'lot_counts'          => $this->buildLotCounts(),
+            // Retain the response key for compatibility; values are quantities.
+            'lot_counts' => $this->buildInventoryQuantities(),
             'operations_pipeline' => $this->buildOperationsPipeline(),
-            'today_activity'      => $this->buildTodayActivity(),
-            'alerts'              => $this->buildAlerts(),
+            'today_activity' => $this->buildTodayActivity(),
+            'alerts' => $this->buildAlerts(),
             'low_stock_risk_count' => $this->countLowStockProducts(),
-            'stock_in_trend'      => $this->buildMovementTrend(['stock_in'], $dateFrom, $dateTo),
-            'consignment_trend'   => $this->buildMovementTrend(['consigned'], $dateFrom, $dateTo),
-            'top_moved_products'  => $this->buildTopMovedProducts($dateFrom, $dateTo),
+            'stock_in_trend' => $this->buildMovementTrend(['stock_in'], $dateFrom, $dateTo),
+            'consignment_trend' => $this->buildMovementTrend(['consigned'], $dateFrom, $dateTo),
+            'top_moved_products' => $this->buildTopMovedProducts($dateFrom, $dateTo),
         ];
     }
 
     // -------------------------------------------------------------------------
-    // Lot Counts — one counter per real LotStatus enum value
+    // Inventory quantities — shared with the Inventory page
     // -------------------------------------------------------------------------
 
     /**
      * @return array<string, int>
      */
-    private function buildLotCounts(): array
+    private function buildInventoryQuantities(): array
     {
-        $counts = Lot::query()
-            ->select(['status', DB::raw('COUNT(*) as count')])
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->all();
-
-        $statuses = ['available', 'holding', 'supplied', 'used', 'disposed', 'returned_to_supplier'];
-        $result = [];
-        $total = 0;
-
-        foreach ($statuses as $status) {
-            $value = (int) ($counts[$status] ?? 0);
-            $result[$status] = $value;
-            $total += $value;
-        }
-
-        $result['total'] = $total;
-
-        return $result;
+        return $this->inventoryService->summary();
     }
 
     // -------------------------------------------------------------------------
@@ -83,22 +69,22 @@ class DashboardSummaryService
         $today = now()->toDateString();
 
         return [
-            'stock_in_draft'              => StockIn::query()->where('status', 'draft')->count(),
-            'stock_in_finalized_today'    => StockIn::query()
+            'stock_in_draft' => StockIn::query()->where('status', 'draft')->count(),
+            'stock_in_finalized_today' => StockIn::query()
                 ->where('status', 'finalized')
                 ->whereDate('confirmed_at', $today)
                 ->count(),
-            'consignment_draft'           => Consignment::query()->where('status', 'draft')->count(),
+            'consignment_draft' => Consignment::query()->where('status', 'draft')->count(),
             'consignment_confirmed_today' => Consignment::query()
                 ->where('status', 'confirmed')
                 ->whereDate('confirmed_at', $today)
                 ->count(),
             'return_sessions_in_progress' => ReturnSession::query()->where('status', 'in_progress')->count(),
-            'reconciliation_pending'      => Reconciliation::query()
+            'reconciliation_pending' => Reconciliation::query()
                 ->whereIn('status', ['pending', 'reopened'], 'and', false)
                 ->count(),
-            'disposal_draft'              => Disposal::query()->where('status', 'draft')->count(),
-            'supplier_return_draft'       => SupplierReturn::query()->where('status', 'draft')->count(),
+            'disposal_draft' => Disposal::query()->where('status', 'draft')->count(),
+            'supplier_return_draft' => SupplierReturn::query()->where('status', 'draft')->count(),
         ];
     }
 
@@ -130,7 +116,7 @@ class DashboardSummaryService
 
         foreach ($types as $type) {
             $value = (int) ($counts[$type] ?? 0);
-            $result[$type . '_count'] = $value;
+            $result[$type.'_count'] = $value;
             $total += $value;
         }
 
@@ -186,14 +172,15 @@ class DashboardSummaryService
     private function countLowStockProducts(): int
     {
         $availableByProduct = Lot::query()
-            ->select(['product_id', DB::raw('COUNT(*) as available_qty')])
-            ->where('status', 'available')
+            ->select(['product_id', DB::raw('SUM(quantity_available) as available_qty')])
+            ->where('status', '<>', 'holding')
+            ->where('quantity_available', '>', 0)
             ->groupBy('product_id')
             ->pluck('available_qty', 'product_id');
 
         $outboundByProduct = DB::table('lot_movements')
             ->join('lots', 'lots.id', '=', 'lot_movements.lot_id')
-            ->select(['lots.product_id', DB::raw('COUNT(*) as outbound_qty')])
+            ->select(['lots.product_id', DB::raw('SUM(lot_movements.quantity) as outbound_qty')])
             ->whereIn('lot_movements.movement_type', ['consigned', 'disposed', 'returned_to_supplier'])
             ->where('lot_movements.performed_at', '>=', now()->subDays(30)->startOfDay())
             ->groupBy('lots.product_id')
@@ -224,11 +211,11 @@ class DashboardSummaryService
      */
     private function normalizeDateRange(array $filters): array
     {
-        $dateFrom = !empty($filters['date_from'])
+        $dateFrom = ! empty($filters['date_from'])
             ? Carbon::parse((string) $filters['date_from'])->startOfDay()
             : null;
 
-        $dateTo = !empty($filters['date_to'])
+        $dateTo = ! empty($filters['date_to'])
             ? Carbon::parse((string) $filters['date_to'])->endOfDay()
             : null;
 
@@ -242,7 +229,7 @@ class DashboardSummaryService
     private function buildMovementTrend(array $movementTypes, ?Carbon $dateFrom, ?Carbon $dateTo): array
     {
         $query = LotMovement::query()
-            ->selectRaw('DATE(performed_at) as date, COUNT(*) as transaction_count, COUNT(*) as total_qty', [])
+            ->selectRaw('DATE(performed_at) as date, COUNT(*) as transaction_count, COALESCE(SUM(quantity), 0) as total_qty', [])
             ->whereIn('movement_type', $movementTypes, 'and', false);
 
         if ($dateFrom !== null) {
@@ -277,7 +264,7 @@ class DashboardSummaryService
                 'products.id as product_id',
                 'products.product_name',
                 'products.ref_num as product_code',
-                DB::raw('COUNT(*) as moved_qty'),
+                DB::raw('COALESCE(SUM(lot_movements.quantity), 0) as moved_qty'),
             ])
             ->whereIn('lot_movements.movement_type', [
                 'stock_in',

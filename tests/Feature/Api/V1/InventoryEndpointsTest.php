@@ -72,12 +72,12 @@ class InventoryEndpointsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('pagination.total', 2);
 
-        $this->getJson('/api/v1/inventory-units?supplier_id=' . $supplierB->id)
+        $this->getJson('/api/v1/inventory-units?supplier_id='.$supplierB->id)
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
             ->assertJsonPath('data.0.lot_number', 'LOT-A2');
 
-        $this->getJson('/api/v1/inventory-units?product_id=' . $productB->id)
+        $this->getJson('/api/v1/inventory-units?product_id='.$productB->id)
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
             ->assertJsonPath('data.0.lot_number', $lot3->lot_number);
@@ -86,10 +86,71 @@ class InventoryEndpointsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('pagination.total', 2);
 
-        $this->getJson('/api/v1/inventory-units?search=' . $lot1->lot_number)
+        $this->getJson('/api/v1/inventory-units?search='.$lot1->lot_number)
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
             ->assertJsonPath('data.0.id', $lot1->id);
+    }
+
+    public function test_inventory_summary_returns_unit_quantities_instead_of_lot_counts(): void
+    {
+        $user = $this->makeUserWithPermissions(['stock_in.view']);
+        Sanctum::actingAs($user);
+
+        $supplier = $this->createSupplier('Supplier Summary');
+        $product = $this->createProduct('REF-SUMMARY', 'Summary Product');
+
+        $available = $this->createLot($product, $supplier, 'LOT-SUMMARY-AVAILABLE', 'available');
+        $available->update([
+            'quantity' => 10,
+            'quantity_available' => 6,
+            'quantity_consigned' => 4,
+        ]);
+
+        $holding = $this->createLot($product, $supplier, 'LOT-SUMMARY-HOLDING', 'holding');
+        $holding->update(['quantity' => 3, 'quantity_available' => 3]);
+
+        $depleted = $this->createLot($product, $supplier, 'LOT-SUMMARY-DEPLETED', 'depleted');
+        $depleted->update([
+            'quantity' => 5,
+            'quantity_available' => 0,
+            'quantity_consigned' => 5,
+        ]);
+
+        $used = $this->createLot($product, $supplier, 'LOT-SUMMARY-USED', 'used');
+        $used->update(['quantity' => 4, 'quantity_available' => 2]);
+
+        $disposed = $this->createLot($product, $supplier, 'LOT-SUMMARY-DISPOSED', 'disposed');
+        $disposed->update(['quantity' => 4, 'quantity_available' => 0]);
+
+        LotMovement::query()->create([
+            'lot_id' => $used->id,
+            'movement_type' => 'used',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 2,
+        ]);
+
+        LotMovement::query()->create([
+            'lot_id' => $disposed->id,
+            'movement_type' => 'disposed',
+            'performed_at' => now(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 4,
+        ]);
+
+        $this->getJson('/api/v1/inventory-units/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total', 26)
+            ->assertJsonPath('data.total_lots', 5)
+            ->assertJsonPath('data.available', 8)
+            ->assertJsonPath('data.holding', 3)
+            ->assertJsonPath('data.supplied', 9)
+            ->assertJsonPath('data.used', 2)
+            ->assertJsonPath('data.disposed', 4)
+            ->assertJsonPath('data.returned_to_supplier', 0)
+            ->assertJsonPath('data.damaged', 0)
+            ->assertJsonPath('data.missing', 0);
     }
 
     public function test_inventory_lookup_by_lot_returns_data_and_not_found(): void
@@ -101,7 +162,7 @@ class InventoryEndpointsTest extends TestCase
         $product = $this->createProduct('REF-LKP', 'Lookup Product');
         $lot = $this->createLot($product, $supplier, 'LOT-LOOKUP-1', 'available');
 
-        $this->getJson('/api/v1/inventory-units/lookup/by-lot/' . $lot->lot_number)
+        $this->getJson('/api/v1/inventory-units/lookup/by-lot/'.$lot->lot_number)
             ->assertOk()
             ->assertJsonPath('data.id', $lot->id)
             ->assertJsonPath('data.product.ref_num', 'REF-LKP');
@@ -144,7 +205,7 @@ class InventoryEndpointsTest extends TestCase
         $product = $this->createProduct('REF-SHOW', 'Show Product');
         $lot = $this->createLot($product, $supplier, 'LOT-SHOW-1', 'available');
 
-        $this->getJson('/api/v1/inventory-units/' . $lot->id)
+        $this->getJson('/api/v1/inventory-units/'.$lot->id)
             ->assertOk()
             ->assertJsonPath('data.id', $lot->id)
             ->assertJsonPath('data.supplier.supplier_name', 'Supplier Show');
@@ -196,7 +257,7 @@ class InventoryEndpointsTest extends TestCase
             'remarks' => 'consigned movement',
         ]);
 
-        $this->getJson('/api/v1/inventory-ledger?lot_number=' . $lot1->lot_number)
+        $this->getJson('/api/v1/inventory-ledger?lot_number='.$lot1->lot_number)
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
             ->assertJsonPath('data.0.lot.lot_number', $lot1->lot_number);
@@ -211,20 +272,20 @@ class InventoryEndpointsTest extends TestCase
             ->assertJsonPath('pagination.total', 1)
             ->assertJsonPath('data.0.lot.lot_number', $lot2->lot_number);
 
-        $this->getJson('/api/v1/inventory-ledger?lot_id=' . $lot2->id)
+        $this->getJson('/api/v1/inventory-ledger?lot_id='.$lot2->id)
             ->assertOk()
             ->assertJsonPath('pagination.total', 1)
             ->assertJsonPath('data.0.lot_id', $lot2->id);
     }
 
     /**
-     * @param array<int, string> $permissionCodes
+     * @param  array<int, string>  $permissionCodes
      */
     private function makeUserWithPermissions(array $permissionCodes): User
     {
         $role = Role::query()->create([
-            'role_code' => 'test_role_' . str()->lower(str()->random(10)),
-            'role_name' => 'Test Role ' . str()->random(5),
+            'role_code' => 'test_role_'.str()->lower(str()->random(10)),
+            'role_name' => 'Test Role '.str()->random(5),
         ]);
 
         if ($permissionCodes !== []) {
@@ -239,7 +300,7 @@ class InventoryEndpointsTest extends TestCase
         return User::query()->create([
             'role_id' => $role->id,
             'full_name' => 'Inventory Tester',
-            'email' => 'inventory_tester_' . str()->lower(str()->random(6)) . '@example.test',
+            'email' => 'inventory_tester_'.str()->lower(str()->random(6)).'@example.test',
             'password_hash' => 'Password123!',
             'is_active' => true,
         ]);
@@ -250,7 +311,7 @@ class InventoryEndpointsTest extends TestCase
         return Supplier::query()->create([
             'supplier_name' => $name,
             'phone' => '123456789',
-            'email' => str()->slug($name) . '@example.test',
+            'email' => str()->slug($name).'@example.test',
             'address' => 'Test Address',
             'is_active' => true,
         ]);

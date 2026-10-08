@@ -36,7 +36,10 @@ class DashboardTest extends FeatureTestCase
                         'used',
                         'disposed',
                         'returned_to_supplier',
+                        'damaged',
+                        'missing',
                         'total',
+                        'total_lots',
                     ],
                     'operations_pipeline' => [
                         'stock_in_draft',
@@ -72,7 +75,7 @@ class DashboardTest extends FeatureTestCase
             ]);
     }
 
-    public function test_dashboard_summary_aggregates_lot_counts_and_pipeline(): void
+    public function test_dashboard_summary_aggregates_inventory_quantities_and_pipeline(): void
     {
         $user = $this->makeUserWithPermissions(['dashboard.view']);
         $supplier = $this->createSupplier();
@@ -81,11 +84,17 @@ class DashboardTest extends FeatureTestCase
 
         Sanctum::actingAs($user);
 
-        // Create lots with different statuses
-        $this->createLot($productA, $supplier, 'available', 'LOT-DASH-AVL');
-        $this->createLot($productA, $supplier, 'supplied', 'LOT-DASH-SUP');
-        $this->createLot($productB, $supplier, 'holding', 'LOT-DASH-HLD');
-        $this->createLot($productB, $supplier, 'returned_to_supplier', 'LOT-DASH-RTS');
+        $available = $this->createLot($productA, $supplier, 'available', 'LOT-DASH-AVL');
+        $available->update(['quantity' => 10, 'quantity_available' => 6, 'quantity_consigned' => 4]);
+
+        $depleted = $this->createLot($productA, $supplier, 'depleted', 'LOT-DASH-DEP');
+        $depleted->update(['quantity' => 5, 'quantity_available' => 0, 'quantity_consigned' => 5]);
+
+        $holding = $this->createLot($productB, $supplier, 'holding', 'LOT-DASH-HLD');
+        $holding->update(['quantity' => 3, 'quantity_available' => 3]);
+
+        $returned = $this->createLot($productB, $supplier, 'returned_to_supplier', 'LOT-DASH-RTS');
+        $returned->update(['quantity' => 2, 'quantity_available' => 0]);
 
         // Create a draft stock-in
         StockIn::query()->create([
@@ -100,21 +109,31 @@ class DashboardTest extends FeatureTestCase
         // Create a movement today
         $today = now()->subHour();
         LotMovement::query()->create([
-            'lot_id' => 1,
+            'lot_id' => $available->id,
             'movement_type' => 'stock_in',
             'performed_at' => $today,
             'performed_by_user_id' => $user->id,
+            'quantity' => 10,
+        ]);
+
+        LotMovement::query()->create([
+            'lot_id' => $returned->id,
+            'movement_type' => 'returned_to_supplier',
+            'performed_at' => now()->subDay(),
+            'performed_by_user_id' => $user->id,
+            'quantity' => 2,
         ]);
 
         $response = $this->getJson('/api/v1/dashboard/summary');
 
         $response->assertOk()
-            // Lot counts
-            ->assertJsonPath('data.lot_counts.available', 1)
-            ->assertJsonPath('data.lot_counts.supplied', 1)
-            ->assertJsonPath('data.lot_counts.holding', 1)
-            ->assertJsonPath('data.lot_counts.returned_to_supplier', 1)
-            ->assertJsonPath('data.lot_counts.total', 4)
+            // Inventory unit quantities
+            ->assertJsonPath('data.lot_counts.available', 6)
+            ->assertJsonPath('data.lot_counts.supplied', 9)
+            ->assertJsonPath('data.lot_counts.holding', 3)
+            ->assertJsonPath('data.lot_counts.returned_to_supplier', 2)
+            ->assertJsonPath('data.lot_counts.total', 20)
+            ->assertJsonPath('data.lot_counts.total_lots', 4)
             // Operations pipeline
             ->assertJsonPath('data.operations_pipeline.stock_in_draft', 1)
             // Today activity
@@ -141,6 +160,7 @@ class DashboardTest extends FeatureTestCase
             'movement_type' => 'stock_in',
             'performed_at' => $withinRange,
             'performed_by_user_id' => $user->id,
+            'quantity' => 7,
         ]);
 
         LotMovement::query()->create([
@@ -148,10 +168,11 @@ class DashboardTest extends FeatureTestCase
             'movement_type' => 'stock_in',
             'performed_at' => $outsideRange,
             'performed_by_user_id' => $user->id,
+            'quantity' => 11,
         ]);
 
         $response = $this->getJson(
-            '/api/v1/dashboard/summary?date_from=' . now()->subDays(7)->toDateString() . '&date_to=' . now()->toDateString()
+            '/api/v1/dashboard/summary?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString()
         );
 
         $response->assertOk();
@@ -159,6 +180,7 @@ class DashboardTest extends FeatureTestCase
         $stockInTrendDates = collect($response->json('data.stock_in_trend'))->pluck('date')->all();
         $this->assertContains($withinRange->toDateString(), $stockInTrendDates);
         $this->assertNotContains($outsideRange->toDateString(), $stockInTrendDates);
+        $this->assertSame(7, $response->json('data.stock_in_trend.0.total_qty'));
     }
 
     public function test_dashboard_top_moved_products(): void
@@ -174,42 +196,46 @@ class DashboardTest extends FeatureTestCase
 
         $withinRange = now()->subDays(2);
 
-        // 3 movements for product A
+        // Product A has 9 moved units across 3 movement events.
         LotMovement::query()->create([
             'lot_id' => $lotA->id,
             'movement_type' => 'stock_in',
             'performed_at' => $withinRange,
             'performed_by_user_id' => $user->id,
+            'quantity' => 4,
         ]);
         LotMovement::query()->create([
             'lot_id' => $lotA->id,
             'movement_type' => 'consigned',
             'performed_at' => $withinRange,
             'performed_by_user_id' => $user->id,
+            'quantity' => 3,
         ]);
         LotMovement::query()->create([
             'lot_id' => $lotA->id,
             'movement_type' => 'returned',
             'performed_at' => $withinRange,
             'performed_by_user_id' => $user->id,
+            'quantity' => 2,
         ]);
 
-        // 1 movement for product B
+        // Product B has 5 moved units across 1 movement event.
         LotMovement::query()->create([
             'lot_id' => $lotB->id,
             'movement_type' => 'stock_in',
             'performed_at' => $withinRange,
             'performed_by_user_id' => $user->id,
+            'quantity' => 5,
         ]);
 
         $response = $this->getJson(
-            '/api/v1/dashboard/summary?date_from=' . now()->subDays(7)->toDateString() . '&date_to=' . now()->toDateString()
+            '/api/v1/dashboard/summary?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString()
         );
 
         $response->assertOk();
 
         $topMovedProducts = collect($response->json('data.top_moved_products'));
         $this->assertSame('PROD-DASH-A', $topMovedProducts->first()['product_code'] ?? null);
-        $this->assertSame(3, $topMovedProducts->first()['moved_qty'] ?? null);
+        $this->assertSame(9, $topMovedProducts->first()['moved_qty'] ?? null);
     }
 }

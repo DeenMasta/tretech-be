@@ -165,7 +165,7 @@ Route::prefix('v1')->group(function () {
         // MUST be declared BEFORE the wildcard {lot} route to avoid route conflicts.
         // -------------------------------------------------------------------------
 
-        // Dashboard summary: counts per status
+        // Dashboard summary: inventory unit quantities
         Route::get('inventory-units/summary', [InventoryController::class, 'summary'])
             ->middleware('permission:stock_in.view');
 

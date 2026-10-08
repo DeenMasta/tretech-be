@@ -7,14 +7,14 @@ use App\Http\Resources\Api\V1\Inventory\InventoryUnitResource;
 use App\Http\Resources\Api\V1\Inventory\LotMovementResource;
 use App\Models\Lot;
 use App\Services\Inventory\InventoryService;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
 {
-    public function __construct(private readonly InventoryService $inventoryService)
-    {
-    }
+    public function __construct(private readonly InventoryService $inventoryService) {}
 
     /**
      * GET /inventory-units
@@ -33,23 +33,23 @@ class InventoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage   = max(1, min((int) $request->integer('per_page', 15), 100));
-        $cursor    = $request->string('cursor')->toString() ?: null;
+        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
+        $cursor = $request->string('cursor')->toString() ?: null;
         $paginator = $this->inventoryService->paginateLots(
             $request->only(['status', 'supplier_id', 'product_id', 'instrument_set_id', 'expiry_from', 'expiry_to', 'search']),
             $perPage,
             $cursor
         );
 
-        if ($cursor !== null && $paginator instanceof \Illuminate\Contracts\Pagination\CursorPaginator) {
+        if ($cursor !== null && $paginator instanceof CursorPaginator) {
             return $this->cursorPaginatedResponse(
-                items:     InventoryUnitResource::collection($paginator->items())->resolve(),
+                items: InventoryUnitResource::collection($paginator->items())->resolve(),
                 paginator: $paginator,
-                message:   'Inventory units fetched successfully'
+                message: 'Inventory units fetched successfully'
             );
         }
 
-        /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator $paginator */
+        /** @var LengthAwarePaginator $paginator */
         return $this->paginatedResponse(
             items: InventoryUnitResource::collection($paginator->items())->resolve(),
             total: $paginator->total(),
@@ -62,7 +62,7 @@ class InventoryController extends Controller
     /**
      * GET /inventory-units/summary
      *
-     * Returns count per status — useful for dashboard overview cards.
+     * Returns received, available, consigned, used, and disposed unit totals.
      */
     public function summary(): JsonResponse
     {
@@ -86,7 +86,7 @@ class InventoryController extends Controller
      */
     public function expiringSoon(Request $request): JsonResponse
     {
-        $days    = max(1, min((int) $request->integer('days', 30), 365));
+        $days = max(1, min((int) $request->integer('days', 30), 365));
         $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
 
         $paginator = $this->inventoryService->expiringSoon(
@@ -186,7 +186,7 @@ class InventoryController extends Controller
      */
     public function movements(Request $request, Lot $lot): JsonResponse
     {
-        $perPage   = max(1, min((int) $request->integer('per_page', 15), 100));
+        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
         $paginator = $this->inventoryService->paginateLotMovements(
             $lot,
             $request->only(['movement_type', 'from_date', 'to_date']),
@@ -217,7 +217,7 @@ class InventoryController extends Controller
      */
     public function ledger(Request $request): JsonResponse
     {
-        $perPage   = max(1, min((int) $request->integer('per_page', 15), 100));
+        $perPage = max(1, min((int) $request->integer('per_page', 15), 100));
         $paginator = $this->inventoryService->paginateLedger(
             $request->only(['lot_id', 'lot_number', 'movement_type', 'from_date', 'to_date', 'search']),
             $perPage

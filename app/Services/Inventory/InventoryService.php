@@ -6,7 +6,7 @@ use App\Models\Lot;
 use App\Models\LotMovement;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\Cursor;
 
 class InventoryService
 {
@@ -24,7 +24,7 @@ class InventoryService
      *   expiry_to           — YYYY-MM-DD  (inclusive)
      *   search              — matches lot_number, manufacturing_date, product ref_num or name
      *
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      */
     public function paginateLots(array $filters = [], int $perPage = 15, ?string $cursorEncoded = null): LengthAwarePaginator|CursorPaginator
     {
@@ -35,27 +35,26 @@ class InventoryService
                 'qrLabel:id,lot_id,qr_payload,generated_at',
             ])
             ->withCount('lotMovements')
-            ->when(!empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
-            ->when(!empty($filters['supplier_id']), fn ($q) => $q->where('supplier_id', (int) $filters['supplier_id']))
-            ->when(!empty($filters['product_id']), fn ($q) => $q->where('product_id', (int) $filters['product_id']))
-            ->when(!empty($filters['instrument_set_id']), fn ($q) => $q->where('instrument_set_id', (int) $filters['instrument_set_id']))
-            ->when(!empty($filters['expiry_from']), fn ($q) => $q->whereDate('expiry_date', '>=', $filters['expiry_from']))
-            ->when(!empty($filters['expiry_to']), fn ($q) => $q->whereDate('expiry_date', '<=', $filters['expiry_to']))
-            ->when(!empty($filters['search']), function ($q) use ($filters) {
+            ->when(! empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
+            ->when(! empty($filters['supplier_id']), fn ($q) => $q->where('supplier_id', (int) $filters['supplier_id']))
+            ->when(! empty($filters['product_id']), fn ($q) => $q->where('product_id', (int) $filters['product_id']))
+            ->when(! empty($filters['instrument_set_id']), fn ($q) => $q->where('instrument_set_id', (int) $filters['instrument_set_id']))
+            ->when(! empty($filters['expiry_from']), fn ($q) => $q->whereDate('expiry_date', '>=', $filters['expiry_from']))
+            ->when(! empty($filters['expiry_to']), fn ($q) => $q->whereDate('expiry_date', '<=', $filters['expiry_to']))
+            ->when(! empty($filters['search']), function ($q) use ($filters) {
                 $term = $filters['search'];
                 $q->where(function ($sub) use ($term) {
                     $sub->where('lot_number', 'like', "%{$term}%")
                         ->orWhere('manufacturing_date', 'like', "%{$term}%")
-                        ->orWhereHas('product', fn ($pq) =>
-                            $pq->where('ref_num', 'like', "%{$term}%")
-                               ->orWhere('product_name', 'like', "%{$term}%")
+                        ->orWhereHas('product', fn ($pq) => $pq->where('ref_num', 'like', "%{$term}%")
+                            ->orWhere('product_name', 'like', "%{$term}%")
                         );
                 });
             })
             ->orderByDesc('id');
 
         return $cursorEncoded !== null
-            ? $query->cursorPaginate($perPage, ['*'], 'cursor', \Illuminate\Pagination\Cursor::fromEncoded($cursorEncoded))
+            ? $query->cursorPaginate($perPage, ['*'], 'cursor', Cursor::fromEncoded($cursorEncoded))
             : $query->paginate($perPage);
     }
 
@@ -106,32 +105,47 @@ class InventoryService
             ->all();
     }
 
-    /**
-     * Count lots grouped by status — useful for dashboard summary cards.
-     *
-     * @return array<string, int>
-     */
+    /** @return array<string, int> */
     public function summary(): array
     {
-        $rows = Lot::query()
-            ->select('status', DB::raw('count(*) as total'))
-            ->groupBy('status')
-            ->pluck('total', 'status')
-            ->toArray();
+        $lotTotals = Lot::query()
+            ->selectRaw('COUNT(*) as total_lots')
+            ->selectRaw('COALESCE(SUM(quantity), 0) as total_quantity')
+            // quantity_available is the stock balance source of truth. Status
+            // is only used to keep unresolved holding stock out of ready stock.
+            ->selectRaw("COALESCE(SUM(CASE WHEN status <> 'holding' THEN quantity_available ELSE 0 END), 0) as available_quantity")
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'holding' THEN quantity_available ELSE 0 END), 0) as holding_quantity")
+            ->selectRaw('COALESCE(SUM(quantity_consigned), 0) as consigned_quantity')
+            ->first();
 
-        $statuses = ['available', 'supplied', 'used', 'disposed', 'holding'];
-        $result   = ['total' => array_sum($rows)];
-        foreach ($statuses as $s) {
-            $result[$s] = (int) ($rows[$s] ?? 0);
-        }
+        $movementTotals = LotMovement::query()
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'used' THEN quantity ELSE 0 END), 0) as used_quantity")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'disposed' THEN quantity ELSE 0 END), 0) as disposed_quantity")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'returned_to_supplier' THEN quantity ELSE 0 END), 0) as returned_to_supplier_quantity")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'damaged' THEN quantity ELSE 0 END), 0) as damaged_quantity")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'missing' THEN quantity ELSE 0 END), 0) as missing_quantity")
+            ->first();
 
-        return $result;
+        return [
+            'total' => (int) $lotTotals->total_quantity,
+            'total_lots' => (int) $lotTotals->total_lots,
+            'available' => (int) $lotTotals->available_quantity,
+            'holding' => (int) $lotTotals->holding_quantity,
+            // Keep the existing API key for backwards compatibility; this is
+            // the current consigned unit balance, not a lot-status count.
+            'supplied' => (int) $lotTotals->consigned_quantity,
+            'used' => (int) $movementTotals->used_quantity,
+            'disposed' => (int) $movementTotals->disposed_quantity,
+            'returned_to_supplier' => (int) $movementTotals->returned_to_supplier_quantity,
+            'damaged' => (int) $movementTotals->damaged_quantity,
+            'missing' => (int) $movementTotals->missing_quantity,
+        ];
     }
 
     /**
      * Lots expiring within $days days (inclusive today), excluding already-terminal statuses.
      *
-     * @param array<string, mixed> $filters  supports status, supplier_id, product_id
+     * @param  array<string, mixed>  $filters  supports status, supplier_id, product_id
      */
     public function expiringSoon(int $days = 30, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
@@ -145,9 +159,9 @@ class InventoryService
             ->whereDate('expiry_date', '>=', now()->toDateString())
             ->whereDate('expiry_date', '<=', now()->addDays($days)->toDateString())
             ->whereNotIn('status', ['used', 'disposed'])
-            ->when(!empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
-            ->when(!empty($filters['supplier_id']), fn ($q) => $q->where('supplier_id', (int) $filters['supplier_id']))
-            ->when(!empty($filters['product_id']), fn ($q) => $q->where('product_id', (int) $filters['product_id']))
+            ->when(! empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
+            ->when(! empty($filters['supplier_id']), fn ($q) => $q->where('supplier_id', (int) $filters['supplier_id']))
+            ->when(! empty($filters['product_id']), fn ($q) => $q->where('product_id', (int) $filters['product_id']))
             ->orderBy('expiry_date')
             ->paginate($perPage);
     }
@@ -155,16 +169,16 @@ class InventoryService
     /**
      * Per-lot movement history (timeline for a single lot).
      *
-     * @param array<string, mixed> $filters  supports movement_type, from_date, to_date
+     * @param  array<string, mixed>  $filters  supports movement_type, from_date, to_date
      */
     public function paginateLotMovements(Lot $lot, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         return LotMovement::query()
             ->with(['recordedByUser:id,full_name,email'])
             ->where('lot_id', $lot->id)
-            ->when(!empty($filters['movement_type']), fn ($q) => $q->where('movement_type', $filters['movement_type']))
-            ->when(!empty($filters['from_date']), fn ($q) => $q->whereDate('performed_at', '>=', $filters['from_date']))
-            ->when(!empty($filters['to_date']), fn ($q) => $q->whereDate('performed_at', '<=', $filters['to_date']))
+            ->when(! empty($filters['movement_type']), fn ($q) => $q->where('movement_type', $filters['movement_type']))
+            ->when(! empty($filters['from_date']), fn ($q) => $q->whereDate('performed_at', '>=', $filters['from_date']))
+            ->when(! empty($filters['to_date']), fn ($q) => $q->whereDate('performed_at', '<=', $filters['to_date']))
             ->orderByDesc('performed_at')
             ->paginate($perPage);
     }
@@ -172,7 +186,7 @@ class InventoryService
     /**
      * Global inventory ledger across all lots.
      *
-     * @param array<string, mixed> $filters  supports lot_id, lot_number, movement_type, from_date, to_date
+     * @param  array<string, mixed>  $filters  supports lot_id, lot_number, movement_type, from_date, to_date
      */
     public function paginateLedger(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
@@ -182,31 +196,30 @@ class InventoryService
                 'lot.product:id,ref_num,product_name',
                 'recordedByUser:id,full_name,email',
             ])
-            ->when(!empty($filters['lot_id']), fn ($q) => $q->where('lot_id', (int) $filters['lot_id']))
-            ->when(!empty($filters['lot_number']), function ($q) use ($filters) {
+            ->when(! empty($filters['lot_id']), fn ($q) => $q->where('lot_id', (int) $filters['lot_id']))
+            ->when(! empty($filters['lot_number']), function ($q) use ($filters) {
                 $q->whereHas('lot', fn ($lq) => $lq->where('lot_number', $filters['lot_number']));
             })
-            ->when(!empty($filters['movement_type']), fn ($q) => $q->where('movement_type', $filters['movement_type']))
-            ->when(!empty($filters['from_date']), fn ($q) => $q->whereDate('performed_at', '>=', $filters['from_date']))
-            ->when(!empty($filters['to_date']), fn ($q) => $q->whereDate('performed_at', '<=', $filters['to_date']))
-            ->when(!empty($filters['search']), function ($q) use ($filters) {
+            ->when(! empty($filters['movement_type']), fn ($q) => $q->where('movement_type', $filters['movement_type']))
+            ->when(! empty($filters['from_date']), fn ($q) => $q->whereDate('performed_at', '>=', $filters['from_date']))
+            ->when(! empty($filters['to_date']), fn ($q) => $q->whereDate('performed_at', '<=', $filters['to_date']))
+            ->when(! empty($filters['search']), function ($q) use ($filters) {
                 $term = $filters['search'];
                 $q->whereHas('lot', function ($lq) use ($term) {
                     $lq->where('lot_number', 'like', "%{$term}%")
-                       ->orWhereHas('product', function ($pq) use ($term) {
-                           $pq->where('ref_num', 'like', "%{$term}%")
-                              ->orWhere('product_name', 'like', "%{$term}%");
-                       });
+                        ->orWhereHas('product', function ($pq) use ($term) {
+                            $pq->where('ref_num', 'like', "%{$term}%")
+                                ->orWhere('product_name', 'like', "%{$term}%");
+                        });
                 });
             })
             ->orderByDesc('id')
             ->paginate($perPage);
     }
+
     /**
      * Find lots for a specific product that were received as part of an InstrumentSet.
      * These lots are tagged with instrument_set_id to indicate their origin.
-     *
-     * @return LengthAwarePaginator
      */
     public function paginateSetsContainingProduct(int $productId, int $perPage = 15): LengthAwarePaginator
     {
@@ -221,4 +234,3 @@ class InventoryService
             ->paginate($perPage);
     }
 }
-
