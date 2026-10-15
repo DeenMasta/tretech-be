@@ -5,14 +5,16 @@ namespace Tests\Feature\Api\V1;
 use App\Models\Consignment;
 use App\Models\ConsignmentItem;
 use App\Models\InstrumentSet;
+use App\Models\InstrumentSetItem;
 use App\Models\Lot;
 use App\Models\LotMovement;
 use App\Models\Reconciliation;
+use App\Models\ReconciliationItem;
+use App\Models\ReconciliationSetInstrumentResult;
 use App\Models\ReturnSession;
 use App\Models\ReturnSessionItem;
 use App\Models\StockIn;
 use App\Models\StockInItem;
-use App\Models\InstrumentSetItem;
 use Laravel\Sanctum\Sanctum;
 
 class ReturnAndReconciliationTest extends FeatureTestCase
@@ -84,23 +86,23 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_can_create_return_session_for_confirmed_consignment(): void
     {
-        $user     = $this->makeUserWithPermissions(['returns.create']);
-        $client   = $this->createClient();
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['returns.create']);
+        $client = $this->createClient();
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0001',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $response = $this->postJson('/api/v1/return-sessions', [
             'consignment_id' => $consignment->id,
-            'pic_user_id'    => $user->id,
+            'pic_user_id' => $user->id,
         ]);
 
         $response->assertCreated()
@@ -112,49 +114,49 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_cannot_create_return_session_for_draft_consignment(): void
     {
-        $user   = $this->makeUserWithPermissions(['returns.create']);
+        $user = $this->makeUserWithPermissions(['returns.create']);
         $client = $this->createClient();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0002',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'draft',
+            'pic_user_id' => $user->id,
+            'status' => 'draft',
         ]);
 
         $this->postJson('/api/v1/return-sessions', [
             'consignment_id' => $consignment->id,
-            'pic_user_id'    => $user->id,
+            'pic_user_id' => $user->id,
         ])->assertStatus(400);
     }
 
     public function test_cannot_create_duplicate_return_session_for_same_consignment(): void
     {
-        $user   = $this->makeUserWithPermissions(['returns.create']);
+        $user = $this->makeUserWithPermissions(['returns.create']);
         $client = $this->createClient();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0003',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0001',
-            'pic_user_id'       => $user->id,
-            'status'            => 'in_progress',
-            'started_at'        => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
         ]);
 
         $this->postJson('/api/v1/return-sessions', [
             'consignment_id' => $consignment->id,
-            'pic_user_id'    => $user->id,
+            'pic_user_id' => $user->id,
         ])->assertStatus(400);
     }
 
@@ -164,35 +166,35 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_can_scan_lot_into_return_session(): void
     {
-        $user     = $this->makeUserWithPermissions(['returns.create']);
-        $client   = $this->createClient();
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['returns.create']);
+        $client = $this->createClient();
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0010',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0010',
-            'pic_user_id'       => $user->id,
-            'status'            => 'in_progress',
-            'started_at'        => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
         ]);
 
         $lot = $this->createLot($product, $supplier, 'supplied');
 
         // Attach lot to consignment
         ConsignmentItem::query()->create([
-            'consignment_id'    => $consignment->id,
-            'lot_id'            => $lot->id,
-            'issued_at'         => now(),
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'issued_at' => now(),
             'issued_by_user_id' => $user->id,
         ]);
 
@@ -205,7 +207,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
         $this->assertDatabaseHas('return_session_items', [
             'return_session_id' => $returnSession->id,
-            'lot_id'            => $lot->id,
+            'lot_id' => $lot->id,
         ]);
     }
 
@@ -288,6 +290,72 @@ class ReturnAndReconciliationTest extends FeatureTestCase
         ])->assertStatus(400);
     }
 
+    public function test_can_update_return_session_item_quantities_without_exceeding_consigned_quantity(): void
+    {
+        $user = $this->makeUserWithPermissions(['returns.create']);
+        $client = $this->createClient();
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $consignment = Consignment::query()->create([
+            'client_id' => $client->id,
+            'consignment_no' => 'CN-20250201-EDIT-QTY',
+            'consignment_at' => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
+        ]);
+        $lot = $this->createLot($product, $supplier, 'depleted');
+        ConsignmentItem::query()->create([
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'quantity' => 5,
+            'issued_at' => now(),
+            'issued_by_user_id' => $user->id,
+        ]);
+        $returnSession = ReturnSession::query()->create([
+            'consignment_id' => $consignment->id,
+            'return_session_no' => 'RS-20250201-EDIT-QTY',
+            'pic_user_id' => $user->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
+        ]);
+        $item = ReturnSessionItem::query()->create([
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lot->id,
+            'quantity' => 1,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+        ]);
+
+        $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
+            'quantity' => 2,
+            'used_quantity' => 1,
+            'damaged_quantity' => 1,
+            'missing_quantity' => 1,
+            'remarks' => 'Count corrected manually',
+        ])->assertOk()
+            ->assertJsonPath('data.quantity', 2)
+            ->assertJsonPath('data.used_quantity', 1)
+            ->assertJsonPath('data.damaged_quantity', 1)
+            ->assertJsonPath('data.missing_quantity', 1);
+
+        $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
+            'quantity' => 6,
+            'used_quantity' => 0,
+            'damaged_quantity' => 0,
+            'missing_quantity' => 0,
+        ])->assertStatus(400);
+
+        $this->assertDatabaseHas('return_session_items', [
+            'id' => $item->id,
+            'quantity' => 2,
+            'used_quantity' => 1,
+            'damaged_quantity' => 1,
+            'missing_quantity' => 1,
+        ]);
+    }
+
     public function test_can_update_used_reconciliation_item_remarks(): void
     {
         $user = $this->makeUserWithPermissions(['returns.finalize']);
@@ -318,7 +386,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'status' => 'finalized',
         ]);
         $lot = $this->createLot($product, $supplier, 'used');
-        $item = \App\Models\ReconciliationItem::query()->create([
+        $item = ReconciliationItem::query()->create([
             'reconciliation_id' => $reconciliation->id,
             'lot_id' => $lot->id,
             'result' => 'used',
@@ -334,7 +402,7 @@ class ReturnAndReconciliationTest extends FeatureTestCase
             'remarks' => 'Opened and used during surgery',
         ]);
 
-        $component = \App\Models\ReconciliationSetInstrumentResult::query()->create([
+        $component = ReconciliationSetInstrumentResult::query()->create([
             'reconciliation_item_id' => $item->id,
             'product_id' => $product->id,
             'expected_quantity' => 1,
@@ -362,41 +430,41 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_can_complete_return_session_with_items(): void
     {
-        $user     = $this->makeUserWithPermissions(['returns.finalize']);
-        $client   = $this->createClient();
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
+        $client = $this->createClient();
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0020',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0020',
-            'pic_user_id'       => $user->id,
-            'status'            => 'in_progress',
-            'started_at'        => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
         ]);
 
         $lot = $this->createLot($product, $supplier, 'supplied');
         ConsignmentItem::query()->create([
-            'consignment_id'    => $consignment->id,
-            'lot_id'            => $lot->id,
-            'issued_at'         => now(),
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lot->id,
+            'issued_at' => now(),
             'issued_by_user_id' => $user->id,
         ]);
         ReturnSessionItem::query()->create([
-            'return_session_id'    => $returnSession->id,
-            'lot_id'               => $lot->id,
-            'returned_at'          => now(),
-            'returned_by_user_id'  => $user->id,
-            'remarks'              => 'Returned sealed',
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lot->id,
+            'returned_at' => now(),
+            'returned_by_user_id' => $user->id,
+            'remarks' => 'Returned sealed',
         ]);
 
         $response = $this->postJson("/api/v1/return-sessions/{$returnSession->id}/complete");
@@ -420,30 +488,30 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_can_create_reconciliation_from_return_session(): void
     {
-        $user   = $this->makeUserWithPermissions(['returns.finalize']);
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
         $client = $this->createClient();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0030',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0030',
-            'pic_user_id'       => $user->id,
-            'status'            => 'completed',
-            'started_at'        => now(),
-            'completed_at'      => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
         ]);
 
         $response = $this->postJson('/api/v1/reconciliations', [
             'return_session_id' => $returnSession->id,
-            'pic_user_id'       => $user->id,
+            'pic_user_id' => $user->id,
         ]);
 
         $response->assertCreated()
@@ -459,58 +527,58 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_reconciliation_finalize_marks_lots_used(): void
     {
-        $user     = $this->makeUserWithPermissions(['returns.finalize']);
-        $client   = $this->createClient();
-        $product  = $this->createProduct();
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
+        $client = $this->createClient();
+        $product = $this->createProduct();
         $supplier = $this->createSupplier();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0040',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0040',
-            'pic_user_id'       => $user->id,
-            'status'            => 'completed',
-            'started_at'        => now(),
-            'completed_at'      => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
         ]);
 
         $reconciliation = Reconciliation::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_id' => $returnSession->id,
             'reconciliation_no' => 'REC-20250201-0040',
-            'pic_user_id'       => $user->id,
-            'status'            => 'pending',
+            'pic_user_id' => $user->id,
+            'status' => 'pending',
         ]);
 
         // Consigned lot (not returned → will be marked 'used')
         $lotUsed = $this->createLot($product, $supplier, 'supplied');
         ConsignmentItem::query()->create([
-            'consignment_id'    => $consignment->id,
-            'lot_id'            => $lotUsed->id,
-            'issued_at'         => now(),
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lotUsed->id,
+            'issued_at' => now(),
             'issued_by_user_id' => $user->id,
         ]);
 
         // Returned lot (returned → will be marked 'available')
         $lotReturned = $this->createLot($product, $supplier, 'supplied');
         ConsignmentItem::query()->create([
-            'consignment_id'    => $consignment->id,
-            'lot_id'            => $lotReturned->id,
-            'issued_at'         => now(),
+            'consignment_id' => $consignment->id,
+            'lot_id' => $lotReturned->id,
+            'issued_at' => now(),
             'issued_by_user_id' => $user->id,
         ]);
         ReturnSessionItem::query()->create([
-            'return_session_id'   => $returnSession->id,
-            'lot_id'              => $lotReturned->id,
-            'returned_at'         => now(),
+            'return_session_id' => $returnSession->id,
+            'lot_id' => $lotReturned->id,
+            'returned_at' => now(),
             'returned_by_user_id' => $user->id,
         ]);
 
@@ -762,33 +830,33 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_cannot_finalize_reconciliation_with_no_consigned_lots(): void
     {
-        $user   = $this->makeUserWithPermissions(['returns.finalize']);
+        $user = $this->makeUserWithPermissions(['returns.finalize']);
         $client = $this->createClient();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0041',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0041',
-            'pic_user_id'       => $user->id,
-            'status'            => 'completed',
-            'started_at'        => now(),
-            'completed_at'      => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
         ]);
 
         $reconciliation = Reconciliation::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_id' => $returnSession->id,
             'reconciliation_no' => 'REC-20250201-0041',
-            'pic_user_id'       => $user->id,
-            'status'            => 'pending',
+            'pic_user_id' => $user->id,
+            'status' => 'pending',
         ]);
 
         $this->postJson("/api/v1/reconciliations/{$reconciliation->id}/finalize")
@@ -801,33 +869,33 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_can_reopen_finalized_reconciliation(): void
     {
-        $user   = $this->makeUserWithPermissions(['returns.reopen_reconciliation']);
+        $user = $this->makeUserWithPermissions(['returns.reopen_reconciliation']);
         $client = $this->createClient();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0050',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0050',
-            'pic_user_id'       => $user->id,
-            'status'            => 'completed',
-            'started_at'        => now(),
-            'completed_at'      => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
         ]);
 
         $reconciliation = Reconciliation::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_id' => $returnSession->id,
             'reconciliation_no' => 'REC-20250201-0050',
-            'pic_user_id'       => $user->id,
-            'status'            => 'finalized',
+            'pic_user_id' => $user->id,
+            'status' => 'finalized',
         ]);
 
         $response = $this->postJson("/api/v1/reconciliations/{$reconciliation->id}/reopen", [
@@ -844,33 +912,33 @@ class ReturnAndReconciliationTest extends FeatureTestCase
 
     public function test_can_show_reconciliation(): void
     {
-        $user   = $this->makeUserWithPermissions(['returns.view']);
+        $user = $this->makeUserWithPermissions(['returns.view']);
         $client = $this->createClient();
         Sanctum::actingAs($user);
 
         $consignment = Consignment::query()->create([
-            'client_id'      => $client->id,
+            'client_id' => $client->id,
             'consignment_no' => 'CN-20250201-0060',
             'consignment_at' => now(),
-            'pic_user_id'    => $user->id,
-            'status'         => 'confirmed',
+            'pic_user_id' => $user->id,
+            'status' => 'confirmed',
         ]);
 
         $returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_no' => 'RS-20250201-0060',
-            'pic_user_id'       => $user->id,
-            'status'            => 'completed',
-            'started_at'        => now(),
-            'completed_at'      => now(),
+            'pic_user_id' => $user->id,
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
         ]);
 
         $reconciliation = Reconciliation::query()->create([
-            'consignment_id'    => $consignment->id,
+            'consignment_id' => $consignment->id,
             'return_session_id' => $returnSession->id,
             'reconciliation_no' => 'REC-20250201-0060',
-            'pic_user_id'       => $user->id,
-            'status'            => 'pending',
+            'pic_user_id' => $user->id,
+            'status' => 'pending',
         ]);
 
         $this->getJson("/api/v1/reconciliations/{$reconciliation->id}")

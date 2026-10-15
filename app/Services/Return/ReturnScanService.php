@@ -274,34 +274,81 @@ class ReturnScanService
      */
     public function updateItemRemarks(ReturnSession $session, ReturnSessionItem $item, array $data, User $actor): ReturnSessionItem
     {
-        if ($session->status !== 'in_progress') {
-            throw new BusinessLogicException('Item remarks can only be updated in an in-progress return session.');
-        }
+        return DB::transaction(function () use ($session, $item, $data, $actor) {
+            $session = ReturnSession::query()->lockForUpdate()->findOrFail($session->id);
+            $item = ReturnSessionItem::query()->lockForUpdate()->findOrFail($item->id);
 
-        if ($item->return_session_id !== $session->id) {
-            throw new BusinessLogicException('This item does not belong to the specified return session.');
-        }
+            if ($session->status !== 'in_progress') {
+                throw new BusinessLogicException('Items can only be updated in an in-progress return session.');
+            }
 
-        $before = $item->toArray();
-        $remarks = trim((string) ($data['remarks'] ?? ''));
-        $item->update(['remarks' => $remarks === '' ? null : $remarks]);
+            if ($item->return_session_id !== $session->id) {
+                throw new BusinessLogicException('This item does not belong to the specified return session.');
+            }
 
-        $this->auditLogService->logModelAction(
-            auditableType: ReturnSessionItem::class,
-            auditableId: $item->id,
-            actionType: AuditAction::RETURN_SESSION_ITEM_UPDATED,
-            actor: $actor,
-            description: "Updated remarks for item {$item->id} in return session {$session->return_session_no}",
-            before: $before,
-            after: $item->fresh()->toArray(),
-        );
+            $before = $item->toArray();
+            $quantityFields = ['quantity', 'used_quantity', 'damaged_quantity', 'missing_quantity'];
+            $updatesQuantity = collect($quantityFields)->contains(
+                fn (string $field) => array_key_exists($field, $data)
+            );
 
-        return $item->refresh()->load([
-            'lot.product:id,ref_num,product_name',
-            'setInstrumentItems.product:id,ref_num,product_name',
-            'instrumentSet',
-            'product:id,ref_num,product_name',
-        ]);
+            if ($updatesQuantity) {
+                $consignedItemQuery = ConsignmentItem::query()
+                    ->where('consignment_id', $session->consignment_id);
+
+                if ($item->lot_id) {
+                    $consignedItemQuery->where('lot_id', $item->lot_id);
+                } elseif ($item->instrument_set_id) {
+                    $consignedItemQuery->where('instrument_set_id', $item->instrument_set_id)->whereNull('lot_id');
+                } elseif ($item->product_id) {
+                    $consignedItemQuery->where('product_id', $item->product_id)->whereNull('lot_id');
+                } else {
+                    throw new BusinessLogicException('The return item is not linked to a consigned item.');
+                }
+
+                $consignedItem = $consignedItemQuery->first();
+                if (! $consignedItem) {
+                    throw new BusinessLogicException('The return item is not part of the linked consignment.');
+                }
+
+                $quantities = collect($quantityFields)->mapWithKeys(
+                    fn (string $field) => [$field => (int) ($data[$field] ?? $item->{$field} ?? 0)]
+                );
+                $total = $quantities->sum();
+
+                if ($total < 1) {
+                    throw new BusinessLogicException('At least one returned quantity is required.');
+                }
+                if ($total > ($consignedItem->quantity ?? 1)) {
+                    throw new BusinessLogicException('Sum of quantities cannot exceed the consigned quantity.');
+                }
+
+                $item->fill($quantities->all());
+            }
+
+            if (array_key_exists('remarks', $data)) {
+                $remarks = trim((string) ($data['remarks'] ?? ''));
+                $item->remarks = $remarks === '' ? null : $remarks;
+            }
+            $item->save();
+
+            $this->auditLogService->logModelAction(
+                auditableType: ReturnSessionItem::class,
+                auditableId: $item->id,
+                actionType: AuditAction::RETURN_SESSION_ITEM_UPDATED,
+                actor: $actor,
+                description: "Updated item {$item->id} in return session {$session->return_session_no}",
+                before: $before,
+                after: $item->fresh()->toArray(),
+            );
+
+            return $item->refresh()->load([
+                'lot.product:id,ref_num,product_name',
+                'setInstrumentItems.product:id,ref_num,product_name',
+                'instrumentSet',
+                'product:id,ref_num,product_name',
+            ]);
+        });
     }
 
     /**

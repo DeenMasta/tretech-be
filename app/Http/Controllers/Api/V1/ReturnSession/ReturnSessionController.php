@@ -14,18 +14,17 @@ use App\Models\ReturnSession;
 use App\Models\ReturnSessionItem;
 use App\Services\Return\ReturnScanService;
 use App\Services\Return\ReturnSessionService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReturnSessionController extends Controller
 {
     public function __construct(
         private readonly ReturnSessionService $returnSessionService,
         private readonly ReturnScanService $returnScanService
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -95,7 +94,7 @@ class ReturnSessionController extends Controller
             $request->user()
         );
 
-        return $this->successResponse(new ReturnSessionItemResource($item), 'Item remarks updated successfully');
+        return $this->successResponse(new ReturnSessionItemResource($item), 'Item updated successfully');
     }
 
     public function complete(Request $request, ReturnSession $returnSession): JsonResponse
@@ -135,7 +134,7 @@ class ReturnSessionController extends Controller
             'reconciliation.reconciliationItems.setInstrumentResults.product:id,ref_num,product_name',
         ]);
 
-        if (!$returnSession->reconciliation) {
+        if (! $returnSession->reconciliation) {
             abort(404, 'No reconciliation report generated for this return session yet.');
         }
 
