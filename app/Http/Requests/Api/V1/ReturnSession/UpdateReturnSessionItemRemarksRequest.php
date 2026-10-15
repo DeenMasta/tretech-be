@@ -18,10 +18,7 @@ class UpdateReturnSessionItemRemarksRequest extends FormRequest
     {
         return [
             'remarks' => ['nullable', 'string', 'max:1000'],
-            'quantity' => ['sometimes', 'integer', 'min:0'],
-            'used_quantity' => ['sometimes', 'integer', 'min:0'],
-            'damaged_quantity' => ['sometimes', 'integer', 'min:0'],
-            'missing_quantity' => ['sometimes', 'integer', 'min:0'],
+            'quantity' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 }

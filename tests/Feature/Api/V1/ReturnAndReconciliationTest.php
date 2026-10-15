@@ -329,30 +329,19 @@ class ReturnAndReconciliationTest extends FeatureTestCase
         ]);
 
         $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
-            'quantity' => 2,
-            'used_quantity' => 1,
-            'damaged_quantity' => 1,
-            'missing_quantity' => 1,
+            'quantity' => 5,
             'remarks' => 'Count corrected manually',
         ])->assertOk()
-            ->assertJsonPath('data.quantity', 2)
-            ->assertJsonPath('data.used_quantity', 1)
-            ->assertJsonPath('data.damaged_quantity', 1)
-            ->assertJsonPath('data.missing_quantity', 1);
+            ->assertJsonPath('data.quantity', 5)
+            ->assertJsonPath('data.remarks', 'Count corrected manually');
 
         $this->patchJson("/api/v1/return-sessions/{$returnSession->id}/items/{$item->id}", [
             'quantity' => 6,
-            'used_quantity' => 0,
-            'damaged_quantity' => 0,
-            'missing_quantity' => 0,
         ])->assertStatus(400);
 
         $this->assertDatabaseHas('return_session_items', [
             'id' => $item->id,
-            'quantity' => 2,
-            'used_quantity' => 1,
-            'damaged_quantity' => 1,
-            'missing_quantity' => 1,
+            'quantity' => 5,
         ]);
     }
 
