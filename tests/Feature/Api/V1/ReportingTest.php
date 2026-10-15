@@ -264,6 +264,38 @@ class ReportingTest extends FeatureTestCase
             ->assertJsonCount(1, 'data.data');
     }
 
+    public function test_inventory_report_filters_lots_by_stock_in_date(): void
+    {
+        $user = $this->makeUserWithPermissions(['reports.view']);
+        $product = $this->createProduct();
+        $supplier = $this->createSupplier();
+        Sanctum::actingAs($user);
+
+        $included = $this->createLot($product, $supplier, 'available', 'LOT-STOCK-IN-RANGE');
+        $included->update([
+            'received_at' => '2026-09-15 10:00:00',
+            'quantity' => 6,
+            'quantity_available' => 6,
+        ]);
+
+        $excluded = $this->createLot($product, $supplier, 'available', 'LOT-OUTSIDE-STOCK-IN-RANGE');
+        $excluded->update([
+            'received_at' => '2026-08-31 23:59:59',
+            'quantity' => 4,
+            'quantity_available' => 4,
+        ]);
+
+        $response = $this->getJson(
+            '/api/v1/reports/inventory?product_id='.$product->id.'&stock_in_from=2026-09-01&stock_in_to=2026-09-30'
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('data.summary.total_lots', 1)
+            ->assertJsonPath('data.summary.received', 6)
+            ->assertJsonCount(1, 'data.data.0.lots')
+            ->assertJsonPath('data.data.0.lots.0.lot_number', 'LOT-STOCK-IN-RANGE');
+    }
+
     public function test_inventory_report_accepts_multiple_status_filters(): void
     {
         $user = $this->makeUserWithPermissions(['reports.view']);

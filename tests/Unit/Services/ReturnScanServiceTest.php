@@ -18,11 +18,17 @@ use PHPUnit\Framework\Attributes\Test;
 class ReturnScanServiceTest extends ServiceTestCase
 {
     private ReturnScanService $service;
+
     private User $actor;
+
     private Supplier $supplier;
+
     private Product $product;
+
     private Client $client;
+
     private Consignment $consignment;
+
     private ReturnSession $returnSession;
 
     protected function setUp(): void
@@ -30,10 +36,10 @@ class ReturnScanServiceTest extends ServiceTestCase
         parent::setUp();
 
         $this->service = app(ReturnScanService::class);
-        $this->actor   = $this->makeActor('scan@test.test');
+        $this->actor = $this->makeActor('scan@test.test');
 
         $this->supplier = Supplier::query()->create(['supplier_name' => 'Sup', 'is_active' => true]);
-        $this->product  = Product::query()->create([
+        $this->product = Product::query()->create([
             'ref_num' => 'REF-SCAN', 'product_name' => 'Scan Product',
             'product_type' => 'consumable', 'category' => 'general',
             'uom' => 'pcs', 'requires_expiry' => true, 'requires_lot' => true, 'is_active' => true,
@@ -41,21 +47,21 @@ class ReturnScanServiceTest extends ServiceTestCase
         $this->client = Client::query()->create(['client_name' => 'Hosp', 'client_type' => 'hospital', 'is_active' => true]);
 
         $this->consignment = Consignment::query()->create([
-            'client_id'            => $this->client->id,
-            'consignment_no'       => 'CN-SCAN-001',
-            'consignment_at'       => now(),
-            'pic_user_id'          => $this->actor->id,
-            'status'               => 'confirmed',
-            'confirmed_at'         => now(),
+            'client_id' => $this->client->id,
+            'consignment_no' => 'CN-SCAN-001',
+            'consignment_at' => now(),
+            'pic_user_id' => $this->actor->id,
+            'status' => 'confirmed',
+            'confirmed_at' => now(),
             'confirmed_by_user_id' => $this->actor->id,
         ]);
 
         $this->returnSession = ReturnSession::query()->create([
-            'consignment_id'    => $this->consignment->id,
+            'consignment_id' => $this->consignment->id,
             'return_session_no' => 'RS-SCAN-001',
-            'pic_user_id'       => $this->actor->id,
-            'status'            => 'in_progress',
-            'started_at'        => now(),
+            'pic_user_id' => $this->actor->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
         ]);
     }
 
@@ -72,7 +78,7 @@ class ReturnScanServiceTest extends ServiceTestCase
 
         $this->assertDatabaseHas('return_session_items', [
             'return_session_id' => $this->returnSession->id,
-            'lot_id'            => $lot->id,
+            'lot_id' => $lot->id,
         ]);
     }
 
@@ -81,15 +87,15 @@ class ReturnScanServiceTest extends ServiceTestCase
     {
         // Lot exists and is supplied, but NOT linked to this consignment
         $lot = Lot::query()->create([
-            'product_id'            => $this->product->id,
-            'supplier_id'           => $this->supplier->id,
-            'lot_number'            => 'LOT-FOREIGN',
-            'manufacturing_date'   => '2026-01-01',
-            'status'                => 'depleted',
-            'quantity_consigned'    => 1,
+            'product_id' => $this->product->id,
+            'supplier_id' => $this->supplier->id,
+            'lot_number' => 'LOT-FOREIGN',
+            'manufacturing_date' => '2026-01-01',
+            'status' => 'depleted',
+            'quantity_consigned' => 1,
             'current_location_type' => 'client',
-            'current_location_id'   => $this->client->id,
-            'received_at'           => now(),
+            'current_location_id' => $this->client->id,
+            'received_at' => now(),
         ]);
 
         $this->expectException(BusinessLogicException::class);
@@ -99,20 +105,56 @@ class ReturnScanServiceTest extends ServiceTestCase
     }
 
     #[Test]
-    public function scan_already_scanned_lot_throws(): void
+    public function repeated_scan_increments_existing_return_item(): void
+    {
+        $lot = $this->makeSuppliedLotInConsignment(consignedQuantity: 4);
+
+        $first = $this->service->scan($this->returnSession, [
+            'lot_id' => $lot->id,
+            'quantity' => 1,
+            'used_quantity' => 1,
+        ], $this->actor);
+        $second = $this->service->scan($this->returnSession, [
+            'lot_id' => $lot->id,
+            'quantity' => 1,
+            'damaged_quantity' => 1,
+        ], $this->actor);
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, ReturnSessionItem::query()
+            ->where('return_session_id', $this->returnSession->id)
+            ->where('lot_id', $lot->id)
+            ->count());
+        $this->assertSame(2, $second->quantity);
+        $this->assertSame(1, $second->used_quantity);
+        $this->assertSame(1, $second->damaged_quantity);
+        $this->assertSame(0, $second->missing_quantity);
+    }
+
+    #[Test]
+    public function repeated_scan_cannot_exceed_consigned_quantity(): void
     {
         $lot = $this->makeSuppliedLotInConsignment();
 
         // First scan
         $this->service->scan($this->returnSession, ['lot_id' => $lot->id], $this->actor);
 
-        // Second scan of the same lot
-        $this->expectException(BusinessLogicException::class);
-        $this->expectExceptionMessageMatches('/Cannot return more than consigned quantity/i');
+        try {
+            $this->service->scan($this->returnSession, ['lot_id' => $lot->id], $this->actor);
+            $this->fail('Expected the combined return quantity to be rejected.');
+        } catch (BusinessLogicException $exception) {
+            $this->assertStringContainsStringIgnoringCase(
+                'cannot exceed consigned quantity',
+                $exception->getMessage()
+            );
+        }
 
-        $this->service->scan($this->returnSession, ['lot_id' => $lot->id], $this->actor);
+        $item = ReturnSessionItem::query()
+            ->where('return_session_id', $this->returnSession->id)
+            ->where('lot_id', $lot->id)
+            ->sole();
+        $this->assertSame(1, $item->quantity);
     }
-
 
     #[Test]
     public function scan_on_non_in_progress_session_throws(): void
@@ -140,24 +182,27 @@ class ReturnScanServiceTest extends ServiceTestCase
     // Helpers
     // -------------------------------------------------------------------------
 
-    private function makeSuppliedLotInConsignment(?string $lotNumber = null): Lot
-    {
+    private function makeSuppliedLotInConsignment(
+        ?string $lotNumber = null,
+        int $consignedQuantity = 1
+    ): Lot {
         $lot = Lot::query()->create([
-            'product_id'            => $this->product->id,
-            'supplier_id'           => $this->supplier->id,
-            'lot_number'            => $lotNumber ?? 'LOT-' . str()->upper(str()->random(6)),
-            'manufacturing_date'   => '2026-01-01',
-            'status'                => 'depleted',
-            'quantity_consigned'    => 1,
+            'product_id' => $this->product->id,
+            'supplier_id' => $this->supplier->id,
+            'lot_number' => $lotNumber ?? 'LOT-'.str()->upper(str()->random(6)),
+            'manufacturing_date' => '2026-01-01',
+            'status' => 'depleted',
+            'quantity_consigned' => $consignedQuantity,
             'current_location_type' => 'client',
-            'current_location_id'   => $this->client->id,
-            'received_at'           => now(),
+            'current_location_id' => $this->client->id,
+            'received_at' => now(),
         ]);
 
         ConsignmentItem::query()->create([
-            'consignment_id'    => $this->consignment->id,
-            'lot_id'            => $lot->id,
-            'issued_at'         => now(),
+            'consignment_id' => $this->consignment->id,
+            'lot_id' => $lot->id,
+            'quantity' => $consignedQuantity,
+            'issued_at' => now(),
             'issued_by_user_id' => $this->actor->id,
         ]);
 

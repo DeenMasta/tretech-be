@@ -127,8 +127,8 @@ class InventoryReportService
                     }
                 });
             })
-            ->when(! empty($filters['expiry_from']), fn (Builder $query) => $query->whereDate('lots.expiry_date', '>=', $filters['expiry_from']))
-            ->when(! empty($filters['expiry_to']), fn (Builder $query) => $query->whereDate('lots.expiry_date', '<=', $filters['expiry_to']))
+            ->when(! empty($filters['stock_in_from']), fn (Builder $query) => $query->whereDate('lots.received_at', '>=', $filters['stock_in_from']))
+            ->when(! empty($filters['stock_in_to']), fn (Builder $query) => $query->whereDate('lots.received_at', '<=', $filters['stock_in_to']))
             ->when(! empty($filters['search']), function (Builder $query) use ($filters): void {
                 $term = trim((string) $filters['search']);
 
